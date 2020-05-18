@@ -22,12 +22,13 @@ dependencies:
 build:
   # This module is built by Dockerfile. By default, it
   # will search for a Dockerfile in the same directory
-  # as this kindest.yaml.
+  # as this kindest.yaml. Images may be built using
+  # Docker or kaniko, with the former being less secure
+  # but probably more performant.
+  # TODO: describe how to configure kaniko
   docker: {}
     #dockerfile: ./Dockerfile
     #context: .
-
-    # Pass these to `docker build` as --build-arg 
     #buildArgs:
     #  - name: ARG_NAME
     #    value: ARG_VALUE
