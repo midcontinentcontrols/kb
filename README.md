@@ -23,6 +23,7 @@ build:
   # as this kinder.yaml.
   docker: {}
     #dockerfile: ./Dockerfile
+    #context: .
 
     # Pass these to `docker build` as --build-arg 
     #buildArgs:
@@ -56,14 +57,23 @@ test:
   charts:
     - ./charts/kinder # ./charts/kinder/Chart.yaml
 
-  # List of environment variables that will be passed to
-  # the test pod when the minimal environment is used. When
-  # a parent environment is used, those variables will be
-  # passed instead. Use this to couple the test pod to
-  # the environment.
-  env:
-    - name: EXAMPLE_DEPENDENCY_URI
-      value: http://example-dependency-microservice.default.svc.cluster.local:5000
+  # Tests have a `build` section mirroring the module's.
+  # The image is automatically named. Typically, this
+  # image will contain source code for all the monorepo's
+  # dependencies and be multiple gb in size. 
+  build:
+    docker:
+      dockerfile: test/Dockerfile
+
+  spec:
+    # List of environment variables that will be passed to
+    # the test pod when the minimal environment is used. When
+    # a parent environment is used, those variables will be
+    # passed instead. Use this to couple the test pod to
+    # the environment.
+    env:
+      - name: EXAMPLE_DEPENDENCY_URI
+        value: http://example-dependency-microservice.default.svc.cluster.local:5000
 ```
 
 ## Features
@@ -75,7 +85,7 @@ Additional work has gone into automatically generating efficient Dockerfiles for
 A `kinder.yaml` file may define a minimalistic environment for end-to-end testing. The `test.env:` section dictates how the test pod couples with this environment. When a test is ran inside a given environment, it is passed these variables.
 
 ### Transient & Persistent Clusters
-Test environments may exist either as an ephemeral cluster that is cleaned up when the tests finish or as a long-running cluster that persists between test runs. Persistent clusters are more performant and therefore recommendeded when running locally.
+Test environments may exist either as an ephemeral cluster that is cleaned up when the tests finish or as a long-running cluster that persists between test runs. Persistent clusters are more performant and therefore recommended when running locally.
 
 ## Security
 Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kinder. Open source developers in particular should consider the risks of using kinder with their community CI and take appropriate mitigating measures. 
@@ -84,6 +94,3 @@ Running kind in a Kubernetes pod poses security risks worthy of operator attenti
 Copyright (c) Mid Continent Controls, Inc. 2020
 
 Released under MIT and Apache dual licenses. Unencumbered commercial use is permitted. See LICENSE-Apache and LICENSE-MIT files for more information.
-
-
-[kind#303](https://github.com/kubernetes-sigs/kind/issues/303)
