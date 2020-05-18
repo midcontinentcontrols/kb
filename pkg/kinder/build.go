@@ -41,6 +41,7 @@ func Build(spec *KinderSpec, rootPath string) error {
 		context.TODO(),
 		dockerBuildContext,
 		types.ImageBuildOptions{
+			CacheFrom:  []string{spec.Name + ":latest"},
 			Dockerfile: spec.Build.Docker.Dockerfile,
 			BuildArgs:  buildArgs,
 		},
