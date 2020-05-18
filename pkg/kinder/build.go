@@ -3,6 +3,7 @@ package kinder
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -50,13 +51,18 @@ func Build(spec *KinderSpec, rootPath string) error {
 		return err
 	}
 	rd := bufio.NewReader(resp.Body)
-	var message string
 	for {
 		message, err := rd.ReadString('\n')
 		if err != nil {
 			break
 		}
-		log.Info("Docker", zap.String("message", message))
+		var streamMsg struct {
+			stream string
+		}
+		if err := json.Unmarshal([]byte(message), &streamMsg); err != nil {
+			return fmt.Errorf("failed to unmarshal docker message '%v': %v", message, err)
+		}
+		log.Info("Docker", zap.String("message", streamMsg.stream))
 	}
 	log.Info("Successfully built image",
 		zap.String("resp.OSType", resp.OSType))
