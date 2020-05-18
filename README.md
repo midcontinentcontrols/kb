@@ -81,6 +81,8 @@ test:
 ### Automatic Dockerfile Generation
 Additional work has gone into automatically generating efficient Dockerfiles for golang and Rust projects. These improvements automatically reduce the size of the build context.
 
+TODO: this feature is not fully conceptualized
+
 ### Modular Testing
 A `kinder.yaml` file may define a minimalistic environment for end-to-end testing. The `test.env:` section dictates how the test pod couples with this environment. When a test is ran inside a given environment, it is passed these variables.
 
