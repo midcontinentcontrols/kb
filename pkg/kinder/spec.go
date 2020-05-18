@@ -60,7 +60,7 @@ func (s *KinderSpec) Validate(rootPath string) error {
 	for i, dep := range s.Dependencies {
 		path := filepath.Join(rootPath, dep, "kinder.yaml")
 		if _, err := os.Stat(path); err != nil {
-			return fmt.Errorf("dependency %d: kinder.yaml not found at '%s'", i, path)
+			return fmt.Errorf("dependency %d: missing kinder.yaml at '%s'", i, path)
 		}
 	}
 	if err := s.Build.Verify(rootPath); err != nil {
