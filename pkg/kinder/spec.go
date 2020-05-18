@@ -70,7 +70,12 @@ func (s *KinderSpec) Validate(rootPath string) error {
 		for i, chart := range test.Charts {
 			chartPath := filepath.Join(chart.Path, "Chart.yaml")
 			if _, err := os.Stat(chartPath); err != nil {
-				return fmt.Errorf("test env chart %d: '%s' not found", i, chartPath)
+				return fmt.Errorf("test env chart %d: missing Chart.yaml at '%s'", i, chartPath)
+			}
+
+			valuesPath := filepath.Join(chart.Path, "values.yaml")
+			if _, err := os.Stat(valuesPath); err != nil {
+				return fmt.Errorf("test env chart %d: missing values.yaml at '%s'", i, chartPath)
 			}
 		}
 		if err := test.Build.Verify(rootPath); err != nil {
