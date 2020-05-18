@@ -55,7 +55,9 @@ test:
   # These charts will be installed/upgraded when the
   # environment is setup.
   charts:
-    - ./charts/kinder # ./charts/kinder/Chart.yaml
+    - releaseName: kinder
+      path: ./charts/kinder # ./charts/kinder/Chart.yaml
+      values: {}
 
   # Tests have a `build` section mirroring the module's.
   # The image is automatically named. Typically, this
@@ -65,15 +67,14 @@ test:
     docker:
       dockerfile: test/Dockerfile
 
-  spec:
-    # List of environment variables that will be passed to
-    # the test pod when the minimal environment is used. When
-    # a parent environment is used, those variables will be
-    # passed instead. Use this to couple the test pod to
-    # the environment.
-    env:
-      - name: EXAMPLE_DEPENDENCY_URI
-        value: http://example-dependency-microservice.default.svc.cluster.local:5000
+  # List of environment variables that will be passed to
+  # the test pod when the minimal environment is used. When
+  # a parent environment is used, those variables will be
+  # passed instead. Use this to couple the test pod to
+  # the environment.
+  env:
+    - name: EXAMPLE_DEPENDENCY_URI
+      value: http://example-dependency-microservice.default.svc.cluster.local:5000
 ```
 
 ## Features
