@@ -50,14 +50,20 @@ func Build(spec *KinderSpec, rootPath string) error {
 		return err
 	}
 	rd := bufio.NewReader(resp.Body)
+	var message string
 	for {
-		str, err := rd.ReadString('\n')
+		message, err := rd.ReadString('\n')
 		if err != nil {
 			break
 		}
-		log.Info("Docker", zap.String("message", str))
+		log.Info("Docker", zap.String("message", message))
 	}
 	log.Info("Successfully built image",
 		zap.String("resp.OSType", resp.OSType))
+	//cli.ImageTag(
+	//	context.TODO(),
+	//	"imageID",
+	//	"ref",
+	//)
 	return nil
 }
