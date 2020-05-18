@@ -21,14 +21,14 @@ var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		dir, err := os.Getwd()
+		if err != nil {
+			return err
+		}
 		var file string
 		if buildArgs.File != "" {
 			file = buildArgs.File
 		} else {
-			dir, err := os.Getwd()
-			if err != nil {
-				return err
-			}
 			file = filepath.Join(dir, "kinder.yaml")
 		}
 		docBytes, err := ioutil.ReadFile(file)
@@ -39,7 +39,7 @@ var buildCmd = &cobra.Command{
 		if err := yaml.Unmarshal(docBytes, spec); err != nil {
 			return err
 		}
-		return kinder.Build(spec)
+		return kinder.Build(spec, dir)
 	},
 }
 

@@ -1,5 +1,11 @@
 package kinder
 
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
 type DockerBuildArg struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
@@ -20,6 +26,14 @@ type BuildSpec struct {
 	Docker *DockerBuildSpec `json:"docker,omitempty"`
 }
 
+func (b *BuildSpec) Verify(rootPath string) error {
+	if docker := b.Docker; docker != nil {
+	} else {
+		return fmt.Errorf("missing build spec")
+	}
+	return nil
+}
+
 type ChartSpec struct {
 	ReleaseName string                 `json:"releaseName"`
 	Path        string                 `json:"path"`
@@ -36,5 +50,32 @@ type KinderSpec struct {
 	Name         string    `json:"name"`
 	Dependencies []string  `json:"dependencies,omitempty"`
 	Build        BuildSpec `json:"build"`
-	Test         TestSpec  `json:"test"`
+	Test         *TestSpec `json:"test,omitempty"`
+}
+
+func (s *KinderSpec) Validate(rootPath string) error {
+	if s.Name == "" {
+		return fmt.Errorf("missing name")
+	}
+	for i, dep := range s.Dependencies {
+		path := filepath.Join(rootPath, dep, "kinder.yaml")
+		if _, err := os.Stat(path); err != nil {
+			return fmt.Errorf("dependency %d: '%s' not found", i, path)
+		}
+	}
+	if err := s.Build.Verify(rootPath); err != nil {
+		return err
+	}
+	if test := s.Test; test != nil {
+		for i, chart := range test.Charts {
+			chartPath := filepath.Join(chart.Path, "Chart.yaml")
+			if _, err := os.Stat(chartPath); err != nil {
+				return fmt.Errorf("test env chart %d: '%s' not found", i, chartPath)
+			}
+		}
+		if err := test.Build.Verify(rootPath); err != nil {
+			return err
+		}
+	}
+	return nil
 }
