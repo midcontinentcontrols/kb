@@ -1,6 +1,5 @@
 # Kinder DevOps for Monorepos
 
-## Overview
 This is a toolchain built on top of [kind](https://github.com/kubernetes-sigs/kind) that aims to reduce the complexity associated with using it as a tool for microservice development. It was born out of necessity to reduce increasing execution times and maintenance overhead of bash scripts that accomplished more or less the same thing.
 
 At its core, the `kinder.yaml` file defines how images are built and tested in a transient Kubernetes cluster running either locally (with Docker daemon) or on another Kubernetes cluster (with some security caveats). The build process is fully parallelized and utilizes caching, so as to bypass redundant work for each submodule when no files have changed. Hooks are exposed for use with CI/CD.
@@ -37,13 +36,19 @@ build:
   # The generated Dockerfile will utilize the monorepo's
   # dependency cache - particularly useful for speeding up
   # local development.
-  #go: {}
+  #go:
+    ## Additionally directories to unconditionally include
+    ## in the build context.
+    #include: []
 
   # Automatically generates a Dockerfile for a Rust project.
   # Relative path dependencies within Cargo.toml are recursively
   # followed, and all modules within the monorepo but outside
   # of this module are added to the build context.
-  #rust: {}
+  #rust:
+    ## Additionally directories to unconditionally include
+    ## in the build context.
+    #include: []
 
 test:
   # These charts will be installed/upgraded when the
@@ -57,17 +62,19 @@ test:
   # passed instead. Use this to couple the test pod to
   # the environment.
   env:
-    - name: SOME_ENV
-      value: VALUE_USED_WITH_MINIMAL_ENV
+    - name: EXAMPLE_DEPENDENCY_URI
+      value: http://example-dependency-microservice.default.svc.cluster.local:5000
 ```
 
-## Automatic Dockerfile Generation
-Additional work has gone into automatically generating efficient Dockerfiles for golang and Rust projects. These improvements automatically reduce the size of the build context. Directories can be explicitly included in the builder context by adding the option to `kinder.yaml` TODO: describe this
+## Features
 
-## Modular Testing
+### Automatic Dockerfile Generation
+Additional work has gone into automatically generating efficient Dockerfiles for golang and Rust projects. These improvements automatically reduce the size of the build context.
+
+### Modular Testing
 A `kinder.yaml` file may define a minimalistic environment for end-to-end testing. The `test.env:` section dictates how the test pod couples with this environment. When a test is ran inside a given environment, it is passed these variables.
 
-## Transient vs. Persistent Clusters
+### Transient & Persistent Clusters
 Test environments may exist either as an ephemeral cluster that is cleaned up when the tests finish or as a long-running cluster that persists between test runs. Persistent clusters are more performant and therefore recommendeded when running locally.
 
 ## Security
