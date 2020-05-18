@@ -1,0 +1,11 @@
+name: midcontinentcontrols/kinder
+build:
+  docker: {}
+test:
+  charts:
+    - releaseName: kinder
+      path: ./chart
+      values: {}
+  build:
+    docker:
+      dockerfile: test/Dockerfile
