@@ -86,7 +86,7 @@ test:
 Additional work has gone into automatically generating efficient Dockerfiles for golang and Rust projects. These improvements automatically reduce the size of the build context.
 
 ### Modular Testing
-A `kindest.yaml` file may define a minimalistic environment for end-to-end testing. The `test.env:` section dictates how the test pod couples with this environment. When a test is ran inside a given environment, it is passed these variables. This allows a single environment to be used for testing all dependencies - particularly useful for minimally testing each commit.
+A `kindest.yaml` file may define a minimalistic environment for end-to-end testing. The `test.env:` section dictates how the test pod couples with this environment. When a test is ran inside a given environment, it is passed these variables. This allows a module's environment to be used to test its dependencies - particularly useful for using transient clusters to test each commit.
 
 ### Transient & Persistent Clusters
 Test environments may exist either as an ephemeral cluster that is cleaned up when the tests finish or as a long-running cluster that persists between test runs. Persistent clusters are more performant and therefore recommended when running locally.
