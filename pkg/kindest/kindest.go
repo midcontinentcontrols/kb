@@ -1,4 +1,4 @@
 package kindest
 
-type kindest struct {
+type Kindest struct {
 }

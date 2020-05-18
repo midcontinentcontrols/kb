@@ -46,14 +46,14 @@ type TestSpec struct {
 	Env    []*EnvSpec   `json:"env,omitempty"`
 }
 
-type kindestSpec struct {
+type KindestSpec struct {
 	Name         string    `json:"name"`
 	Dependencies []string  `json:"dependencies,omitempty"`
 	Build        BuildSpec `json:"build"`
 	Test         *TestSpec `json:"test,omitempty"`
 }
 
-func (s *kindestSpec) Validate(rootPath string) error {
+func (s *KindestSpec) Validate(rootPath string) error {
 	if s.Name == "" {
 		return fmt.Errorf("missing name")
 	}

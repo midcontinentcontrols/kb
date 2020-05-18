@@ -11,7 +11,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/jhoonb/archivex"
-	"github.com/prometheus/common/log"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +18,7 @@ type streamMsgT struct {
 	Stream string `json:"stream"`
 }
 
-func Build(spec *kindestSpec, rootPath string) error {
+func Build(spec *KindestSpec, rootPath string) error {
 	if err := spec.Validate(rootPath); err != nil {
 		return err
 	}

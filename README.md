@@ -1,4 +1,4 @@
-# kindest DevOps for Monorepos
+# Kindest DevOps for Monorepos
 
 This is a toolchain built on top of [kind](https://github.com/kubernetes-sigs/kind) that aims to reduce the complexity associated with using it as a tool for microservice development. It was born out of necessity to reduce increasing execution times and maintenance overhead of bash scripts that accomplished more or less the same thing.
 

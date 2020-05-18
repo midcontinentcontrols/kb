@@ -35,7 +35,7 @@ var buildCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		spec := &kindest.kindestSpec{}
+		spec := &kindest.KindestSpec{}
 		if err := yaml.Unmarshal(docBytes, spec); err != nil {
 			return err
 		}
