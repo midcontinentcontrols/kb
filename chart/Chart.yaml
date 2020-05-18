@@ -1,0 +1,8 @@
+apiVersion: v1
+description: Kinder DevOps for Monorepos
+name: kinder
+version: 0.0.1
+maintainers:
+  - name: Tom Havlik
+    email: thavlik@midcontinentcontrols.com
+    url: https://midcontinentcontrols.com

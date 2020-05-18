@@ -1,0 +1,7 @@
+image: midcontinentcontrols/kinder:latest
+imagePullPolicy: Always
+imagePullSecrets: []
+resources:
+  limits:
+    memory: "128Mi"
+    cpu: "100m"
