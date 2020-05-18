@@ -1,11 +1,10 @@
 package kinder
 
 import (
+	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
-	"path/filepath"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -23,41 +22,41 @@ func Build(spec *KinderSpec, rootPath string) error {
 		return err
 	}
 	log.Info("Building", zap.String("rootPath", rootPath))
-	ctxPath := fmt.Sprintf("build-%s.tar", uuid.New().String())
+	ctxPath := fmt.Sprintf("tmp/build-%s.tar", uuid.New().String())
 	tar := new(archivex.TarFile)
 	tar.Create(ctxPath)
 	tar.AddAll(rootPath, false)
 	tar.Close()
-	//defer os.Remove(ctxPath)
+	defer os.Remove(ctxPath)
 	dockerBuildContext, err := os.Open(ctxPath)
 	if err != nil {
 		return err
 	}
 	defer dockerBuildContext.Close()
-	var dockerfilePath string
-	if spec.Build.Docker.Dockerfile != "" {
-		dockerfilePath = filepath.Join(rootPath, spec.Build.Docker.Dockerfile)
-	} else {
-		dockerfilePath = filepath.Join(rootPath, "Dockerfile")
-	}
-	dockerfilePath = "./Dockerfile"
 	buildArgs := make(map[string]*string)
 	for _, arg := range spec.Build.Docker.BuildArgs {
 		buildArgs[arg.Name] = &arg.Value
 	}
 	resp, err := cli.ImageBuild(
 		context.TODO(),
-		nil,
+		dockerBuildContext,
 		types.ImageBuildOptions{
-			Dockerfile: dockerfilePath,
-			Context:    dockerBuildContext,
+			Dockerfile: spec.Build.Docker.Dockerfile,
 			BuildArgs:  buildArgs,
 		},
 	)
 	if err != nil {
 		return err
 	}
-	io.Copy(os.Stdout, resp.Body)
-	log.Info("Successfully built image")
+	rd := bufio.NewReader(resp.Body)
+	for {
+		str, err := rd.ReadString('\n')
+		if err != nil {
+			break
+		}
+		log.Info("Docker", zap.String("message", str))
+	}
+	log.Info("Successfully built image",
+		zap.String("resp.OSType", resp.OSType))
 	return nil
 }
