@@ -1,24 +1,49 @@
 package main
 
 import (
-	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
+	yaml "sigs.k8s.io/yaml"
+
+	"github.com/midcontinentcontrols/kinder/pkg/kinder"
 	"github.com/spf13/cobra"
 )
 
 type BuildArgs struct {
+	File string `json:"file,omitempty"`
 }
 
-var buildArgs TestArgs
+var buildArgs BuildArgs
 
 var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return fmt.Errorf("unimplemented")
+		var file string
+		if buildArgs.File != "" {
+			file = buildArgs.File
+		} else {
+			dir, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			file = filepath.Join(dir, "kinder.yaml")
+		}
+		docBytes, err := ioutil.ReadFile(file)
+		if err != nil {
+			return err
+		}
+		spec := &kinder.KinderSpec{}
+		if err := yaml.Unmarshal(docBytes, spec); err != nil {
+			return err
+		}
+		return kinder.Build(spec)
 	},
 }
 
 func init() {
-	ConfigureCommand(testCmd)
+	ConfigureCommand(buildCmd)
+	buildCmd.PersistentFlags().StringVarP(&buildArgs.File, "file", "f", "./kinder.yaml", "Path to kinder.yaml file")
 }
