@@ -15,7 +15,7 @@ func ConfigureCommand(cmd *cobra.Command) {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "kinder",
+	Use:   "kindest",
 	Short: "",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return nil

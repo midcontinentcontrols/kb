@@ -1,26 +1,26 @@
-# Kinder DevOps for Monorepos
+# kindest DevOps for Monorepos
 
 This is a toolchain built on top of [kind](https://github.com/kubernetes-sigs/kind) that aims to reduce the complexity associated with using it as a tool for microservice development. It was born out of necessity to reduce increasing execution times and maintenance overhead of bash scripts that accomplished more or less the same thing.
 
-At its core, the `kinder.yaml` file defines how images are built and tested in a transient Kubernetes cluster running either locally (with Docker daemon) or on another Kubernetes cluster (with some security caveats). The build process is fully parallelized and utilizes caching, so as to bypass redundant work for each submodule when no files have changed. Hooks are exposed for use with CI/CD.
+At its core, the `kindest.yaml` file defines how images are built and tested in a transient Kubernetes cluster running either locally (with Docker daemon) or on another Kubernetes cluster (with some security caveats). The build process is fully parallelized and utilizes caching, so as to bypass redundant work for each submodule when no files have changed. Hooks are exposed for use with CI/CD.
 
-### kinder.yaml
+### kindest.yaml
 ```yaml
 # Name of the Docker image to build. The tag is chosen
-# by kinder, so only specify repo and image.
-name: midcontinentcontrols/kinder
+# by kindest, so only specify repo and image.
+name: midcontinentcontrols/kindest
 
 # Relative paths to any dependent modules. Building or
 # testing this module will do the same for all deps.
 # These are built/tested concurrently, so it can be more
 # generally exploited to parallelize build jobs.
 dependencies:
-  - my-submodule # ./my-submodule/kinder.yaml
+  - my-submodule # ./my-submodule/kindest.yaml
 
 build:
   # This module is built by Dockerfile. By default, it
   # will search for a Dockerfile in the same directory
-  # as this kinder.yaml.
+  # as this kindest.yaml.
   docker: {}
     #dockerfile: ./Dockerfile
     #context: .
@@ -55,8 +55,8 @@ test:
   # These charts will be installed/upgraded when the
   # environment is setup.
   charts:
-    - releaseName: kinder
-      path: ./charts/kinder # ./charts/kinder/Chart.yaml
+    - releaseName: kindest
+      path: ./charts/kindest # ./charts/kindest/Chart.yaml
       values: {}
 
   # Tests have a `build` section mirroring the module's.
@@ -85,13 +85,13 @@ Additional work has gone into automatically generating efficient Dockerfiles for
 TODO: this feature is not fully conceptualized
 
 ### Modular Testing
-A `kinder.yaml` file may define a minimalistic environment for end-to-end testing. The `test.env:` section dictates how the test pod couples with this environment. When a test is ran inside a given environment, it is passed these variables.
+A `kindest.yaml` file may define a minimalistic environment for end-to-end testing. The `test.env:` section dictates how the test pod couples with this environment. When a test is ran inside a given environment, it is passed these variables.
 
 ### Transient & Persistent Clusters
 Test environments may exist either as an ephemeral cluster that is cleaned up when the tests finish or as a long-running cluster that persists between test runs. Persistent clusters are more performant and therefore recommended when running locally.
 
 ## Security
-Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kinder. Open source developers in particular should consider the risks of using kinder with their community CI and take appropriate mitigating measures. 
+Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kindest. Open source developers in particular should consider the risks of using kindest with their community CI and take appropriate mitigating measures. 
 
 ## License
 Copyright (c) Mid Continent Controls, Inc. 2020

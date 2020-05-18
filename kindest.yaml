@@ -1,9 +1,9 @@
-name: midcontinentcontrols/kinder
+name: midcontinentcontrols/kindest
 build:
   docker: {}
 test:
   charts:
-    - releaseName: kinder
+    - releaseName: kindest
       path: ./chart
       values: {}
   build:

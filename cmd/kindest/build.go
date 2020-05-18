@@ -7,7 +7,7 @@ import (
 
 	yaml "sigs.k8s.io/yaml"
 
-	"github.com/midcontinentcontrols/kinder/pkg/kinder"
+	"github.com/midcontinentcontrols/kindest/pkg/kindest"
 	"github.com/spf13/cobra"
 )
 
@@ -29,21 +29,21 @@ var buildCmd = &cobra.Command{
 		if buildArgs.File != "" {
 			file = buildArgs.File
 		} else {
-			file = filepath.Join(dir, "kinder.yaml")
+			file = filepath.Join(dir, "kindest.yaml")
 		}
 		docBytes, err := ioutil.ReadFile(file)
 		if err != nil {
 			return err
 		}
-		spec := &kinder.KinderSpec{}
+		spec := &kindest.kindestSpec{}
 		if err := yaml.Unmarshal(docBytes, spec); err != nil {
 			return err
 		}
-		return kinder.Build(spec, dir)
+		return kindest.Build(spec, dir)
 	},
 }
 
 func init() {
 	ConfigureCommand(buildCmd)
-	buildCmd.PersistentFlags().StringVarP(&buildArgs.File, "file", "f", "./kinder.yaml", "Path to kinder.yaml file")
+	buildCmd.PersistentFlags().StringVarP(&buildArgs.File, "file", "f", "./kindest.yaml", "Path to kindest.yaml file")
 }

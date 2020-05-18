@@ -1,4 +1,4 @@
-image: midcontinentcontrols/kinder:latest
+image: midcontinentcontrols/kindest:latest
 imagePullPolicy: Always
 imagePullSecrets: []
 resources:

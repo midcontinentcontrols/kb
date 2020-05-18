@@ -1,4 +1,4 @@
-package kinder
+package kindest
 
 import (
 	"fmt"
@@ -46,21 +46,21 @@ type TestSpec struct {
 	Env    []*EnvSpec   `json:"env,omitempty"`
 }
 
-type KinderSpec struct {
+type kindestSpec struct {
 	Name         string    `json:"name"`
 	Dependencies []string  `json:"dependencies,omitempty"`
 	Build        BuildSpec `json:"build"`
 	Test         *TestSpec `json:"test,omitempty"`
 }
 
-func (s *KinderSpec) Validate(rootPath string) error {
+func (s *kindestSpec) Validate(rootPath string) error {
 	if s.Name == "" {
 		return fmt.Errorf("missing name")
 	}
 	for i, dep := range s.Dependencies {
-		path := filepath.Join(rootPath, dep, "kinder.yaml")
+		path := filepath.Join(rootPath, dep, "kindest.yaml")
 		if _, err := os.Stat(path); err != nil {
-			return fmt.Errorf("dependency %d: missing kinder.yaml at '%s'", i, path)
+			return fmt.Errorf("dependency %d: missing kindest.yaml at '%s'", i, path)
 		}
 	}
 	if err := s.Build.Verify(rootPath); err != nil {

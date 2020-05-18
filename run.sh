@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-pushd cmd/kinder >/dev/null
+pushd cmd/kindest >/dev/null
     go build
 popd >/dev/null
-cmd/kinder/kinder build
+cmd/kindest/kindest build

@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-kinder
+  name: {{ .Release.Name }}-kindest
   labels:
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
 spec:
   selector:
     matchLabels:
-      app: {{ .Release.Name }}-kinder
+      app: {{ .Release.Name }}-kindest
   template:
     metadata:
       labels:
-        app: {{ .Release.Name }}-kinder
+        app: {{ .Release.Name }}-kindest
     spec:
     {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.imagePullSecrets | indent 8 }}
     {{- end }}
-      serviceAccountName: {{ .Release.Name }}-kinder
+      serviceAccountName: {{ .Release.Name }}-kindest
       containers:
-        - name: kinder
+        - name: kindest
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           image: {{ .Values.image }}
           env:

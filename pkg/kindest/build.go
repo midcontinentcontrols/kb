@@ -1,4 +1,4 @@
-package kinder
+package kindest
 
 import (
 	"bufio"
@@ -11,10 +11,15 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/jhoonb/archivex"
+	"github.com/prometheus/common/log"
 	"go.uber.org/zap"
 )
 
-func Build(spec *KinderSpec, rootPath string) error {
+type streamMsgT struct {
+	Stream string `json:"stream"`
+}
+
+func Build(spec *kindestSpec, rootPath string) error {
 	if err := spec.Validate(rootPath); err != nil {
 		return err
 	}
@@ -56,13 +61,11 @@ func Build(spec *KinderSpec, rootPath string) error {
 		if err != nil {
 			break
 		}
-		var streamMsg struct {
-			stream string
-		}
+		var streamMsg streamMsgT
 		if err := json.Unmarshal([]byte(message), &streamMsg); err != nil {
 			return fmt.Errorf("failed to unmarshal docker message '%v': %v", message, err)
 		}
-		log.Info("Docker", zap.String("message", streamMsg.stream))
+		log.Info("Docker", zap.String("message", streamMsg.Stream))
 	}
 	log.Info("Successfully built image",
 		zap.String("resp.OSType", resp.OSType))

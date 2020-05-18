@@ -1,4 +1,4 @@
-package kinder
+package kindest
 
 import (
 	"fmt"
