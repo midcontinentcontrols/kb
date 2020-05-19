@@ -65,12 +65,13 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	))
 }
 
-func TestBuildError(t *testing.T) {
+func TestBuildErrMissingBuildArg(t *testing.T) {
 	name := "test/test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
 	dockerfile := `FROM alpine:latest
+ARG HAS_BUILD_ARG
 RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(rootPath, "Dockerfile"),
