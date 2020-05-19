@@ -53,6 +53,7 @@ func Build(
 	for _, arg := range spec.Build.Docker.BuildArgs {
 		buildArgs[arg.Name] = &arg.Value
 	}
+	log.Info("buildArgs", zap.String("value", fmt.Sprintf("%#v", buildArgs)))
 	resp, err := cli.ImageBuild(
 		context.TODO(),
 		dockerBuildContext,
@@ -73,7 +74,7 @@ func Build(
 		message, err := rd.ReadString('\n')
 		if err != nil {
 			if err != io.EOF {
-				log.Error("error reading docker build output", zap.String("err", err.Error()))
+				return err
 			}
 			break
 		}

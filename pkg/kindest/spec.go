@@ -17,9 +17,9 @@ type EnvSpec struct {
 }
 
 type DockerBuildSpec struct {
-	Dockerfile string           `json:"dockerfile"`
-	Context    string           `json:"context,omitempty"`
-	BuildArgs  []DockerBuildArg `json:"buildArgs,omitempty"`
+	Dockerfile string            `json:"dockerfile"`
+	Context    string            `json:"context,omitempty"`
+	BuildArgs  []*DockerBuildArg `json:"buildArgs,omitempty"`
 }
 
 type BuildSpec struct {
