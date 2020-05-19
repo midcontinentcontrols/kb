@@ -9,6 +9,7 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/jhoonb/archivex v0.0.0-20180718040744-0488e4ce1681
+	github.com/moby/moby v1.13.1
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/prometheus/common v0.4.0
 	github.com/spf13/cobra v1.0.0

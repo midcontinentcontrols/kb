@@ -1,6 +1,7 @@
 package kindest
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -119,6 +120,36 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			},
 		},
 		rootPath,
+		"latest",
+		false,
+		false,
+	))
+}
+
+func TestBuildContextPath(t *testing.T) {
+	repo := "test-" + uuid.New().String()[:8]
+	name := "test/" + repo
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
+	dockerfile := fmt.Sprintf(`FROM alpine:latest
+COPY %s .
+CMD ["sh", "-c", "echo \"Hello, world\""]`, repo)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	require.NoError(t, Build(
+		&KindestSpec{
+			Name: name,
+			Build: BuildSpec{
+				Docker: &DockerBuildSpec{
+					Dockerfile: repo + "/Dockerfile",
+				},
+			},
+		},
+		filepath.Join(rootPath, ".."),
 		"latest",
 		false,
 		false,

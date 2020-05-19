@@ -1,18 +1,16 @@
 package kindest
 
 import (
-	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
-	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/jhoonb/archivex"
+	"github.com/moby/moby/pkg/jsonmessage"
+	"github.com/moby/moby/pkg/term"
 	"go.uber.org/zap"
 )
 
@@ -68,41 +66,48 @@ func Build(
 	if err != nil {
 		return err
 	}
-	rd := bufio.NewReader(resp.Body)
-	var line string
-	for {
-		message, err := rd.ReadString('\n')
-		if err != nil {
-			if err != io.EOF {
-				return err
+	/*
+		rd := bufio.NewReader(resp.Body)
+		var line string
+		for {
+			message, err := rd.ReadString('\n')
+			if err != nil {
+				if err != io.EOF {
+					return err
+				}
+				break
 			}
-			break
+			var msg struct {
+				Stream string `json:"stream"`
+			}
+			if err := json.Unmarshal([]byte(message), &msg); err != nil {
+				return fmt.Errorf("failed to unmarshal docker message '%v': %v", message, err)
+			}
+			line = msg.Stream
+			log.Info("Docker", zap.String("message", line))
 		}
-		var msg struct {
-			Stream string `json:"stream"`
-		}
-		if err := json.Unmarshal([]byte(message), &msg); err != nil {
-			return fmt.Errorf("failed to unmarshal docker message '%v': %v", message, err)
-		}
-		line = msg.Stream
-		log.Info("Docker", zap.String("message", line))
-	}
-	prefix := "Successfully built "
-	if !strings.HasPrefix(line, prefix) {
-		return fmt.Errorf("expected build success message, got '%s'", line)
-	}
-	imageID := strings.TrimSpace(line[len(prefix):])
-	ref := "docker.io/" + spec.Name
-	log.Info("Successfully built image",
-		zap.String("imageID", imageID),
-		zap.String("ref", ref),
-		zap.String("osType", resp.OSType))
-	if err := cli.ImageTag(
-		context.TODO(),
-		imageID,
-		ref,
-	); err != nil {
+		prefix := "Successfully built "
+		if !strings.HasPrefix(line, prefix) {
+			return fmt.Errorf("expected build success message, got '%s'", line)
+		}*/
+	termFd, isTerm := term.GetFdInfo(os.Stderr)
+	if err := jsonmessage.DisplayJSONMessagesStream(resp.Body, os.Stderr, termFd, isTerm, nil); err != nil {
 		return err
 	}
+	/*
+		imageID := strings.TrimSpace(line[len(prefix):])
+		ref := "docker.io/" + spec.Name
+		log.Info("Successfully built image",
+			zap.String("imageID", imageID),
+			zap.String("ref", ref),
+			zap.String("osType", resp.OSType))
+		if err := cli.ImageTag(
+			context.TODO(),
+			imageID,
+			ref,
+		); err != nil {
+			return err
+		}
+	*/
 	return nil
 }
