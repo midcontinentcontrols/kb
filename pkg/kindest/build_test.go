@@ -1,0 +1,37 @@
+package kindest
+
+import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+)
+
+func TestBuild(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
+	dockerfile := `FROM alpine:latest
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	require.NoError(t, Build(
+		&KindestSpec{
+			Name: name,
+			Build: BuildSpec{
+				Docker: &DockerBuildSpec{},
+			},
+		},
+		rootPath,
+		"latest",
+		false,
+		false,
+	))
+}

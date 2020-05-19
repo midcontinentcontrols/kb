@@ -12,7 +12,10 @@ import (
 )
 
 type BuildArgs struct {
-	File string `json:"file,omitempty"`
+	File    string `json:"file,omitempty"`
+	NoCache bool   `json:"nocache,omitempty"`
+	Squash  bool   `json:"squash,omitempty"`
+	Tag     string `json:"tag,omitempty"`
 }
 
 var buildArgs BuildArgs
@@ -39,11 +42,20 @@ var buildCmd = &cobra.Command{
 		if err := yaml.Unmarshal(docBytes, spec); err != nil {
 			return err
 		}
-		return kindest.Build(spec, dir)
+		return kindest.Build(
+			spec,
+			dir,
+			buildArgs.Tag,
+			buildArgs.NoCache,
+			buildArgs.Squash,
+		)
 	},
 }
 
 func init() {
 	ConfigureCommand(buildCmd)
 	buildCmd.PersistentFlags().StringVarP(&buildArgs.File, "file", "f", "./kindest.yaml", "Path to kindest.yaml file")
+	buildCmd.PersistentFlags().StringVarP(&buildArgs.Tag, "tag", "t", "latest", "docker image tag")
+	buildCmd.PersistentFlags().BoolVar(&buildArgs.NoCache, "no-cache", false, "build images from scratch")
+	buildCmd.PersistentFlags().BoolVar(&buildArgs.Squash, "squash", false, "squashes newly built layers into a single new layer (docker experimental feature)")
 }

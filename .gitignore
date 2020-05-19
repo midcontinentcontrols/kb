@@ -1,2 +1,3 @@
 cmd/kindest/kindest
-tmp
+tmp/
+.tmp/

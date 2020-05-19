@@ -10,7 +10,7 @@ At its core, the `kindest.yaml` file defines how images are built and tested in 
 ```yaml
 # Name of the Docker image to build. The tag is chosen
 # by kindest, so only specify repo and image.
-name: midcontinentcontrols/kindest
+name: midcontinentcontrols/my-example-monorepo
 
 # Relative paths to any dependent modules. Building or
 # testing this module will do the same for all deps.
