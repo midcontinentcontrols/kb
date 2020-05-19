@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -71,7 +72,9 @@ func Build(
 	for {
 		message, err := rd.ReadString('\n')
 		if err != nil {
-			log.Error("error reading docker build output", zap.String("err", err.Error()))
+			if err != io.EOF {
+				log.Error("error reading docker build output", zap.String("err", err.Error()))
+			}
 			break
 		}
 		var msg struct {
@@ -88,7 +91,7 @@ func Build(
 		return fmt.Errorf("expected build success message, got '%s'", line)
 	}
 	imageID := strings.TrimSpace(line[len(prefix):])
-	ref := spec.Name // + ":" + tag
+	ref := "docker.io/" + spec.Name
 	log.Info("Successfully built image",
 		zap.String("imageID", imageID),
 		zap.String("ref", ref),
