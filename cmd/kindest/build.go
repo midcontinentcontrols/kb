@@ -25,6 +25,7 @@ var buildCmd = &cobra.Command{
 				payload.(*kindest.BuildOptions),
 				cli,
 				pool,
+				nil,
 			)
 		})
 		defer pool.Close()
