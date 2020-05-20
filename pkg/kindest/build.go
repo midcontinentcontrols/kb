@@ -6,8 +6,10 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
+	"github.com/Jeffail/tunny"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -20,30 +22,39 @@ import (
 )
 
 type BuildOptions struct {
-	File    string `json:"file,omitempty"`
-	NoCache bool   `json:"nocache,omitempty"`
-	Squash  bool   `json:"squash,omitempty"`
-	Tag     string `json:"tag,omitempty"`
+	File        string `json:"file,omitempty"`
+	NoCache     bool   `json:"nocache,omitempty"`
+	Squash      bool   `json:"squash,omitempty"`
+	Tag         string `json:"tag,omitempty"`
+	Concurrency int    `json:"concurrency"`
 }
 
-func buildDependencies(spec *KindestSpec, manifestPath string, options *BuildOptions, cli client.APIClient) error {
+func buildDependencies(
+	spec *KindestSpec,
+	manifestPath string,
+	options *BuildOptions,
+	cli client.APIClient,
+	pool *tunny.Pool,
+) error {
 	n := len(spec.Dependencies)
 	dones := make([]chan error, n, n)
+	rootDir := filepath.Dir(manifestPath)
 	for i, dep := range spec.Dependencies {
 		done := make(chan error, 1)
 		dones[i] = done
 		go func(dep string, done chan<- error) {
 			opts := &BuildOptions{}
 			*opts = *options
-			opts.File = filepath.Join(manifestPath, dep, "kindest.yaml")
-			done <- Build(opts, cli)
+			opts.File = filepath.Clean(filepath.Join(rootDir, dep, "kindest.yaml"))
+			err, _ := pool.Process(opts).(error)
+			done <- err
 			close(done)
 		}(dep, done)
 	}
 	var multi error
 	for i, done := range dones {
 		if err := <-done; err != nil {
-			multi = multierror.Append(multi, fmt.Errorf("%s: %v", spec.Dependencies[i], err))
+			multi = multierror.Append(multi, fmt.Errorf("dependency '%s': %v", spec.Dependencies[i], err))
 		}
 	}
 	return multi
@@ -107,15 +118,31 @@ func loadSpec(options *BuildOptions) (*KindestSpec, string, error) {
 }
 
 func Build(options *BuildOptions, cli client.APIClient) error {
+	var pool *tunny.Pool
+	pool = tunny.NewFunc(runtime.NumCPU(), func(payload interface{}) interface{} {
+		options := payload.(*BuildOptions)
+		return BuildWithPool(options, cli, pool)
+	})
+	defer pool.Close()
+	return BuildWithPool(options, cli, pool)
+}
+
+func BuildWithPool(
+	options *BuildOptions,
+	cli client.APIClient,
+	pool *tunny.Pool,
+) error {
 	spec, manifestPath, err := loadSpec(options)
 	if err != nil {
 		return err
 	}
+	log.Info("Loaded spec", zap.String("path", manifestPath))
 	if err := buildDependencies(
 		spec,
 		manifestPath,
 		options,
 		cli,
+		pool,
 	); err != nil {
 		return err
 	}
@@ -169,6 +196,13 @@ func Build(options *BuildOptions, cli client.APIClient) error {
 		termFd,
 		isTerm,
 		nil,
+	); err != nil {
+		return err
+	}
+	if err := cli.ImageTag(
+		context.TODO(),
+		spec.Name,
+		spec.Name+":latest",
 	); err != nil {
 		return err
 	}

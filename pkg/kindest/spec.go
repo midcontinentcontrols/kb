@@ -74,8 +74,9 @@ func (s *KindestSpec) Validate(manifestPath string) error {
 	if s.Name == "" {
 		return fmt.Errorf("missing name")
 	}
+	rootDir := filepath.Dir(manifestPath)
 	for i, dep := range s.Dependencies {
-		path := filepath.Join(manifestPath, dep, "kindest.yaml")
+		path := filepath.Join(rootDir, dep, "kindest.yaml")
 		if _, err := os.Stat(path); err != nil {
 			return fmt.Errorf("dependency %d: missing kindest.yaml at '%s'", i, path)
 		}

@@ -3,6 +3,7 @@ module github.com/midcontinentcontrols/kindest
 go 1.14
 
 require (
+	github.com/Jeffail/tunny v0.0.0-20190930221602-f13eb662a36a
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0 // indirect
