@@ -30,11 +30,10 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		[]byte(dockerfile),
 		0644,
 	))
-	specPath := filepath.Join(rootPath, "kinder.yaml")
+	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`name: docker.io/test/%s
 build:
-  docker:
-    context: "."
+  docker: {}
 `, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
@@ -47,38 +46,39 @@ build:
 	))
 }
 
-/*
 func TestBuildCustomDockerfilePath(t *testing.T) {
-	name := "test/test-" + uuid.New().String()[:8]
+	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
+	subdir := filepath.Join(rootPath, "subdir")
+	require.NoError(t, os.MkdirAll(subdir, 0766))
 	dockerfile := `FROM alpine:latest
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-	require.NoError(t, os.MkdirAll(filepath.Join(rootPath, "foo"), 0766))
 	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "foo", "bar"),
+		filepath.Join(subdir, "Dockerfile"),
 		[]byte(dockerfile),
 		0644,
 	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`name: docker.io/test/%s
+build:
+  docker:
+    dockerfile: subdir/Dockerfile
+`, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
 	require.NoError(t, Build(
-		&KindestSpec{
-			Name: name,
-			Build: BuildSpec{
-				Docker: &DockerBuildSpec{
-					Dockerfile: "foo/bar",
-				},
-			},
-		},
-		rootPath,
-		"latest",
-		false,
-		false,
+		&BuildOptions{File: specPath},
+		newCLI(t),
 	))
 }
 
 func TestBuildErrMissingBuildArg(t *testing.T) {
-	name := "test/test-" + uuid.New().String()[:8]
+	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -90,19 +90,24 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
 		[]byte(dockerfile),
 		0644,
 	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`name: docker.io/test/%s
+build:
+  docker: {}
+`, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
 	require.Error(t, Build(
-		&KindestSpec{
-			Name: name,
-			Build: BuildSpec{
-				Docker: &DockerBuildSpec{},
-			},
-		},
-		rootPath,
-		"latest",
-		false,
-		false,
+		&BuildOptions{File: specPath},
+		newCLI(t),
 	))
 }
+
+/*
+
 
 func TestBuildArg(t *testing.T) {
 	name := "test/test-" + uuid.New().String()[:8]

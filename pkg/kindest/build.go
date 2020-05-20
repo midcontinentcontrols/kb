@@ -34,7 +34,7 @@ func buildDependencies(spec *KindestSpec, manifestPath string, options *BuildOpt
 		go func(dep string, done chan<- error) {
 			opts := &BuildOptions{}
 			*opts = *options
-			opts.File = filepath.Join(manifestPath, dep, "kinder.yaml")
+			opts.File = filepath.Join(manifestPath, dep, "kindest.yaml")
 			done <- Build(opts, cli)
 			close(done)
 		}(dep, done)
