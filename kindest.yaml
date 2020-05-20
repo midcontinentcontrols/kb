@@ -1,5 +1,5 @@
 build:
-  name: docker.io/midcontinentcontrols/kindest
+  name: midcontinentcontrols/kindest
   docker: {}
 #test:
   #charts:

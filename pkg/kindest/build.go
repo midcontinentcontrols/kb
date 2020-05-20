@@ -185,21 +185,23 @@ func BuildWithPool(
 	if err != nil {
 		return err
 	}
+	tag := fmt.Sprintf("%s:latest", spec.Build.Name)
 	resp, err := cli.ImageBuild(
 		context.TODO(),
 		dockerBuildContext,
 		types.ImageBuildOptions{
 			NoCache:    options.NoCache,
-			CacheFrom:  []string{spec.Build.Name},
+			CacheFrom:  []string{tag},
 			Dockerfile: resolvedDockerfile,
 			BuildArgs:  buildArgs,
 			Squash:     options.Squash,
-			Tags:       []string{spec.Build.Name},
+			Tags:       []string{tag},
 		},
 	)
 	if err != nil {
 		return err
 	}
+	// TODO test caching
 	termFd, isTerm := term.GetFdInfo(os.Stderr)
 	if err := jsonmessage.DisplayJSONMessagesStream(
 		resp.Body,
@@ -207,13 +209,6 @@ func BuildWithPool(
 		termFd,
 		isTerm,
 		nil,
-	); err != nil {
-		return err
-	}
-	if err := cli.ImageTag(
-		context.TODO(),
-		spec.Build.Name,
-		spec.Build.Name+":latest",
 	); err != nil {
 		return err
 	}
