@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -149,11 +150,20 @@ func BuildWithPool(
 	image := spec.Build.Name + ":" + options.Tag
 	docker := spec.Build.Docker
 	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), docker.Context))
+	u, err := user.Current()
+	if err != nil {
+		return err
+	}
+	tmpDir := filepath.Join(u.HomeDir, ".kindest/tmp")
+	if err := os.MkdirAll(tmpDir, 0766); err != nil {
+		return err
+	}
+	ctxPath := filepath.Join(tmpDir, fmt.Sprintf("build-context-%s.tar", uuid.New().String()))
 	log.Info("Building",
 		zap.String("image", image),
 		zap.String("context", contextPath),
+		zap.String("tempdir", ctxPath),
 		zap.Bool("noCache", options.NoCache))
-	ctxPath := fmt.Sprintf("tmp/build-%s.tar", uuid.New().String())
 	tar := new(archivex.TarFile)
 	tar.Create(ctxPath)
 	tar.AddAll(contextPath, false)
