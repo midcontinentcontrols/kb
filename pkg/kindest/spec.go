@@ -47,6 +47,9 @@ func (b *BuildSpec) verifyDocker(manifestPath string) error {
 
 func (b *BuildSpec) Verify(manifestPath string) error {
 	if b.Docker != nil {
+		if b.Name == "" {
+			return fmt.Errorf("missing image name")
+		}
 		return b.verifyDocker(manifestPath)
 	} else if b.Name == "" {
 		return nil

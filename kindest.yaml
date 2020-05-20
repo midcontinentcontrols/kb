@@ -1,11 +1,11 @@
-name: midcontinentcontrols/kindest
 build:
+  name: docker.io/midcontinentcontrols/kindest
   docker: {}
-test:
-  charts:
-    - releaseName: kindest
-      path: ./chart
-      values: {}
-  build:
-    docker:
-      dockerfile: test/Dockerfile
+#test:
+  #charts:
+  #  - releaseName: kindest
+  #    path: ./chart
+  #    values: {}
+  #build:
+  #  docker:
+  #    dockerfile: test/Dockerfile

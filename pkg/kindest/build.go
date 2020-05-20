@@ -147,11 +147,12 @@ func BuildWithPool(
 		return err
 	}
 	image := spec.Build.Name + ":" + options.Tag
+	docker := spec.Build.Docker
+	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), docker.Context))
 	log.Info("Building",
 		zap.String("image", image),
+		zap.String("context", contextPath),
 		zap.Bool("noCache", options.NoCache))
-	docker := spec.Build.Docker
-	contextPath := filepath.Join(filepath.Dir(manifestPath), docker.Context)
 	ctxPath := fmt.Sprintf("tmp/build-%s.tar", uuid.New().String())
 	tar := new(archivex.TarFile)
 	tar.Create(ctxPath)
