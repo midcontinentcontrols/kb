@@ -3,6 +3,7 @@ package kindest
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -122,16 +123,17 @@ func Build(options *BuildOptions, cli client.APIClient) error {
 	var pool *tunny.Pool
 	pool = tunny.NewFunc(runtime.NumCPU(), func(payload interface{}) interface{} {
 		options := payload.(*BuildOptions)
-		return BuildWithPool(options, cli, pool)
+		return BuildEx(options, cli, pool, nil)
 	})
 	defer pool.Close()
-	return BuildWithPool(options, cli, pool)
+	return BuildEx(options, cli, pool, nil)
 }
 
-func BuildWithPool(
+func BuildEx(
 	options *BuildOptions,
 	cli client.APIClient,
 	pool *tunny.Pool,
+	respHandler func(io.ReadCloser),
 ) error {
 	spec, manifestPath, err := loadSpec(options)
 	if err != nil {
@@ -201,16 +203,21 @@ func BuildWithPool(
 	if err != nil {
 		return err
 	}
-	// TODO test caching
-	termFd, isTerm := term.GetFdInfo(os.Stderr)
-	if err := jsonmessage.DisplayJSONMessagesStream(
-		resp.Body,
-		os.Stderr,
-		termFd,
-		isTerm,
-		nil,
-	); err != nil {
-		return err
+
+	if respHandler != nil {
+		respHandler(resp.Body)
+	} else {
+		termFd, isTerm := term.GetFdInfo(os.Stderr)
+		if err := jsonmessage.DisplayJSONMessagesStream(
+			resp.Body,
+			os.Stderr,
+			termFd,
+			isTerm,
+			nil,
+		); err != nil {
+			return err
+		}
 	}
+
 	return nil
 }

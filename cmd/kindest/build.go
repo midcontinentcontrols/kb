@@ -21,7 +21,7 @@ var buildCmd = &cobra.Command{
 		}
 		var pool *tunny.Pool
 		pool = tunny.NewFunc(buildArgs.Concurrency, func(payload interface{}) interface{} {
-			return kindest.BuildWithPool(
+			return kindest.BuildEx(
 				payload.(*kindest.BuildOptions),
 				cli,
 				pool,

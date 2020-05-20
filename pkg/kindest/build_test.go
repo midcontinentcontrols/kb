@@ -230,3 +230,31 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		newCLI(t),
 	))
 }
+
+func TestBuildCache(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
+	dockerfile := `FROM alpine:latest
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`build:
+  name: docker.io/test/%s
+  docker: {}
+`, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	require.NoError(t, Build(
+		&BuildOptions{File: specPath},
+		newCLI(t),
+	))
+}
