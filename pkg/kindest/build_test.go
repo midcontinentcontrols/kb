@@ -1,12 +1,18 @@
 package kindest
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
+	"github.com/Jeffail/tunny"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -253,8 +259,32 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		[]byte(spec),
 		0644,
 	))
-	require.NoError(t, Build(
-		&BuildOptions{File: specPath},
-		newCLI(t),
-	))
+	cli := newCLI(t)
+	var pool *tunny.Pool
+	pool = tunny.NewFunc(runtime.NumCPU(), func(payload interface{}) interface{} {
+		options := payload.(*BuildOptions)
+		return BuildEx(options, cli, pool, func(r io.ReadCloser) {
+			rd := bufio.NewReader(r)
+			isUsingCache := false
+			for {
+				message, err := rd.ReadString('\n')
+				if err != nil {
+					require.True(t, err == io.EOF)
+					break
+				}
+				var msg struct {
+					Stream string `json:"stream"`
+				}
+				require.NoError(t, json.Unmarshal([]byte(message), &msg))
+				log.Info("Docker", zap.String("message", msg.Stream))
+				if strings.Contains(msg.Stream, "Using cache") {
+					isUsingCache = true
+				}
+			}
+			require.Truef(t, isUsingCache, "cache was not used")
+		})
+	})
+	defer pool.Close()
+	err, _ := pool.Process(&BuildOptions{File: specPath}).(error)
+	require.NoError(t, err)
 }
