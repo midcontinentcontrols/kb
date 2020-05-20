@@ -30,7 +30,7 @@ func (b *BuildSpec) verifyDocker(manifestPath string) error {
 	var path string
 	var err error
 	if b.Docker.Dockerfile != "" {
-		path = filepath.Join(filepath.Dir(manifestPath), b.Docker.Context, b.Docker.Dockerfile)
+		path = filepath.Join(filepath.Dir(manifestPath), b.Docker.Dockerfile)
 	} else {
 		path = filepath.Join(filepath.Dir(manifestPath), "Dockerfile")
 	}

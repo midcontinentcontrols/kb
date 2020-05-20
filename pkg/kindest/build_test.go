@@ -106,69 +106,67 @@ build:
 	))
 }
 
-/*
-
-
 func TestBuildArg(t *testing.T) {
-	name := "test/test-" + uuid.New().String()[:8]
+	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
 	dockerfile := `FROM alpine:latest
 ARG HAS_BUILD_ARG
-RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi
-CMD ["sh", "-c", "echo \"Hello, world\""]`
+RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(rootPath, "Dockerfile"),
 		[]byte(dockerfile),
 		0644,
 	))
-	require.NoError(t, Build(
-		&KindestSpec{
-			Name: name,
-			Build: BuildSpec{
-				Docker: &DockerBuildSpec{
-					BuildArgs: []*DockerBuildArg{{
-						Name:  "HAS_BUILD_ARG",
-						Value: "1",
-					}},
-				},
-			},
-		},
-		rootPath,
-		"latest",
-		false,
-		false,
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`name: docker.io/test/%s
+build:
+  docker:
+	buildArgs:
+	  - name: HAS_BUILD_ARG
+	    value: "1"
+`, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	require.Error(t, Build(
+		&BuildOptions{File: specPath},
+		newCLI(t),
 	))
 }
 
 func TestBuildContextPath(t *testing.T) {
-	repo := "test-" + uuid.New().String()[:8]
-	name := "test/" + repo
+	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	subdir := filepath.Join(rootPath, "subdir")
+	otherdir := filepath.Join(rootPath, "other")
+	require.NoError(t, os.MkdirAll(subdir, 0766))
+	require.NoError(t, os.MkdirAll(otherdir, 0766))
 	defer os.RemoveAll(rootPath)
-	dockerfile := fmt.Sprintf(`FROM alpine:latest
-COPY %s .
-CMD ["sh", "-c", "echo \"Hello, world\""]`, repo)
+	dockerfile := `FROM alpine:latest
+CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "Dockerfile"),
+		filepath.Join(otherdir, "Dockerfile"),
 		[]byte(dockerfile),
 		0644,
 	))
+	specPath := filepath.Join(otherdir, "kindest.yaml")
+	spec := fmt.Sprintf(`name: docker.io/test/%s
+build:
+  docker:
+    dockerfile: "../other/Dockerfile"
+    context: ".."
+`, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
 	require.NoError(t, Build(
-		&KindestSpec{
-			Name: name,
-			Build: BuildSpec{
-				Docker: &DockerBuildSpec{
-					Dockerfile: repo + "/Dockerfile",
-				},
-			},
-		},
-		filepath.Join(rootPath, ".."),
-		"latest",
-		false,
-		false,
+		&BuildOptions{File: specPath},
+		newCLI(t),
 	))
 }
-*/

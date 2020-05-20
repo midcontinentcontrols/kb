@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -64,6 +65,28 @@ func locateSpec(options *BuildOptions) (string, error) {
 	return filepath.Join(dir, "kindest.yaml"), nil
 }
 
+func resolveDockerfile(manifestPath string, spec *KindestSpec) (string, error) {
+	rootDir := filepath.Dir(manifestPath)
+	dockerfilePath := filepath.Clean(filepath.Join(rootDir, spec.Build.Docker.Dockerfile))
+	contextPath := filepath.Clean(filepath.Join(rootDir, spec.Build.Docker.Context))
+	dockerfileParts := strings.Split(dockerfilePath, "/")
+	contextParts := strings.Split(contextPath, "/")
+	var n int
+	if m, o := len(dockerfileParts), len(contextParts); m < 0 {
+		n = m
+	} else {
+		n = o
+	}
+	var common int
+	for i := 0; i < n; i++ {
+		if dockerfileParts[i] != contextParts[i] {
+			break
+		}
+		common++
+	}
+	return filepath.Join(dockerfileParts[common:]...), nil
+}
+
 func loadSpec(options *BuildOptions) (*KindestSpec, string, error) {
 	manifestPath, err := locateSpec(options)
 	if err != nil {
@@ -117,13 +140,20 @@ func Build(options *BuildOptions, cli client.APIClient) error {
 	for _, arg := range docker.BuildArgs {
 		buildArgs[arg.Name] = &arg.Value
 	}
+	resolvedDockerfile, err := resolveDockerfile(
+		manifestPath,
+		spec,
+	)
+	if err != nil {
+		return err
+	}
 	resp, err := cli.ImageBuild(
 		context.TODO(),
 		dockerBuildContext,
 		types.ImageBuildOptions{
 			NoCache:    options.NoCache,
 			CacheFrom:  []string{spec.Name},
-			Dockerfile: docker.Dockerfile,
+			Dockerfile: resolvedDockerfile,
 			BuildArgs:  buildArgs,
 			Squash:     options.Squash,
 			Tags:       []string{spec.Name},
