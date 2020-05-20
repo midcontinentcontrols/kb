@@ -149,7 +149,6 @@ func BuildEx(
 	); err != nil {
 		return err
 	}
-	image := spec.Build.Name + ":" + options.Tag
 	docker := spec.Build.Docker
 	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), docker.Context))
 	u, err := user.Current()
@@ -161,10 +160,13 @@ func BuildEx(
 		return err
 	}
 	ctxPath := filepath.Join(tmpDir, fmt.Sprintf("build-context-%s.tar", uuid.New().String()))
+	tag := "latest"
+	if options.Tag != "" {
+		tag = options.Tag
+	}
+	tag = fmt.Sprintf("%s:%s", spec.Build.Name, tag)
 	log.Info("Building",
-		zap.String("image", image),
-		zap.String("context", contextPath),
-		zap.String("tempdir", ctxPath),
+		zap.String("tag", tag),
 		zap.Bool("noCache", options.NoCache))
 	tar := new(archivex.TarFile)
 	tar.Create(ctxPath)
@@ -187,7 +189,6 @@ func BuildEx(
 	if err != nil {
 		return err
 	}
-	tag := fmt.Sprintf("%s:latest", spec.Build.Name)
 	resp, err := cli.ImageBuild(
 		context.TODO(),
 		dockerBuildContext,

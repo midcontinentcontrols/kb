@@ -38,7 +38,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	))
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
-  name: docker.io/test/%s
+  name: test/%s
   docker: {}
 `, name)
 	require.NoError(t, ioutil.WriteFile(
@@ -76,7 +76,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	))
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
-  name: docker.io/test/%s
+  name: test/%s
   docker:
     dockerfile: subdir/Dockerfile
 `, name)
@@ -106,7 +106,7 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
 	))
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
-  name: docker.io/test/%s
+  name: test/%s
   docker: {}
 `, name)
 	require.NoError(t, ioutil.WriteFile(
@@ -136,7 +136,7 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   docker:
-    name: docker.io/test/%s
+    name: test/%s
 	buildArgs:
 	  - name: HAS_BUILD_ARG
 	    value: "1"
@@ -169,7 +169,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	))
 	specPath := filepath.Join(otherdir, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
-  name: docker.io/test/%s
+  name: test/%s
   docker:
     dockerfile: "../other/Dockerfile"
     context: ".."
@@ -203,7 +203,7 @@ CMD ["sh", "-c", "echo \"Hello again, world\""]`, depName)
 	spec := fmt.Sprintf(`dependencies:
   - dep
 build:
-  name: docker.io/test/%s
+  name: test/%s
   docker: {}
 `, name)
 	require.NoError(t, ioutil.WriteFile(
@@ -221,7 +221,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		0644,
 	))
 	depSpec := fmt.Sprintf(`build:
-  name: docker.io/test/%s
+  name: test/%s
   docker: {}
 `, depName)
 	require.NoError(t, ioutil.WriteFile(
@@ -252,7 +252,7 @@ CMD ["cat", "/etc/message"]`
 	))
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
-  name: docker.io/test/%s
+  name: test/%s
   docker: {}
 `, name)
 	require.NoError(t, ioutil.WriteFile(
@@ -261,10 +261,12 @@ CMD ["cat", "/etc/message"]`
 		0644,
 	))
 	cli := newCLI(t)
+	done := make(chan error, 1)
 	var pool *tunny.Pool
 	pool = tunny.NewFunc(runtime.NumCPU(), func(payload interface{}) interface{} {
 		options := payload.(*BuildOptions)
 		return BuildEx(options, cli, pool, func(r io.ReadCloser) {
+			defer close(done)
 			rd := bufio.NewReader(r)
 			isUsingCache := false
 			for {
@@ -282,10 +284,15 @@ CMD ["cat", "/etc/message"]`
 					isUsingCache = true
 				}
 			}
-			require.Truef(t, isUsingCache, "cache was not used")
+			if !isUsingCache {
+				done <- fmt.Errorf("docker build cache was not used")
+			} else {
+				done <- nil
+			}
 		})
 	})
 	defer pool.Close()
 	err, _ := pool.Process(&BuildOptions{File: specPath}).(error)
 	require.NoError(t, err)
+	require.NoError(t, <-done)
 }
