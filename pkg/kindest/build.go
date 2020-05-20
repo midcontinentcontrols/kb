@@ -3,43 +3,109 @@ package kindest
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/docker/docker/pkg/term"
 	"github.com/google/uuid"
+	"github.com/hashicorp/go-multierror"
 	"github.com/jhoonb/archivex"
-	"github.com/moby/moby/pkg/jsonmessage"
-	"github.com/moby/moby/pkg/term"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 )
 
-type streamMsgT struct {
-	Stream string `json:"stream"`
+type BuildOptions struct {
+	File    string `json:"file,omitempty"`
+	NoCache bool   `json:"nocache,omitempty"`
+	Squash  bool   `json:"squash,omitempty"`
+	Tag     string `json:"tag,omitempty"`
 }
 
-func Build(
-	spec *KindestSpec, // derived from kinder.yaml
-	rootPath string, // should contain kinder.yaml
-	tag string,
-	noCache bool,
-	squash bool,
-) error {
-	if err := spec.Validate(rootPath); err != nil {
-		return err
+func buildDependencies(spec *KindestSpec, manifestPath string, options *BuildOptions, cli client.APIClient) error {
+	n := len(spec.Dependencies)
+	dones := make([]chan error, n, n)
+	for i, dep := range spec.Dependencies {
+		done := make(chan error, 1)
+		dones[i] = done
+		go func(dep string, done chan<- error) {
+			opts := &BuildOptions{}
+			*opts = *options
+			opts.File = filepath.Join(manifestPath, dep, "kinder.yaml")
+			done <- Build(opts, cli)
+			close(done)
+		}(dep, done)
 	}
-	cli, err := client.NewEnvClient()
+	var multi error
+	for i, done := range dones {
+		if err := <-done; err != nil {
+			multi = multierror.Append(multi, fmt.Errorf("%s: %v", spec.Dependencies[i], err))
+		}
+	}
+	return multi
+}
+
+func locateSpec(options *BuildOptions) (string, error) {
+	if options.File != "" {
+		var err error
+		file, err := filepath.Abs(options.File)
+		if err != nil {
+			return "", err
+		}
+		return file, nil
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "kindest.yaml"), nil
+}
+
+func loadSpec(options *BuildOptions) (*KindestSpec, string, error) {
+	manifestPath, err := locateSpec(options)
+	if err != nil {
+		return nil, "", err
+	}
+	docBytes, err := ioutil.ReadFile(manifestPath)
+	if err != nil {
+		return nil, "", err
+	}
+	spec := &KindestSpec{}
+	if err := yaml.Unmarshal(docBytes, spec); err != nil {
+		return nil, "", err
+	}
+	if err := spec.Validate(manifestPath); err != nil {
+		return nil, "", err
+	}
+	return spec, manifestPath, nil
+}
+
+func Build(options *BuildOptions, cli client.APIClient) error {
+	spec, manifestPath, err := loadSpec(options)
 	if err != nil {
 		return err
 	}
+	if err := buildDependencies(
+		spec,
+		manifestPath,
+		options,
+		cli,
+	); err != nil {
+		return err
+	}
+	image := spec.Name + ":" + options.Tag
 	log.Info("Building",
-		zap.String("rootPath", rootPath),
-		zap.String("tag", tag),
-		zap.Bool("noCache", noCache))
+		zap.String("image", image),
+		zap.Bool("noCache", options.NoCache))
+	docker := spec.Build.Docker
+	contextPath := filepath.Join(filepath.Dir(manifestPath), docker.Context)
 	ctxPath := fmt.Sprintf("tmp/build-%s.tar", uuid.New().String())
 	tar := new(archivex.TarFile)
 	tar.Create(ctxPath)
-	tar.AddAll(rootPath, false)
+	tar.AddAll(contextPath, false)
 	tar.Close()
 	defer os.Remove(ctxPath)
 	dockerBuildContext, err := os.Open(ctxPath)
@@ -48,66 +114,33 @@ func Build(
 	}
 	defer dockerBuildContext.Close()
 	buildArgs := make(map[string]*string)
-	for _, arg := range spec.Build.Docker.BuildArgs {
+	for _, arg := range docker.BuildArgs {
 		buildArgs[arg.Name] = &arg.Value
 	}
-	log.Info("buildArgs", zap.String("value", fmt.Sprintf("%#v", buildArgs)))
 	resp, err := cli.ImageBuild(
 		context.TODO(),
 		dockerBuildContext,
 		types.ImageBuildOptions{
-			NoCache:    noCache,
+			NoCache:    options.NoCache,
 			CacheFrom:  []string{spec.Name},
-			Dockerfile: spec.Build.Docker.Dockerfile,
+			Dockerfile: docker.Dockerfile,
 			BuildArgs:  buildArgs,
-			Squash:     squash,
+			Squash:     options.Squash,
+			Tags:       []string{spec.Name},
 		},
 	)
 	if err != nil {
 		return err
 	}
-	/*
-		rd := bufio.NewReader(resp.Body)
-		var line string
-		for {
-			message, err := rd.ReadString('\n')
-			if err != nil {
-				if err != io.EOF {
-					return err
-				}
-				break
-			}
-			var msg struct {
-				Stream string `json:"stream"`
-			}
-			if err := json.Unmarshal([]byte(message), &msg); err != nil {
-				return fmt.Errorf("failed to unmarshal docker message '%v': %v", message, err)
-			}
-			line = msg.Stream
-			log.Info("Docker", zap.String("message", line))
-		}
-		prefix := "Successfully built "
-		if !strings.HasPrefix(line, prefix) {
-			return fmt.Errorf("expected build success message, got '%s'", line)
-		}*/
 	termFd, isTerm := term.GetFdInfo(os.Stderr)
-	if err := jsonmessage.DisplayJSONMessagesStream(resp.Body, os.Stderr, termFd, isTerm, nil); err != nil {
+	if err := jsonmessage.DisplayJSONMessagesStream(
+		resp.Body,
+		os.Stderr,
+		termFd,
+		isTerm,
+		nil,
+	); err != nil {
 		return err
 	}
-	/*
-		imageID := strings.TrimSpace(line[len(prefix):])
-		ref := "docker.io/" + spec.Name
-		log.Info("Successfully built image",
-			zap.String("imageID", imageID),
-			zap.String("ref", ref),
-			zap.String("osType", resp.OSType))
-		if err := cli.ImageTag(
-			context.TODO(),
-			imageID,
-			ref,
-		); err != nil {
-			return err
-		}
-	*/
 	return nil
 }

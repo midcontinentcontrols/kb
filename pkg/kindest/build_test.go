@@ -7,12 +7,19 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
+func newCLI(t *testing.T) client.APIClient {
+	cli, err := client.NewEnvClient()
+	require.NoError(t, err)
+	return cli
+}
+
 func TestBuildBasic(t *testing.T) {
-	name := "test/test-" + uuid.New().String()[:8]
+	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -23,20 +30,24 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		[]byte(dockerfile),
 		0644,
 	))
+	specPath := filepath.Join(rootPath, "kinder.yaml")
+	spec := fmt.Sprintf(`name: docker.io/test/%s
+build:
+  docker:
+    context: "."
+`, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
 	require.NoError(t, Build(
-		&KindestSpec{
-			Name: name,
-			Build: BuildSpec{
-				Docker: &DockerBuildSpec{},
-			},
-		},
-		rootPath,
-		"latest",
-		false,
-		false,
+		&BuildOptions{File: specPath},
+		newCLI(t),
 	))
 }
 
+/*
 func TestBuildCustomDockerfilePath(t *testing.T) {
 	name := "test/test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -155,3 +166,4 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`, repo)
 		false,
 	))
 }
+*/

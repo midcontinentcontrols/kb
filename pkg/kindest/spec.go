@@ -26,12 +26,29 @@ type BuildSpec struct {
 	Docker *DockerBuildSpec `json:"docker,omitempty"`
 }
 
-func (b *BuildSpec) Verify(rootPath string) error {
-	if docker := b.Docker; docker != nil {
+func (b *BuildSpec) verifyDocker(manifestPath string) error {
+	var path string
+	var err error
+	if b.Docker.Dockerfile != "" {
+		path = filepath.Join(filepath.Dir(manifestPath), b.Docker.Context, b.Docker.Dockerfile)
 	} else {
-		return fmt.Errorf("missing build spec")
+		path = filepath.Join(filepath.Dir(manifestPath), "Dockerfile")
+	}
+	path, err = filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("missing Dockerfile at '%s'", path)
 	}
 	return nil
+}
+
+func (b *BuildSpec) Verify(manifestPath string) error {
+	if b.Docker != nil {
+		return b.verifyDocker(manifestPath)
+	}
+	return fmt.Errorf("missing build spec")
 }
 
 type ChartSpec struct {
@@ -53,17 +70,17 @@ type KindestSpec struct {
 	Test         *TestSpec `json:"test,omitempty"`
 }
 
-func (s *KindestSpec) Validate(rootPath string) error {
+func (s *KindestSpec) Validate(manifestPath string) error {
 	if s.Name == "" {
 		return fmt.Errorf("missing name")
 	}
 	for i, dep := range s.Dependencies {
-		path := filepath.Join(rootPath, dep, "kindest.yaml")
+		path := filepath.Join(manifestPath, dep, "kindest.yaml")
 		if _, err := os.Stat(path); err != nil {
 			return fmt.Errorf("dependency %d: missing kindest.yaml at '%s'", i, path)
 		}
 	}
-	if err := s.Build.Verify(rootPath); err != nil {
+	if err := s.Build.Verify(manifestPath); err != nil {
 		return err
 	}
 	if test := s.Test; test != nil {
@@ -78,7 +95,7 @@ func (s *KindestSpec) Validate(rootPath string) error {
 				return fmt.Errorf("test env chart %d: missing values.yaml at '%s'", i, chartPath)
 			}
 		}
-		if err := test.Build.Verify(rootPath); err != nil {
+		if err := test.Build.Verify(manifestPath); err != nil {
 			return err
 		}
 	}
