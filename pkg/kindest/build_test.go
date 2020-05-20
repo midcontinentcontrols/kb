@@ -243,7 +243,8 @@ func TestBuildCache(t *testing.T) {
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
 	dockerfile := `FROM alpine:latest
-CMD ["sh", "-c", "echo \"Hello, world\""]`
+RUN echo "Hello, world!" >> /etc/message
+CMD ["cat", "/etc/message"]`
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(rootPath, "Dockerfile"),
 		[]byte(dockerfile),
