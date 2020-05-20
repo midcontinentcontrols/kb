@@ -23,6 +23,7 @@ type DockerBuildSpec struct {
 }
 
 type BuildSpec struct {
+	Name   string           `json:"name"`
 	Docker *DockerBuildSpec `json:"docker,omitempty"`
 }
 
@@ -47,6 +48,8 @@ func (b *BuildSpec) verifyDocker(manifestPath string) error {
 func (b *BuildSpec) Verify(manifestPath string) error {
 	if b.Docker != nil {
 		return b.verifyDocker(manifestPath)
+	} else if b.Name == "" {
+		return nil
 	}
 	return fmt.Errorf("missing build spec")
 }
@@ -64,15 +67,14 @@ type TestSpec struct {
 }
 
 type KindestSpec struct {
-	Name         string    `json:"name"`
 	Dependencies []string  `json:"dependencies,omitempty"`
 	Build        BuildSpec `json:"build"`
 	Test         *TestSpec `json:"test,omitempty"`
 }
 
 func (s *KindestSpec) Validate(manifestPath string) error {
-	if s.Name == "" {
-		return fmt.Errorf("missing name")
+	if err := s.Build.Verify(manifestPath); err != nil {
+		return err
 	}
 	rootDir := filepath.Dir(manifestPath)
 	for i, dep := range s.Dependencies {
@@ -80,9 +82,6 @@ func (s *KindestSpec) Validate(manifestPath string) error {
 		if _, err := os.Stat(path); err != nil {
 			return fmt.Errorf("dependency %d: missing kindest.yaml at '%s'", i, path)
 		}
-	}
-	if err := s.Build.Verify(manifestPath); err != nil {
-		return err
 	}
 	if test := s.Test; test != nil {
 		for i, chart := range test.Charts {

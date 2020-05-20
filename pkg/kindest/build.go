@@ -146,7 +146,7 @@ func BuildWithPool(
 	); err != nil {
 		return err
 	}
-	image := spec.Name + ":" + options.Tag
+	image := spec.Build.Name + ":" + options.Tag
 	log.Info("Building",
 		zap.String("image", image),
 		zap.Bool("noCache", options.NoCache))
@@ -179,11 +179,11 @@ func BuildWithPool(
 		dockerBuildContext,
 		types.ImageBuildOptions{
 			NoCache:    options.NoCache,
-			CacheFrom:  []string{spec.Name},
+			CacheFrom:  []string{spec.Build.Name},
 			Dockerfile: resolvedDockerfile,
 			BuildArgs:  buildArgs,
 			Squash:     options.Squash,
-			Tags:       []string{spec.Name},
+			Tags:       []string{spec.Build.Name},
 		},
 	)
 	if err != nil {
@@ -201,8 +201,8 @@ func BuildWithPool(
 	}
 	if err := cli.ImageTag(
 		context.TODO(),
-		spec.Name,
-		spec.Name+":latest",
+		spec.Build.Name,
+		spec.Build.Name+":latest",
 	); err != nil {
 		return err
 	}
