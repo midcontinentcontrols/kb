@@ -6,8 +6,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -151,51 +158,200 @@ func (t *TestSpec) runDocker(
 	}
 }
 
-func clientForCluster(name string, provider *cluster.Provider) (*kubernetes.Clientset, error) {
+func clientForCluster(name string, provider *cluster.Provider) (*kubernetes.Clientset, string, error) {
+	if err := provider.ExportKubeConfig(name, ""); err != nil {
+		return nil, "", err
+	}
 	kubeConfig, err := provider.KubeConfig(name, false)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	config, err := clientcmd.RESTConfigFromKubeConfig([]byte(kubeConfig))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return kubernetes.NewForConfig(config)
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, "", err
+	}
+	return client, "", nil
 }
 
+func createTestRole(client *kubernetes.Clientset) error {
+	if _, err := client.RbacV1().ClusterRoles().Get(
+		context.TODO(),
+		"test",
+		metav1.GetOptions{},
+	); err != nil {
+		if errors.IsNotFound(err) {
+			log.Debug("Creating test role")
+			if _, err := client.RbacV1().ClusterRoles().Create(
+				context.TODO(),
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test",
+					},
+					Rules: []rbacv1.PolicyRule{{
+						APIGroups: []string{"*"},
+						Resources: []string{"*"},
+						Verbs:     []string{"*"},
+					}},
+				},
+				metav1.CreateOptions{},
+			); err != nil {
+				return err
+			}
+			log.Debug("Created test role")
+		} else {
+			return err
+		}
+	} else {
+		log.Debug("Test role already created")
+	}
+	return nil
+}
+
+func createTestRoleBinding(client *kubernetes.Clientset) error {
+	if _, err := client.RbacV1().ClusterRoleBindings().Get(
+		context.TODO(),
+		"test",
+		metav1.GetOptions{},
+	); err != nil {
+		if errors.IsNotFound(err) {
+			log.Debug("Creating test role binding")
+			if _, err := client.RbacV1().ClusterRoleBindings().Create(
+				context.TODO(),
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test",
+					},
+					RoleRef: rbacv1.RoleRef{
+						Name:     "test",
+						Kind:     "ClusterRole",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+					Subjects: []rbacv1.Subject{{
+						Kind:      "ServiceAccount",
+						Name:      "test",
+						Namespace: "default",
+					}},
+				},
+				metav1.CreateOptions{},
+			); err != nil {
+				return err
+			}
+			log.Debug("Created test role binding")
+		} else {
+			return err
+		}
+	} else {
+		log.Debug("Test role binding already created")
+	}
+	return nil
+}
+func createTestServiceAccount(client *kubernetes.Clientset) error {
+	if _, err := client.CoreV1().ServiceAccounts("default").Get(
+		context.TODO(),
+		"test",
+		metav1.GetOptions{},
+	); err != nil {
+		if errors.IsNotFound(err) {
+			log.Debug("Creating test service account")
+			if _, err := client.CoreV1().ServiceAccounts("default").Create(
+				context.TODO(),
+				&corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test",
+						Namespace: "default",
+					},
+				},
+				metav1.CreateOptions{},
+			); err != nil {
+				return err
+			}
+			log.Debug("Created test service account")
+		} else {
+			return err
+		}
+	} else {
+		log.Debug("Test service account already created")
+	}
+	return nil
+}
+
+func createTestRBAC(client *kubernetes.Clientset) error {
+	if err := createTestRole(client); err != nil {
+		return err
+	}
+	if err := createTestRoleBinding(client); err != nil {
+		return err
+	}
+	if err := createTestServiceAccount(client); err != nil {
+		return err
+	}
+	return nil
+}
+
+func applyTestManifests(
+	kubeContext string,
+	rootPath string,
+	resources []string,
+) error {
+	for _, resource := range resources {
+		resource = filepath.Clean(filepath.Join(rootPath, resource))
+		cmd := exec.Command("kubectl", "apply", "--context", kubeContext, "-f", resource)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var ErrTestFailed = fmt.Errorf("test failed")
+
+var ErrPodTimeout = fmt.Errorf("pod timed out")
+
 func (t *TestSpec) runKind(
+	rootPath string,
 	options *TestOptions,
 	cli client.APIClient,
 ) error {
 	name := "test-" + uuid.New().String()[:8]
 	log := log.With(zap.String("name", name))
-	log.Info("Creating cluster", zap.Bool("transient", options.Transient))
 	provider := cluster.NewProvider()
-	if err := provider.Create(name); err != nil {
-		return err
-	}
 	if options.Transient {
+		log.Info("Creating cluster", zap.Bool("transient", options.Transient))
+		if err := provider.Create(name); err != nil {
+			return err
+		}
 		defer func() {
 			log.Info("Deleting transient cluster")
 			if err := func() error {
-				//timeout := 10 * time.Second
-				container := name + "-control-plane"
-				if err := cli.ContainerStop(
-					context.TODO(),
-					container,
-					nil,
+				if err := provider.Delete(
+					name,
+					"",
 				); err != nil {
 					return err
 				}
-				if err := cli.ContainerRemove(
-					context.TODO(),
-					container,
-					types.ContainerRemoveOptions{
-						Force: true,
-					},
-				); err != nil {
-					return err
-				}
+				//container := name + "-control-plane"
+				//if err := cli.ContainerStop(
+				//	context.TODO(),
+				//	container,
+				//	nil,
+				//); err != nil {
+				//	return err
+				//}
+				//if err := cli.ContainerRemove(
+				//	context.TODO(),
+				//	container,
+				//	types.ContainerRemoveOptions{
+				//		Force: true,
+				//	},
+				//); err != nil {
+				//	return err
+				//}
 				return nil
 			}(); err != nil {
 				log.Error("Error cleaning up transient cluster", zap.String("message", err.Error()))
@@ -203,27 +359,109 @@ func (t *TestSpec) runKind(
 				log.Info("Deleted transient cluster")
 			}
 		}()
+	} else {
+		return fmt.Errorf("unimplemented")
 	}
-	client, err := clientForCluster(name, provider)
+
+	client, kubeContext, err := clientForCluster(name, provider)
 	if err != nil {
 		return err
 	}
 
-	// TODO: create test pod
+	if err := createTestRBAC(client); err != nil {
+		return err
+	}
 
-	log.Info("Listing pods")
-	pods, err := client.CoreV1().Pods("kube-system").List(
+	if err := applyTestManifests(
+		kubeContext,
+		rootPath,
+		t.Env.Kind.Resources,
+	); err != nil {
+		return err
+	}
+
+	// TODO: install/upgrade helm charts
+
+	namespace := "default"
+	pods := client.CoreV1().Pods(namespace)
+	podName := "test-" + t.Name
+	podLog := log.With(zap.String("name", podName), zap.String("namespace", namespace))
+	podLog.Debug("Creating pod")
+	if _, err := pods.Create(
 		context.TODO(),
-		metav1.ListOptions{},
-	)
-	if err != nil {
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: namespace,
+			},
+			Spec: corev1.PodSpec{
+				ServiceAccountName: "test",
+				Containers: []corev1.Container{{
+					Name:  t.Name,
+					Image: t.Build.Name + ":latest",
+				}},
+			},
+		},
+		metav1.CreateOptions{},
+	); err != nil {
 		return err
 	}
-	log.Info("Listed pods", zap.Int("count", len(pods.Items)))
-	for _, pod := range pods.Items {
-		log.Info("Found pod", zap.String("name", pod.Name))
+	podLog.Debug("Created pod")
+	if !options.Transient {
+		defer func() {
+			podLog.Warn("TODO: clean up pod")
+		}()
 	}
-	return nil
+	timeout := 30 * time.Second
+	delay := time.Second
+	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); {
+		pod, err := pods.Get(
+			context.TODO(),
+			podName,
+			metav1.GetOptions{},
+		)
+		if err != nil {
+			return err
+		}
+		switch pod.Status.Phase {
+		case corev1.PodPending:
+			time.Sleep(delay)
+			continue
+		case corev1.PodRunning:
+			fallthrough
+		case corev1.PodSucceeded:
+			fallthrough
+		case corev1.PodFailed:
+			req := pods.GetLogs(podName, &corev1.PodLogOptions{
+				Follow: true,
+			})
+			r, err := req.Stream(context.TODO())
+			if err != nil {
+				return err
+			}
+			rd := bufio.NewReader(r)
+			for {
+				message, err := rd.ReadString('\n')
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					return err
+				}
+				fmt.Println(message)
+			}
+		default:
+			return fmt.Errorf("unexpected phase '%s'", pod.Status.Phase)
+		}
+		if pod.Status.Phase == corev1.PodSucceeded {
+			return nil
+		} else if pod.Status.Phase == corev1.PodFailed {
+			return ErrTestFailed
+		} else {
+			panic("unreachable branch detected")
+		}
+	}
+	return ErrPodTimeout
 }
 
 func (t *TestSpec) Run(
@@ -244,7 +482,7 @@ func (t *TestSpec) Run(
 	if t.Env.Docker != nil {
 		return t.runDocker(options, cli)
 	} else if t.Env.Kind != nil {
-		return t.runKind(options, cli)
+		return t.runKind(filepath.Dir(manifestPath), options, cli)
 	} else {
 		panic("unreachable branch detected")
 	}

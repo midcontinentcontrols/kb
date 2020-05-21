@@ -217,7 +217,7 @@ if [ -z "$(kubectl get namespace | grep $namespace)" ]; then\n\
 	exit 1\n\
 fi\n\
 echo "Manifests were applied correctly!"`
-	dockerfile := fmt.Sprintf(`FROM alpine:latest
+	dockerfile := fmt.Sprintf(`FROM alpine:3.11.6
 RUN apk add --no-cache wget bash
 ENV KUBECTL=v1.17.0
 RUN wget -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL}/bin/linux/amd64/kubectl \
@@ -264,7 +264,7 @@ test:
 	require.NoError(t, Test(
 		&TestOptions{
 			File:      specPath,
-			Transient: false,
+			Transient: true,
 		},
 	))
 }
