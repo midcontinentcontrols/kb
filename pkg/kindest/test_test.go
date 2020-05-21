@@ -11,6 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNoTests(t *testing.T) {
+	specPath := createBasicTestProject(t, "tmp")
+	defer os.RemoveAll(filepath.Dir(specPath))
+	require.Equal(t, ErrNoTests, Test(
+		&TestOptions{
+			File: specPath,
+		},
+	))
+}
+
 func TestTest(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
