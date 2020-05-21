@@ -11,9 +11,15 @@ type DockerBuildArg struct {
 	Value string `json:"value"`
 }
 
-type EnvSpec struct {
+type EnvVariable struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
+}
+
+type EnvSpec struct {
+	Resources []string       `json:"resources,omitempty"`
+	Charts    []*ChartSpec   `json:"charts,omitempty"`
+	Variables []*EnvVariable `json:"variables,omitempty"`
 }
 
 type DockerBuildSpec struct {
@@ -64,15 +70,15 @@ type ChartSpec struct {
 }
 
 type TestSpec struct {
-	Charts []*ChartSpec `json:"charts"`
-	Build  BuildSpec    `json:"build"`
-	Env    []*EnvSpec   `json:"env,omitempty"`
+	Name  string    `json:"name"`
+	Build BuildSpec `json:"build"`
+	Env   *EnvSpec  `json:"env,omitempty"`
 }
 
 type KindestSpec struct {
-	Dependencies []string  `json:"dependencies,omitempty"`
-	Build        BuildSpec `json:"build"`
-	Test         *TestSpec `json:"test,omitempty"`
+	Dependencies []string    `json:"dependencies,omitempty"`
+	Build        BuildSpec   `json:"build"`
+	Test         []*TestSpec `json:"test,omitempty"`
 }
 
 func (s *KindestSpec) Validate(manifestPath string) error {
@@ -86,16 +92,23 @@ func (s *KindestSpec) Validate(manifestPath string) error {
 			return fmt.Errorf("dependency %d: missing kindest.yaml at '%s'", i, path)
 		}
 	}
-	if test := s.Test; test != nil {
-		for i, chart := range test.Charts {
-			chartPath := filepath.Join(chart.Path, "Chart.yaml")
-			if _, err := os.Stat(chartPath); err != nil {
-				return fmt.Errorf("test env chart %d: missing Chart.yaml at '%s'", i, chartPath)
+	for _, test := range s.Test {
+		if test.Env != nil {
+			for _, resource := range test.Env.Resources {
+				resourcePath := filepath.Clean(filepath.Join(rootDir, resource))
+				if _, err := os.Stat(resourcePath); err != nil {
+					return fmt.Errorf("test '%s' env: '%s' not found", test.Name, resourcePath)
+				}
 			}
-
-			valuesPath := filepath.Join(chart.Path, "values.yaml")
-			if _, err := os.Stat(valuesPath); err != nil {
-				return fmt.Errorf("test env chart %d: missing values.yaml at '%s'", i, chartPath)
+			for _, chart := range test.Env.Charts {
+				chartPath := filepath.Join(chart.Path, "Chart.yaml")
+				if _, err := os.Stat(chartPath); err != nil {
+					return fmt.Errorf("test '%s' env chart '%s': missing Chart.yaml at '%s'", test.Name, chart.ReleaseName, chartPath)
+				}
+				valuesPath := filepath.Join(chart.Path, "values.yaml")
+				if _, err := os.Stat(valuesPath); err != nil {
+					return fmt.Errorf("test '%s' env chart '%s': missing values.yaml at '%s'", test.Name, chart.ReleaseName, chartPath)
+				}
 			}
 		}
 		if err := test.Build.Verify(manifestPath); err != nil {

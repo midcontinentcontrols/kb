@@ -65,10 +65,10 @@ func buildDependencies(
 	return multi
 }
 
-func locateSpec(options *BuildOptions) (string, error) {
-	if options.File != "" {
+func locateSpec(file string) (string, error) {
+	if file != "" {
 		var err error
-		file, err := filepath.Abs(options.File)
+		file, err = filepath.Abs(file)
 		if err != nil {
 			return "", err
 		}
@@ -103,8 +103,8 @@ func resolveDockerfile(manifestPath string, spec *KindestSpec) (string, error) {
 	return filepath.Join(dockerfileParts[common:]...), nil
 }
 
-func loadSpec(options *BuildOptions) (*KindestSpec, string, error) {
-	manifestPath, err := locateSpec(options)
+func loadSpec(file string) (*KindestSpec, string, error) {
+	manifestPath, err := locateSpec(file)
 	if err != nil {
 		return nil, "", err
 	}
@@ -153,7 +153,7 @@ func BuildEx(
 	pool *tunny.Pool,
 	respHandler func(io.ReadCloser),
 ) error {
-	spec, manifestPath, err := loadSpec(options)
+	spec, manifestPath, err := loadSpec(options.File)
 	if err != nil {
 		return err
 	}

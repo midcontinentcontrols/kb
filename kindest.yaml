@@ -3,9 +3,17 @@ build:
   docker: {}
 #test:
   #charts:
-  #  - releaseName: kindest
-  #    path: ./chart
-  #    values: {}
+  
   #build:
   #  docker:
   #    dockerfile: test/Dockerfile
+test:
+  - name: e2e
+    build:
+      docker:
+        dockerfile: test/Dockerfile
+        #context: "."
+    charts:
+      - path: chart/
+        values: {}
+    
