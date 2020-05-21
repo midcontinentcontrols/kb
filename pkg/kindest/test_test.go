@@ -29,6 +29,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 test:
   - name: basic
     build:
+      name: midcontinentcontrols/kindest-basic-test
       docker:
         dockerfile: Dockerfile
 `, name)
