@@ -68,13 +68,19 @@ func (t *TestSpec) runDocker(
 	options *TestOptions,
 	cli client.APIClient,
 ) error {
+	var env []string
+	for _, v := range t.Env.Variables {
+		env = append(env, fmt.Sprintf("%s=%s", v.Name, v.Value))
+	}
 	resp, err := cli.ContainerCreate(
 		context.TODO(),
 		&containertypes.Config{
 			Image: t.Build.Name + ":latest",
-			Env:   []string{},
+			Env:   env,
 		},
-		nil,
+		&containertypes.HostConfig{
+			AutoRemove: true,
+		},
 		nil,
 		"",
 	)
@@ -116,40 +122,23 @@ func (t *TestSpec) runDocker(
 		}
 		log.Info(message)
 	}
-	wait := make(chan error)
-	go func() {
-		defer close(wait)
-		wait <- func() error {
-			ch, err := cli.ContainerWait(
-				context.TODO(),
-				container,
-				containertypes.WaitConditionRemoved,
-			)
-			select {
-			case v := <-ch:
-				if v.Error != nil {
-					return fmt.Errorf(v.Error.Message)
-				}
-				if v.StatusCode != 0 {
-					return fmt.Errorf("exit code %d", v.StatusCode)
-				}
-				return nil
-			case err := <-err:
-				return err
-			}
-		}()
-	}()
-	if err := cli.ContainerRemove(
+	ch, e := cli.ContainerWait(
 		context.TODO(),
 		container,
-		types.ContainerRemoveOptions{},
-	); err != nil {
+		containertypes.WaitConditionRemoved,
+	)
+	select {
+	case v := <-ch:
+		if v.Error != nil {
+			return fmt.Errorf(v.Error.Message)
+		}
+		if v.StatusCode != 0 {
+			return fmt.Errorf("exit code %d", v.StatusCode)
+		}
+		return nil
+	case err := <-e:
 		return err
 	}
-	if err := <-wait; err != nil {
-		return err
-	}
-	return nil
 }
 
 func (t *TestSpec) Run(
