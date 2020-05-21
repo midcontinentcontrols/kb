@@ -467,23 +467,6 @@ func (t *TestSpec) runKind(
 				); err != nil {
 					return err
 				}
-				//container := name + "-control-plane"
-				//if err := cli.ContainerStop(
-				//	context.TODO(),
-				//	container,
-				//	nil,
-				//); err != nil {
-				//	return err
-				//}
-				//if err := cli.ContainerRemove(
-				//	context.TODO(),
-				//	container,
-				//	types.ContainerRemoveOptions{
-				//		Force: true,
-				//	},
-				//); err != nil {
-				//	return err
-				//}
 				return nil
 			}(); err != nil {
 				log.Error("Error cleaning up transient cluster", zap.String("message", err.Error()))
