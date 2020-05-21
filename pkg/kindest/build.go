@@ -81,10 +81,10 @@ func locateSpec(file string) (string, error) {
 	return filepath.Join(dir, "kindest.yaml"), nil
 }
 
-func resolveDockerfile(manifestPath string, spec *KindestSpec) (string, error) {
+func resolveDockerfile(manifestPath string, dockerfilePath string, contextPath string) (string, error) {
 	rootDir := filepath.Dir(manifestPath)
-	dockerfilePath := filepath.Clean(filepath.Join(rootDir, spec.Build.Docker.Dockerfile))
-	contextPath := filepath.Clean(filepath.Join(rootDir, spec.Build.Docker.Context))
+	dockerfilePath = filepath.Clean(filepath.Join(rootDir, dockerfilePath))
+	contextPath = filepath.Clean(filepath.Join(rootDir, contextPath))
 	dockerfileParts := strings.Split(dockerfilePath, "/")
 	contextParts := strings.Split(contextPath, "/")
 	var n int
@@ -151,7 +151,7 @@ func BuildEx(
 	options *BuildOptions,
 	cli client.APIClient,
 	pool *tunny.Pool,
-	respHandler func(io.ReadCloser),
+	respHandler func(io.ReadCloser) error,
 ) error {
 	spec, manifestPath, err := loadSpec(options.File)
 	if err != nil {
@@ -164,6 +164,14 @@ func BuildEx(
 		options,
 		cli,
 		pool,
+	); err != nil {
+		return err
+	}
+	if err := spec.Build.Build(
+		manifestPath,
+		options,
+		cli,
+		respHandler,
 	); err != nil {
 		return err
 	}
@@ -202,7 +210,8 @@ func BuildEx(
 	}
 	resolvedDockerfile, err := resolveDockerfile(
 		manifestPath,
-		spec,
+		spec.Build.Docker.Dockerfile,
+		spec.Build.Docker.Context,
 	)
 	if err != nil {
 		return err
@@ -221,9 +230,10 @@ func BuildEx(
 	if err != nil {
 		return err
 	}
-
 	if respHandler != nil {
-		respHandler(resp.Body)
+		if err := respHandler(resp.Body); err != nil {
+			return err
+		}
 	} else {
 		termFd, isTerm := term.GetFdInfo(os.Stderr)
 		if err := jsonmessage.DisplayJSONMessagesStream(

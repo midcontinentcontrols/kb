@@ -266,7 +266,7 @@ CMD ["cat", "/message"]`
 	var isUsingCache int32
 	pool = tunny.NewFunc(runtime.NumCPU(), func(payload interface{}) interface{} {
 		options := payload.(*BuildOptions)
-		return BuildEx(options, cli, pool, func(r io.ReadCloser) {
+		return BuildEx(options, cli, pool, func(r io.ReadCloser) error {
 			rd := bufio.NewReader(r)
 			for {
 				message, err := rd.ReadString('\n')
@@ -283,6 +283,7 @@ CMD ["cat", "/message"]`
 					atomic.StoreInt32(&isUsingCache, 1)
 				}
 			}
+			return nil
 		})
 	})
 	defer pool.Close()

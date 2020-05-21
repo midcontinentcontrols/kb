@@ -1,9 +1,22 @@
 package kindest
 
 import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"os/user"
 	"path/filepath"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/docker/docker/pkg/term"
+	"github.com/google/uuid"
+	"github.com/jhoonb/archivex"
+	"go.uber.org/zap"
 )
 
 type DockerBuildArg struct {
@@ -61,6 +74,122 @@ func (b *BuildSpec) Verify(manifestPath string) error {
 		return nil
 	}
 	return fmt.Errorf("missing build spec")
+}
+
+func (b *BuildSpec) Build(
+	manifestPath string,
+	options *BuildOptions,
+	cli client.APIClient,
+	respHandler func(io.ReadCloser) error,
+) error {
+	docker := b.Docker
+	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), docker.Context))
+	u, err := user.Current()
+	if err != nil {
+		return err
+	}
+	tmpDir := filepath.Join(u.HomeDir, ".kindest/tmp")
+	if err := os.MkdirAll(tmpDir, 0766); err != nil {
+		return err
+	}
+	ctxPath := filepath.Join(tmpDir, fmt.Sprintf("build-context-%s.tar", uuid.New().String()))
+	tag := options.Tag
+	if tag == "" {
+		tag = "latest"
+	}
+	tag = fmt.Sprintf("%s:%s", b.Name, tag)
+	log.Info("Building",
+		zap.String("tag", tag),
+		zap.Bool("noCache", options.NoCache))
+	tar := new(archivex.TarFile)
+	tar.Create(ctxPath)
+	tar.AddAll(contextPath, false)
+	tar.Close()
+	defer os.Remove(ctxPath)
+	dockerBuildContext, err := os.Open(ctxPath)
+	if err != nil {
+		return err
+	}
+	defer dockerBuildContext.Close()
+	buildArgs := make(map[string]*string)
+	for _, arg := range docker.BuildArgs {
+		buildArgs[arg.Name] = &arg.Value
+	}
+	resolvedDockerfile, err := resolveDockerfile(
+		manifestPath,
+		docker.Dockerfile,
+		docker.Context,
+	)
+	if err != nil {
+		return err
+	}
+	resp, err := cli.ImageBuild(
+		context.TODO(),
+		dockerBuildContext,
+		types.ImageBuildOptions{
+			NoCache:    options.NoCache,
+			Dockerfile: resolvedDockerfile,
+			BuildArgs:  buildArgs,
+			Squash:     options.Squash,
+			Tags:       []string{tag},
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if respHandler != nil {
+		if err := respHandler(resp.Body); err != nil {
+			return err
+		}
+	} else {
+		termFd, isTerm := term.GetFdInfo(os.Stderr)
+		if err := jsonmessage.DisplayJSONMessagesStream(
+			resp.Body,
+			os.Stderr,
+			termFd,
+			isTerm,
+			nil,
+		); err != nil {
+			return err
+		}
+	}
+	if options.Push {
+		log := log.With(zap.String("tag", tag))
+		log.Info("Pushing image")
+		authConfig, err := RegistryAuthFromEnv()
+		if err != nil {
+			return err
+		}
+		log.Info("Using docker credentials from env", zap.String("username", string(authConfig.Username)))
+		authBytes, err := json.Marshal(authConfig)
+		if err != nil {
+			return err
+		}
+		registryAuth := base64.URLEncoding.EncodeToString(authBytes)
+		resp, err := cli.ImagePush(
+			context.TODO(),
+			tag,
+			types.ImagePushOptions{
+				All:          false,
+				RegistryAuth: registryAuth,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		termFd, isTerm := term.GetFdInfo(os.Stderr)
+		if err := jsonmessage.DisplayJSONMessagesStream(
+			resp,
+			os.Stderr,
+			termFd,
+			isTerm,
+			nil,
+		); err != nil {
+			return err
+		}
+		log.Info("Pushed image")
+	}
+	return nil
 }
 
 type ChartSpec struct {
