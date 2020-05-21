@@ -61,6 +61,21 @@ func TestBuildBasic(t *testing.T) {
 	))
 }
 
+func TestBuildErrMissingDockerfile(t *testing.T) {
+	specPath := createBasicTestProject(t, "tmp")
+	rootPath := filepath.Dir(specPath)
+	defer os.RemoveAll(rootPath)
+	require.NoError(t, os.Remove(filepath.Join(rootPath, "Dockerfile")))
+	err := Build(
+		&BuildOptions{
+			File: specPath,
+		},
+		newCLI(t),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing Dockerfile")
+}
+
 func TestBuildCustomDockerfilePath(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)

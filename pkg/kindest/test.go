@@ -29,6 +29,7 @@ type TestSpec struct {
 	Env   EnvSpec   `json:"env,omitempty"`
 }
 
+var ErrMultipleTestEnv = fmt.Errorf("multiple test environments defined")
 var ErrNoTestEnv = fmt.Errorf("no test environment")
 
 func (t *TestSpec) Verify(manifestPath string) error {
@@ -37,7 +38,7 @@ func (t *TestSpec) Verify(manifestPath string) error {
 	}
 	if t.Env.Docker != nil {
 		if t.Env.Kind != nil {
-			return fmt.Errorf("multiple test evironments were specified. You may use either kind or docker, but not both")
+			return ErrMultipleTestEnv
 		}
 		return nil
 	} else if kind := t.Env.Kind; kind != nil {
