@@ -560,6 +560,7 @@ func (t *TestSpec) runKind(
 		}
 		switch pod.Status.Phase {
 		case corev1.PodPending:
+			// TODO: inspect conditions
 			podLog.Info("Still waiting on pod",
 				zap.String("phase", string(pod.Status.Phase)),
 				zap.String("elapsed", time.Now().Sub(start).String()),
