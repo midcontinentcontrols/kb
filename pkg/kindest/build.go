@@ -2,6 +2,8 @@ package kindest
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -28,7 +30,8 @@ type BuildOptions struct {
 	NoCache     bool   `json:"nocache,omitempty"`
 	Squash      bool   `json:"squash,omitempty"`
 	Tag         string `json:"tag,omitempty"`
-	Concurrency int    `json:"concurrency"`
+	Concurrency int    `json:"concurrency,omitempty"`
+	Push        bool   `json:"push,omitempty"`
 }
 
 func buildDependencies(
@@ -129,6 +132,21 @@ func Build(options *BuildOptions, cli client.APIClient) error {
 	return BuildEx(options, cli, pool, nil)
 }
 
+func RegistryAuthFromEnv() (*types.AuthConfig, error) {
+	username, ok := os.LookupEnv("DOCKER_USERNAME")
+	if !ok {
+		return nil, fmt.Errorf("missing DOCKER_USERNAME")
+	}
+	password, ok := os.LookupEnv("DOCKER_PASSWORD")
+	if !ok {
+		return nil, fmt.Errorf("missing DOCKER_PASSWORD")
+	}
+	return &types.AuthConfig{
+		Username: string(username),
+		Password: string(password),
+	}, nil
+}
+
 func BuildEx(
 	options *BuildOptions,
 	cli client.APIClient,
@@ -219,5 +237,70 @@ func BuildEx(
 		}
 	}
 
+	if options.Push {
+		log := log.With(zap.String("tag", tag))
+		log.Info("Pushing image")
+		authConfig, err := RegistryAuthFromEnv()
+		if err != nil {
+			return err
+		}
+		log.Info("Using docker credentials from env", zap.String("username", string(authConfig.Username)))
+		authBytes, err := json.Marshal(authConfig)
+		if err != nil {
+			return err
+		}
+		registryAuth := base64.URLEncoding.EncodeToString(authBytes)
+		resp, err := cli.ImagePush(
+			context.TODO(),
+			tag,
+			types.ImagePushOptions{
+				All:          false,
+				RegistryAuth: registryAuth,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		termFd, isTerm := term.GetFdInfo(os.Stderr)
+		if err := jsonmessage.DisplayJSONMessagesStream(
+			resp,
+			os.Stderr,
+			termFd,
+			isTerm,
+			nil,
+		); err != nil {
+			return err
+		}
+		log.Info("Pushed image")
+	}
+
 	return nil
 }
+
+/*
+func detectErrorMessage(in io.Reader) error {
+	dec := json.NewDecoder(in)
+	for {
+		var jm jsonmessage.JSONMessage
+		if err := dec.Decode(&jm); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		log.Info("Push", zap.String("message", fmt.Sprintf("%+v", jm)))
+		// skip progress message
+		//if jm.Progress == nil {
+		//glog.Infof("%v", jm)
+		//}
+		if jm.Error != nil {
+			return jm.Error
+		}
+
+		if len(jm.ErrorMessage) > 0 {
+			return errors.New(jm.ErrorMessage)
+		}
+	}
+	return nil
+}
+*/
