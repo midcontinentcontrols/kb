@@ -198,7 +198,8 @@ test:
 	))
 	err := Test(
 		&TestOptions{
-			File: specPath,
+			File:      specPath,
+			Transient: true,
 		},
 	)
 	require.NoError(t, err)

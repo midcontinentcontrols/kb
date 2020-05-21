@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"time"
 
 	"k8s.io/client-go/kubernetes"
 
@@ -16,6 +15,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
+	"github.com/google/uuid"
 	"sigs.k8s.io/kind/pkg/cluster"
 
 	"github.com/Jeffail/tunny"
@@ -165,21 +165,23 @@ func (t *TestSpec) runKind(
 	options *TestOptions,
 	cli client.APIClient,
 ) error {
-	name := ""
+	name := "test-" + uuid.New().String()[:8]
 	log := log.With(zap.String("name", name))
+	log.Info("Creating cluster", zap.Bool("transient", options.Transient))
 	provider := cluster.NewProvider()
 	if err := provider.Create(name); err != nil {
 		return err
 	}
 	if options.Transient {
 		defer func() {
+			log.Info("Deleting transient cluster")
 			if err := func() error {
-				timeout := 10 * time.Second
-				container := "kind-" + name
+				//timeout := 10 * time.Second
+				container := name + "-control-plane"
 				if err := cli.ContainerStop(
 					context.TODO(),
 					container,
-					&timeout,
+					nil,
 				); err != nil {
 					return err
 				}
