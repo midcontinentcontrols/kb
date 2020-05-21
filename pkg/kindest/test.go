@@ -1,8 +1,17 @@
 package kindest
 
 import (
+	"bufio"
+	"context"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"runtime"
+	"time"
+
+	"github.com/docker/docker/api/types"
+	containertypes "github.com/docker/docker/api/types/container"
 
 	"github.com/Jeffail/tunny"
 	"github.com/docker/docker/client"
@@ -18,7 +27,42 @@ type TestOptions struct {
 type TestSpec struct {
 	Name  string    `json:"name"`
 	Build BuildSpec `json:"build"`
-	Env   *EnvSpec  `json:"env,omitempty"`
+	Env   EnvSpec   `json:"env,omitempty"`
+}
+
+var ErrNoTestEnv = fmt.Errorf("no test environment")
+
+func (t *TestSpec) Verify(manifestPath string) error {
+	if err := t.Build.Verify(manifestPath); err != nil {
+		return err
+	}
+	if t.Env.Docker != nil {
+		if t.Env.Kind != nil {
+			return fmt.Errorf("multiple test evironments were specified. You may use either kind or docker, but not both")
+		}
+		return nil
+	} else if kind := t.Env.Kind; kind != nil {
+		rootDir := filepath.Dir(manifestPath)
+		for _, resource := range kind.Resources {
+			resourcePath := filepath.Clean(filepath.Join(rootDir, resource))
+			if _, err := os.Stat(resourcePath); err != nil {
+				return fmt.Errorf("test '%s' env: '%s' not found", t.Name, resourcePath)
+			}
+		}
+		for _, chart := range kind.Charts {
+			chartPath := filepath.Join(chart.Path, "Chart.yaml")
+			if _, err := os.Stat(chartPath); err != nil {
+				return fmt.Errorf("test '%s' env chart '%s': missing Chart.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
+			}
+			valuesPath := filepath.Join(chart.Path, "values.yaml")
+			if _, err := os.Stat(valuesPath); err != nil {
+				return fmt.Errorf("test '%s' env chart '%s': missing values.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
+			}
+		}
+	} else {
+		return ErrNoTestEnv
+	}
+	return nil
 }
 
 func (t *TestSpec) Run(
@@ -36,11 +80,96 @@ func (t *TestSpec) Run(
 	); err != nil {
 		return err
 	}
-	if t.Env != nil {
-		for _, variable := range t.Env.Variables {
+	start := time.Now()
+	if t.Env.Docker != nil {
+		resp, err := cli.ContainerCreate(
+			context.TODO(),
+			&containertypes.Config{
+				Image: t.Build.Name + ":latest",
+				Env:   []string{},
+			},
+			nil,
+			nil,
+			"",
+		)
+		if err != nil {
+			return err
 		}
+		container := resp.ID
+		log := log.With(zap.String("test.Name", t.Name))
+		for _, warning := range resp.Warnings {
+			log.Debug("Docker", zap.String("warning", warning))
+		}
+		if err := cli.ContainerStart(
+			context.TODO(),
+			container,
+			types.ContainerStartOptions{},
+		); err != nil {
+			return err
+		}
+		logs, err := cli.ContainerLogs(
+			context.TODO(),
+			container,
+			types.ContainerLogsOptions{
+				Follow:     true,
+				ShowStdout: true,
+				ShowStderr: true,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		rd := bufio.NewReader(logs)
+		for {
+			message, err := rd.ReadString('\n')
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			log.Info(message)
+		}
+		wait := make(chan error)
+		go func() {
+			defer close(wait)
+			wait <- func() error {
+				ch, err := cli.ContainerWait(
+					context.TODO(),
+					container,
+					containertypes.WaitConditionRemoved,
+				)
+				select {
+				case v := <-ch:
+					if v.Error != nil {
+						return fmt.Errorf(v.Error.Message)
+					}
+					if v.StatusCode != 0 {
+						return fmt.Errorf("exit code %d", v.StatusCode)
+					}
+					return nil
+				case err := <-err:
+					return err
+				}
+			}()
+		}()
+		if err := cli.ContainerRemove(
+			context.TODO(),
+			container,
+			types.ContainerRemoveOptions{},
+		); err != nil {
+			return err
+		}
+		if err := <-wait; err != nil {
+			return err
+		}
+		log.Info("Tests completed successfully", zap.String("elapsed", time.Now().Sub(start).String()))
+		return nil
+	} else if t.Env.Kind != nil {
+		return fmt.Errorf("unimplemented")
+	} else {
+		panic("unreachable branch detected")
 	}
-	return nil
 }
 
 var ErrNoTests = fmt.Errorf("no tests configured")

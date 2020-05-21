@@ -49,25 +49,7 @@ func (s *KindestSpec) Validate(manifestPath string) error {
 		}
 	}
 	for _, test := range s.Test {
-		if test.Env != nil {
-			for _, resource := range test.Env.Resources {
-				resourcePath := filepath.Clean(filepath.Join(rootDir, resource))
-				if _, err := os.Stat(resourcePath); err != nil {
-					return fmt.Errorf("test '%s' env: '%s' not found", test.Name, resourcePath)
-				}
-			}
-			for _, chart := range test.Env.Charts {
-				chartPath := filepath.Join(chart.Path, "Chart.yaml")
-				if _, err := os.Stat(chartPath); err != nil {
-					return fmt.Errorf("test '%s' env chart '%s': missing Chart.yaml at '%s'", test.Name, chart.ReleaseName, chartPath)
-				}
-				valuesPath := filepath.Join(chart.Path, "values.yaml")
-				if _, err := os.Stat(valuesPath); err != nil {
-					return fmt.Errorf("test '%s' env chart '%s': missing values.yaml at '%s'", test.Name, chart.ReleaseName, chartPath)
-				}
-			}
-		}
-		if err := test.Build.Verify(manifestPath); err != nil {
+		if err := test.Verify(manifestPath); err != nil {
 			return err
 		}
 	}
