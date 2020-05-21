@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Jeffail/tunny"
@@ -242,14 +243,9 @@ func TestBuildCache(t *testing.T) {
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
-	buildArg := uuid.New().String()
 	dockerfile := `FROM alpine:latest
-ARG BUILD_ARG
-RUN echo '#!/bin/sh' >> /script
-RUN echo 'echo \"${BUILD_ARG}\"' >> /script
-RUN chmod +x /script
-RUN /script
-CMD ["cat", "/script"]`
+RUN echo 'Hello, world!' >> /message
+CMD ["cat", "/message"]`
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(rootPath, "Dockerfile"),
 		[]byte(dockerfile),
@@ -258,25 +254,20 @@ CMD ["cat", "/script"]`
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   name: test/%s
-  docker:
-    buildArgs:
-    - name: BUILD_ARG
-      value: "%s"
-`, name, buildArg)
+  docker: {}
+`, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),
 		0644,
 	))
 	cli := newCLI(t)
-	done := make(chan error, 1)
 	var pool *tunny.Pool
+	var isUsingCache int32
 	pool = tunny.NewFunc(runtime.NumCPU(), func(payload interface{}) interface{} {
 		options := payload.(*BuildOptions)
 		return BuildEx(options, cli, pool, func(r io.ReadCloser) {
-			defer close(done)
 			rd := bufio.NewReader(r)
-			isUsingCache := false
 			for {
 				message, err := rd.ReadString('\n')
 				if err != nil {
@@ -289,18 +280,15 @@ CMD ["cat", "/script"]`
 				require.NoError(t, json.Unmarshal([]byte(message), &msg))
 				log.Info("Docker", zap.String("message", msg.Stream))
 				if strings.Contains(msg.Stream, "Using cache") {
-					isUsingCache = true
+					atomic.StoreInt32(&isUsingCache, 1)
 				}
-			}
-			if !isUsingCache {
-				done <- fmt.Errorf("docker build cache was not used")
-			} else {
-				done <- nil
 			}
 		})
 	})
 	defer pool.Close()
 	err, _ := pool.Process(&BuildOptions{File: specPath}).(error)
 	require.NoError(t, err)
-	require.NoError(t, <-done)
+	err, _ = pool.Process(&BuildOptions{File: specPath}).(error)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), atomic.LoadInt32(&isUsingCache))
 }
