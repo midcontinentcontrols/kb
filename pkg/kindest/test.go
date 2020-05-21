@@ -2,17 +2,51 @@ package kindest
 
 import (
 	"fmt"
+	"runtime"
 
+	"github.com/Jeffail/tunny"
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 )
 
 type TestOptions struct {
-	File string `json:"file,omitempty"`
+	File        string `json:"file,omitempty"`
+	Concurrency int    `json:"concurrency,omitempty"`
+}
+
+type TestSpec struct {
+	Name  string    `json:"name"`
+	Build BuildSpec `json:"build"`
+	Env   *EnvSpec  `json:"env,omitempty"`
+}
+
+func (t *TestSpec) Run(manifestPath string, options *TestOptions) error {
+	return nil
 }
 
 var ErrNoTests = fmt.Errorf("no tests configured")
 
+type testRun struct {
+	test         *TestSpec
+	options      *TestOptions
+	manifestPath string
+}
+
 func Test(options *TestOptions) error {
+	var pool *tunny.Pool
+	concurrency := options.Concurrency
+	if concurrency == 0 {
+		concurrency = runtime.NumCPU()
+	}
+	pool = tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
+		item := payload.(*testRun)
+		return item.test.Run(item.manifestPath, item.options)
+	})
+	defer pool.Close()
+	return TestEx(options, pool)
+}
+
+func TestEx(options *TestOptions, pool *tunny.Pool) error {
 	spec, manifestPath, err := loadSpec(options.File)
 	if err != nil {
 		return err
@@ -21,5 +55,26 @@ func Test(options *TestOptions) error {
 	if len(spec.Test) == 0 {
 		return ErrNoTests
 	}
-	return nil
+	n := len(spec.Test)
+	dones := make([]chan error, n, n)
+	for i, test := range spec.Test {
+		done := make(chan error, 1)
+		dones[i] = done
+		go func(test *TestSpec, done chan<- error) {
+			defer close(done)
+			err, _ := pool.Process(&testRun{
+				manifestPath: manifestPath,
+				test:         test,
+				options:      options,
+			}).(error)
+			done <- err
+		}(test, done)
+	}
+	var multi error
+	for i, done := range dones {
+		if err := <-done; err != nil {
+			multi = multierror.Append(multi, fmt.Errorf("%s: %v", spec.Test[i].Name, err))
+		}
+	}
+	return multi
 }
