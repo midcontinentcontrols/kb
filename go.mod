@@ -32,6 +32,7 @@ require (
 	gopkg.in/yaml.v2 v2.2.8
 	gotest.tools v2.2.0+incompatible // indirect
 	k8s.io/api v0.18.3 // indirect
+	k8s.io/apimachinery v0.18.3
 	k8s.io/client-go v0.0.0-20200520082344-7ab8430bef2c
 	k8s.io/utils v0.0.0-20200520001619-278ece378a50 // indirect
 	sigs.k8s.io/kind v0.8.1

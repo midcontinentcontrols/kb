@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"runtime"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/client-go/kubernetes"
 
 	"k8s.io/client-go/tools/clientcmd"
@@ -150,7 +152,7 @@ func (t *TestSpec) runDocker(
 }
 
 func clientForCluster(name string, provider *cluster.Provider) (*kubernetes.Clientset, error) {
-	kubeConfig, err := provider.KubeConfig(name, true)
+	kubeConfig, err := provider.KubeConfig(name, false)
 	if err != nil {
 		return nil, err
 	}
@@ -197,12 +199,29 @@ func (t *TestSpec) runKind(
 				return nil
 			}(); err != nil {
 				log.Error("Error cleaning up transient cluster", zap.String("message", err.Error()))
+			} else {
+				log.Info("Deleted transient cluster")
 			}
 		}()
 	}
-	_, err := clientForCluster(name, provider)
+	client, err := clientForCluster(name, provider)
 	if err != nil {
 		return err
+	}
+
+	// TODO: create test pod
+
+	log.Info("Listing pods")
+	pods, err := client.CoreV1().Pods("kube-system").List(
+		context.TODO(),
+		metav1.ListOptions{},
+	)
+	if err != nil {
+		return err
+	}
+	log.Info("Listed pods", zap.Int("count", len(pods.Items)))
+	for _, pod := range pods.Items {
+		log.Info("Found pod", zap.String("name", pod.Name))
 	}
 	return nil
 }
