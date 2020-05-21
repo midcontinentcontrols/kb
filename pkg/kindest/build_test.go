@@ -242,9 +242,14 @@ func TestBuildCache(t *testing.T) {
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
+	buildArg := uuid.New().String()
 	dockerfile := `FROM alpine:latest
-RUN echo "Hello, world!" >> /etc/message
-CMD ["cat", "/etc/message"]`
+ARG BUILD_ARG
+RUN echo '#!/bin/sh' >> /script
+RUN echo 'echo \"${BUILD_ARG}\"' >> /script
+RUN chmod +x /script
+RUN /script
+CMD ["cat", "/script"]`
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(rootPath, "Dockerfile"),
 		[]byte(dockerfile),
@@ -253,8 +258,11 @@ CMD ["cat", "/etc/message"]`
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   name: test/%s
-  docker: {}
-`, name)
+  docker:
+    buildArgs:
+    - name: BUILD_ARG
+      value: "%s"
+`, name, buildArg)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),

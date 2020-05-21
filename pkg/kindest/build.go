@@ -194,7 +194,6 @@ func BuildEx(
 		dockerBuildContext,
 		types.ImageBuildOptions{
 			NoCache:    options.NoCache,
-			CacheFrom:  []string{tag},
 			Dockerfile: resolvedDockerfile,
 			BuildArgs:  buildArgs,
 			Squash:     options.Squash,
