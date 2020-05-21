@@ -59,10 +59,10 @@ func (t *TestSpec) Verify(manifestPath string) error {
 				return fmt.Errorf("test '%s' env chart '%s': missing values.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
 			}
 		}
+		return nil
 	} else {
 		return ErrNoTestEnv
 	}
-	return nil
 }
 
 func (t *TestSpec) runDocker(
