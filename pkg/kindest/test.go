@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"time"
 
 	"github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
@@ -69,7 +68,6 @@ func (t *TestSpec) runDocker(
 	options *TestOptions,
 	cli client.APIClient,
 ) error {
-	start := time.Now()
 	resp, err := cli.ContainerCreate(
 		context.TODO(),
 		&containertypes.Config{
@@ -151,7 +149,6 @@ func (t *TestSpec) runDocker(
 	if err := <-wait; err != nil {
 		return err
 	}
-	log.Info("docker env tests completed successfully", zap.String("elapsed", time.Now().Sub(start).String()))
 	return nil
 }
 
