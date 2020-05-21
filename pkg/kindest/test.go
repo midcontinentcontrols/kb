@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	kindexec "sigs.k8s.io/kind/pkg/exec"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -26,6 +27,9 @@ import (
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/google/uuid"
 	"sigs.k8s.io/kind/pkg/cluster"
+	"sigs.k8s.io/kind/pkg/cluster/nodes"
+	"sigs.k8s.io/kind/pkg/cluster/nodeutils"
+	"sigs.k8s.io/kind/pkg/fs"
 
 	"github.com/Jeffail/tunny"
 	"github.com/docker/docker/client"
@@ -313,6 +317,134 @@ var ErrTestFailed = fmt.Errorf("test failed")
 
 var ErrPodTimeout = fmt.Errorf("pod timed out")
 
+// save saves image to dest, as in `docker save`
+func save(image, dest string) error {
+	return exec.Command("docker", "save", "-o", dest, image).Run()
+}
+
+// loads an image tarball onto a node
+func loadImage(imageTarName string, node nodes.Node) error {
+	f, err := os.Open(imageTarName)
+	if err != nil {
+		return fmt.Errorf("failed to open image: %v", err)
+	}
+	defer f.Close()
+	return nodeutils.LoadImageArchive(node, f)
+}
+
+// imageID return the Id of the container image
+func imageID(containerNameOrID string) (string, error) {
+	cmd := kindexec.Command("docker", "image", "inspect",
+		"-f", "{{ .Id }}",
+		containerNameOrID, // ... against the container
+	)
+	lines, err := kindexec.CombinedOutputLines(cmd)
+	if err != nil {
+		return "", err
+	}
+	if len(lines) != 1 {
+		return "", fmt.Errorf("Docker image ID should only be one line, got %d lines", len(lines))
+	}
+	return lines[0], nil
+}
+
+func loadImageOnCluster(name string, imageName string, provider *cluster.Provider) error {
+	imageID, err := imageID(imageName)
+	if err != nil {
+		return fmt.Errorf("image: %q not present locally", imageName)
+	}
+
+	nodeList, err := provider.ListInternalNodes(name)
+	if err != nil {
+		return err
+	}
+	if len(nodeList) == 0 {
+		return fmt.Errorf("no nodes found for cluster %q", name)
+	}
+
+	// map cluster nodes by their name
+	nodesByName := map[string]nodes.Node{}
+	for _, node := range nodeList {
+		// TODO(bentheelder): this depends on the fact that ListByCluster()
+		// will have name for nameOrId.
+		nodesByName[node.String()] = node
+	}
+	candidateNodes := nodeList
+	// pick only the nodes that don't have the image
+	selectedNodes := []nodes.Node{}
+	for _, node := range candidateNodes {
+		id, err := nodeutils.ImageID(node, imageName)
+		if err != nil || id != imageID {
+			selectedNodes = append(selectedNodes, node)
+			//logger.V(0).Infof("Image: %q with ID %q not yet present on node %q, loading...", imageName, imageID, node.String())
+		}
+	}
+	if len(selectedNodes) == 0 {
+		return nil
+	}
+	dir, err := fs.TempDir("", "image-tar")
+	if err != nil {
+		return fmt.Errorf("failed to create tempdir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+	imageTarPath := filepath.Join(dir, "image.tar")
+
+	err = save(imageName, imageTarPath)
+	if err != nil {
+		return err
+	}
+	// Load the image on the selected nodes
+	fns := []func() error{}
+	for _, selectedNode := range selectedNodes {
+		selectedNode := selectedNode // capture loop variable
+		fns = append(fns, func() error {
+			return loadImage(imageTarPath, selectedNode)
+		})
+	}
+	return nil
+}
+
+func waitForCluster(name string, client *kubernetes.Clientset) error {
+	log := log.With(zap.String("name", name))
+	timeout := time.Second * 120
+	delay := time.Second
+	start := time.Now()
+	good := false
+	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); {
+		pods, err := client.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		count := 0
+		for _, pod := range pods.Items {
+			switch pod.Status.Phase {
+			case corev1.PodPending:
+				count++
+			case corev1.PodRunning:
+				continue
+			default:
+				return fmt.Errorf("unexpected pod phase '%s' for %s.%s", pod.Status.Phase, pod.Name, pod.Namespace)
+			}
+		}
+		if count == 0 {
+			good = true
+			break
+		}
+		total := len(pods.Items)
+		log.Info("Waiting on pods in kube-system",
+			zap.Int("numReady", total-count),
+			zap.Int("numPods", total),
+			zap.String("elapsed", time.Now().Sub(start).String()),
+			zap.String("timeout", timeout.String()))
+		time.Sleep(delay)
+	}
+	if !good {
+		return fmt.Errorf("pods in kube-system failed to be Ready within %s", timeout.String())
+	}
+	log.Info("Cluster is running", zap.String("elapsed", time.Now().Sub(start).String()))
+	return nil
+}
+
 func (t *TestSpec) runKind(
 	rootPath string,
 	options *TestOptions,
@@ -368,6 +500,24 @@ func (t *TestSpec) runKind(
 		return err
 	}
 
+	if err := waitForCluster(name, client); err != nil {
+		return err
+	}
+
+	start := time.Now()
+	image := t.Build.Name + ":latest"
+	imageLog := log.With(zap.String("image", image))
+	imageLog.Info("Loading image onto cluster")
+	if err := loadImageOnCluster(
+		name,
+		image,
+		provider,
+	); err != nil {
+		return err
+	}
+	imageLog.Info("Loaded image onto cluster", zap.String("elapsed", time.Now().Sub(start).String()))
+
+	log.Debug("Checking RBAC...")
 	if err := createTestRBAC(client); err != nil {
 		return err
 	}
@@ -397,8 +547,9 @@ func (t *TestSpec) runKind(
 			Spec: corev1.PodSpec{
 				ServiceAccountName: "test",
 				Containers: []corev1.Container{{
-					Name:  t.Name,
-					Image: t.Build.Name + ":latest",
+					Name:            t.Name,
+					Image:           t.Build.Name + ":latest",
+					ImagePullPolicy: corev1.PullNever,
 				}},
 			},
 		},
@@ -412,8 +563,9 @@ func (t *TestSpec) runKind(
 			podLog.Warn("TODO: clean up pod")
 		}()
 	}
-	timeout := 30 * time.Second
+	timeout := 90 * time.Second
 	delay := time.Second
+	start = time.Now()
 	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); {
 		pod, err := pods.Get(
 			context.TODO(),
@@ -425,6 +577,11 @@ func (t *TestSpec) runKind(
 		}
 		switch pod.Status.Phase {
 		case corev1.PodPending:
+			podLog.Info("Still waiting on pod",
+				zap.String("phase", string(pod.Status.Phase)),
+				zap.String("elapsed", time.Now().Sub(start).String()),
+				zap.String("timeout", timeout.String()),
+				zap.String("conditions", fmt.Sprintf("%#v", pod.Status.Conditions)))
 			time.Sleep(delay)
 			continue
 		case corev1.PodRunning:
