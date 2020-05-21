@@ -9,8 +9,13 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"k8s.io/client-go/kubernetes"
+
+	"k8s.io/client-go/tools/clientcmd"
+
 	"github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
+	"sigs.k8s.io/kind/pkg/cluster"
 
 	"github.com/Jeffail/tunny"
 	"github.com/docker/docker/client"
@@ -142,6 +147,39 @@ func (t *TestSpec) runDocker(
 	}
 }
 
+func clientForCluster(name string, provider *cluster.Provider) (*kubernetes.Clientset, error) {
+	kubeConfig, err := provider.KubeConfig(name, true)
+	if err != nil {
+		return nil, err
+	}
+	config, err := clientcmd.RESTConfigFromKubeConfig([]byte(kubeConfig))
+	if err != nil {
+		return nil, err
+	}
+	return kubernetes.NewForConfig(config)
+}
+
+func (t *TestSpec) runKind(
+	options *TestOptions,
+	cli client.APIClient,
+) error {
+	name := ""
+	provider := cluster.NewProvider()
+	if err := provider.Create(name); err != nil {
+		return err
+	}
+	defer func() {
+		if err := provider.Delete(name, ""); err != nil {
+			log.Error("Error deleting cluster", zap.String("message", err.Error()))
+		}
+	}()
+	_, err := clientForCluster(name, provider)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (t *TestSpec) Run(
 	manifestPath string,
 	options *TestOptions,
@@ -160,7 +198,7 @@ func (t *TestSpec) Run(
 	if t.Env.Docker != nil {
 		return t.runDocker(options, cli)
 	} else if t.Env.Kind != nil {
-		return fmt.Errorf("unimplemented")
+		return t.runKind(options, cli)
 	} else {
 		panic("unreachable branch detected")
 	}

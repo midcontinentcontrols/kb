@@ -19,11 +19,11 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4 // indirect
 	github.com/hashicorp/go-multierror v1.1.0
+	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/jhoonb/archivex v0.0.0-20180718040744-0488e4ce1681
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.4.0
 	go.uber.org/zap v1.15.0
@@ -31,4 +31,8 @@ require (
 	golang.org/x/sys v0.0.0-20200519105757-fe76b779f299 // indirect
 	gopkg.in/yaml.v2 v2.2.8
 	gotest.tools v2.2.0+incompatible // indirect
+	k8s.io/api v0.18.3 // indirect
+	k8s.io/client-go v0.0.0-20200520082344-7ab8430bef2c
+	k8s.io/utils v0.0.0-20200520001619-278ece378a50 // indirect
+	sigs.k8s.io/kind v0.8.1
 )
