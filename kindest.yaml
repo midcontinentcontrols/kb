@@ -13,7 +13,7 @@ test:
       docker:
         dockerfile: test/Dockerfile
         #context: "."
-    charts:
-      - path: chart/
-        values: {}
-    
+    env:
+      charts:
+        - path: chart/
+          values: {}

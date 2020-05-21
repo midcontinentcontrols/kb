@@ -5,6 +5,7 @@ import (
 	"runtime"
 
 	"github.com/Jeffail/tunny"
+	"github.com/docker/docker/client"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 )
@@ -20,7 +21,25 @@ type TestSpec struct {
 	Env   *EnvSpec  `json:"env,omitempty"`
 }
 
-func (t *TestSpec) Run(manifestPath string, options *TestOptions) error {
+func (t *TestSpec) Run(
+	manifestPath string,
+	options *TestOptions,
+	cli client.APIClient,
+) error {
+	if err := t.Build.Build(
+		manifestPath,
+		&BuildOptions{
+			Concurrency: 1,
+		},
+		cli,
+		nil,
+	); err != nil {
+		return err
+	}
+	if t.Env != nil {
+		for _, variable := range t.Env.Variables {
+		}
+	}
 	return nil
 }
 
@@ -33,6 +52,10 @@ type testRun struct {
 }
 
 func Test(options *TestOptions) error {
+	cli, err := client.NewEnvClient()
+	if err != nil {
+		return err
+	}
 	var pool *tunny.Pool
 	concurrency := options.Concurrency
 	if concurrency == 0 {
@@ -40,7 +63,7 @@ func Test(options *TestOptions) error {
 	}
 	pool = tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
 		item := payload.(*testRun)
-		return item.test.Run(item.manifestPath, item.options)
+		return item.test.Run(item.manifestPath, item.options, cli)
 	})
 	defer pool.Close()
 	return TestEx(options, pool)
