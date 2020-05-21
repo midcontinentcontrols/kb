@@ -83,7 +83,7 @@ func (b *BuildSpec) Build(
 	if err != nil {
 		return err
 	}
-	tmpDir := filepath.Join(u.HomeDir, ".kindest/tmp")
+	tmpDir := filepath.Join(u.HomeDir, ".kindest", "tmp")
 	if err := os.MkdirAll(tmpDir, 0766); err != nil {
 		return err
 	}
@@ -247,8 +247,8 @@ func resolveDockerfile(manifestPath string, dockerfilePath string, contextPath s
 	rootDir := filepath.Dir(manifestPath)
 	dockerfilePath = filepath.Clean(filepath.Join(rootDir, dockerfilePath))
 	contextPath = filepath.Clean(filepath.Join(rootDir, contextPath))
-	dockerfileParts := strings.Split(dockerfilePath, "/")
-	contextParts := strings.Split(contextPath, "/")
+	dockerfileParts := strings.Split(dockerfilePath, string(os.PathSeparator))
+	contextParts := strings.Split(contextPath, string(os.PathSeparator))
 	var n int
 	if m, o := len(dockerfileParts), len(contextParts); m < 0 {
 		n = m
@@ -262,7 +262,7 @@ func resolveDockerfile(manifestPath string, dockerfilePath string, contextPath s
 		}
 		common++
 	}
-	return filepath.Join(dockerfileParts[common:]...), nil
+	return filepath.ToSlash(filepath.Join(dockerfileParts[common:]...)), nil
 }
 
 func loadSpec(file string) (*KindestSpec, string, error) {
@@ -347,7 +347,7 @@ func BuildEx(
 	if err != nil {
 		return err
 	}
-	tmpDir := filepath.Join(u.HomeDir, ".kindest/tmp")
+	tmpDir := filepath.Join(u.HomeDir, ".kindest", "tmp")
 	if err := os.MkdirAll(tmpDir, 0766); err != nil {
 		return err
 	}
