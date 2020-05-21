@@ -166,3 +166,40 @@ test:
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "exit code 1"))
 }
+
+func TestTestKindEnv(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	dockerfile := `FROM alpine:latest
+CMD ["sh", "-c", "echo 'Hello, world!'"]`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`build:
+  name: test/%s
+  docker: {}
+test:
+  - name: basic
+    env:
+      kind: {}
+    build:
+      name: test/%s-test
+      docker:
+        dockerfile: Dockerfile
+`, name, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	err := Test(
+		&TestOptions{
+			File: specPath,
+		},
+	)
+	require.NoError(t, err)
+}
