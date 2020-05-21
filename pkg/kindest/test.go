@@ -65,6 +65,96 @@ func (t *TestSpec) Verify(manifestPath string) error {
 	return nil
 }
 
+func (t *TestSpec) runDocker(
+	options *TestOptions,
+	cli client.APIClient,
+) error {
+	start := time.Now()
+	resp, err := cli.ContainerCreate(
+		context.TODO(),
+		&containertypes.Config{
+			Image: t.Build.Name + ":latest",
+			Env:   []string{},
+		},
+		nil,
+		nil,
+		"",
+	)
+	if err != nil {
+		return err
+	}
+	container := resp.ID
+	log := log.With(zap.String("test.Name", t.Name))
+	for _, warning := range resp.Warnings {
+		log.Debug("Docker", zap.String("warning", warning))
+	}
+	if err := cli.ContainerStart(
+		context.TODO(),
+		container,
+		types.ContainerStartOptions{},
+	); err != nil {
+		return err
+	}
+	logs, err := cli.ContainerLogs(
+		context.TODO(),
+		container,
+		types.ContainerLogsOptions{
+			Follow:     true,
+			ShowStdout: true,
+			ShowStderr: true,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	rd := bufio.NewReader(logs)
+	for {
+		message, err := rd.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		log.Info(message)
+	}
+	wait := make(chan error)
+	go func() {
+		defer close(wait)
+		wait <- func() error {
+			ch, err := cli.ContainerWait(
+				context.TODO(),
+				container,
+				containertypes.WaitConditionRemoved,
+			)
+			select {
+			case v := <-ch:
+				if v.Error != nil {
+					return fmt.Errorf(v.Error.Message)
+				}
+				if v.StatusCode != 0 {
+					return fmt.Errorf("exit code %d", v.StatusCode)
+				}
+				return nil
+			case err := <-err:
+				return err
+			}
+		}()
+	}()
+	if err := cli.ContainerRemove(
+		context.TODO(),
+		container,
+		types.ContainerRemoveOptions{},
+	); err != nil {
+		return err
+	}
+	if err := <-wait; err != nil {
+		return err
+	}
+	log.Info("docker env tests completed successfully", zap.String("elapsed", time.Now().Sub(start).String()))
+	return nil
+}
+
 func (t *TestSpec) Run(
 	manifestPath string,
 	options *TestOptions,
@@ -80,91 +170,8 @@ func (t *TestSpec) Run(
 	); err != nil {
 		return err
 	}
-	start := time.Now()
 	if t.Env.Docker != nil {
-		resp, err := cli.ContainerCreate(
-			context.TODO(),
-			&containertypes.Config{
-				Image: t.Build.Name + ":latest",
-				Env:   []string{},
-			},
-			nil,
-			nil,
-			"",
-		)
-		if err != nil {
-			return err
-		}
-		container := resp.ID
-		log := log.With(zap.String("test.Name", t.Name))
-		for _, warning := range resp.Warnings {
-			log.Debug("Docker", zap.String("warning", warning))
-		}
-		if err := cli.ContainerStart(
-			context.TODO(),
-			container,
-			types.ContainerStartOptions{},
-		); err != nil {
-			return err
-		}
-		logs, err := cli.ContainerLogs(
-			context.TODO(),
-			container,
-			types.ContainerLogsOptions{
-				Follow:     true,
-				ShowStdout: true,
-				ShowStderr: true,
-			},
-		)
-		if err != nil {
-			return err
-		}
-		rd := bufio.NewReader(logs)
-		for {
-			message, err := rd.ReadString('\n')
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				return err
-			}
-			log.Info(message)
-		}
-		wait := make(chan error)
-		go func() {
-			defer close(wait)
-			wait <- func() error {
-				ch, err := cli.ContainerWait(
-					context.TODO(),
-					container,
-					containertypes.WaitConditionRemoved,
-				)
-				select {
-				case v := <-ch:
-					if v.Error != nil {
-						return fmt.Errorf(v.Error.Message)
-					}
-					if v.StatusCode != 0 {
-						return fmt.Errorf("exit code %d", v.StatusCode)
-					}
-					return nil
-				case err := <-err:
-					return err
-				}
-			}()
-		}()
-		if err := cli.ContainerRemove(
-			context.TODO(),
-			container,
-			types.ContainerRemoveOptions{},
-		); err != nil {
-			return err
-		}
-		if err := <-wait; err != nil {
-			return err
-		}
-		log.Info("Tests completed successfully", zap.String("elapsed", time.Now().Sub(start).String()))
-		return nil
+		return t.runDocker(options, cli)
 	} else if t.Env.Kind != nil {
 		return fmt.Errorf("unimplemented")
 	} else {
