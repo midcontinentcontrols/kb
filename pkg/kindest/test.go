@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 
@@ -26,6 +27,7 @@ import (
 type TestOptions struct {
 	File        string `json:"file,omitempty"`
 	Concurrency int    `json:"concurrency,omitempty"`
+	Transient   bool   `json:"transient,omitempty"`
 }
 
 type TestSpec struct {
@@ -164,15 +166,38 @@ func (t *TestSpec) runKind(
 	cli client.APIClient,
 ) error {
 	name := ""
+	log := log.With(zap.String("name", name))
 	provider := cluster.NewProvider()
 	if err := provider.Create(name); err != nil {
 		return err
 	}
-	defer func() {
-		if err := provider.Delete(name, ""); err != nil {
-			log.Error("Error deleting cluster", zap.String("message", err.Error()))
-		}
-	}()
+	if options.Transient {
+		defer func() {
+			if err := func() error {
+				timeout := 10 * time.Second
+				container := "kind-" + name
+				if err := cli.ContainerStop(
+					context.TODO(),
+					container,
+					&timeout,
+				); err != nil {
+					return err
+				}
+				if err := cli.ContainerRemove(
+					context.TODO(),
+					container,
+					types.ContainerRemoveOptions{
+						Force: true,
+					},
+				); err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				log.Error("Error cleaning up transient cluster", zap.String("message", err.Error()))
+			}
+		}()
+	}
 	_, err := clientForCluster(name, provider)
 	if err != nil {
 		return err
