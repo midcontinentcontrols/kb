@@ -59,10 +59,12 @@ func (b *BuildSpec) verifyDocker(manifestPath string) error {
 	return nil
 }
 
+var ErrMissingImageName = fmt.Errorf("missing image name")
+
 func (b *BuildSpec) Verify(manifestPath string) error {
 	if b.Docker != nil {
 		if b.Name == "" {
-			return fmt.Errorf("missing image name")
+			return ErrMissingImageName
 		}
 		return b.verifyDocker(manifestPath)
 	} else if b.Name == "" {
@@ -323,7 +325,7 @@ func BuildEx(
 	if err != nil {
 		return err
 	}
-	log.Info("Loaded spec", zap.String("path", manifestPath))
+	log.Debug("Loaded spec", zap.String("path", manifestPath))
 	if err := buildDependencies(
 		spec,
 		manifestPath,
@@ -341,115 +343,6 @@ func BuildEx(
 	); err != nil {
 		return err
 	}
-	docker := spec.Build.Docker
-	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), docker.Context))
-	u, err := user.Current()
-	if err != nil {
-		return err
-	}
-	tmpDir := filepath.Join(u.HomeDir, ".kindest", "tmp")
-	if err := os.MkdirAll(tmpDir, 0766); err != nil {
-		return err
-	}
-	ctxPath := filepath.Join(tmpDir, fmt.Sprintf("build-context-%s.tar", uuid.New().String()))
-	tag := "latest"
-	if options.Tag != "" {
-		tag = options.Tag
-	}
-	tag = fmt.Sprintf("%s:%s", spec.Build.Name, tag)
-	log.Info("Building",
-		zap.String("tag", tag),
-		zap.Bool("noCache", options.NoCache))
-	tar := new(archivex.TarFile)
-	tar.Create(ctxPath)
-	tar.AddAll(contextPath, false)
-	tar.Close()
-	defer os.Remove(ctxPath)
-	dockerBuildContext, err := os.Open(ctxPath)
-	if err != nil {
-		return err
-	}
-	defer dockerBuildContext.Close()
-	buildArgs := make(map[string]*string)
-	for _, arg := range docker.BuildArgs {
-		buildArgs[arg.Name] = &arg.Value
-	}
-	resolvedDockerfile, err := resolveDockerfile(
-		manifestPath,
-		spec.Build.Docker.Dockerfile,
-		spec.Build.Docker.Context,
-	)
-	if err != nil {
-		return err
-	}
-	resp, err := cli.ImageBuild(
-		context.TODO(),
-		dockerBuildContext,
-		types.ImageBuildOptions{
-			NoCache:    options.NoCache,
-			Dockerfile: resolvedDockerfile,
-			BuildArgs:  buildArgs,
-			Squash:     options.Squash,
-			Tags:       []string{tag},
-		},
-	)
-	if err != nil {
-		return err
-	}
-	if respHandler != nil {
-		if err := respHandler(resp.Body); err != nil {
-			return err
-		}
-	} else {
-		termFd, isTerm := term.GetFdInfo(os.Stderr)
-		if err := jsonmessage.DisplayJSONMessagesStream(
-			resp.Body,
-			os.Stderr,
-			termFd,
-			isTerm,
-			nil,
-		); err != nil {
-			return err
-		}
-	}
-
-	if options.Push {
-		log := log.With(zap.String("tag", tag))
-		log.Info("Pushing image")
-		authConfig, err := RegistryAuthFromEnv()
-		if err != nil {
-			return err
-		}
-		log.Info("Using docker credentials from env", zap.String("username", string(authConfig.Username)))
-		authBytes, err := json.Marshal(authConfig)
-		if err != nil {
-			return err
-		}
-		registryAuth := base64.URLEncoding.EncodeToString(authBytes)
-		resp, err := cli.ImagePush(
-			context.TODO(),
-			tag,
-			types.ImagePushOptions{
-				All:          false,
-				RegistryAuth: registryAuth,
-			},
-		)
-		if err != nil {
-			return err
-		}
-		termFd, isTerm := term.GetFdInfo(os.Stderr)
-		if err := jsonmessage.DisplayJSONMessagesStream(
-			resp,
-			os.Stderr,
-			termFd,
-			isTerm,
-			nil,
-		); err != nil {
-			return err
-		}
-		log.Info("Pushed image")
-	}
-
 	return nil
 }
 

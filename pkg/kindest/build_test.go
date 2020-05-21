@@ -92,6 +92,31 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	))
 }
 
+func TestBuildErrMissingName(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte("FROM alpine:latest"),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`build:
+  docker: {}
+`)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	require.Equal(t, ErrMissingImageName, Build(
+		&BuildOptions{File: specPath},
+		newCLI(t),
+	))
+}
+
 func TestBuildErrMissingBuildArg(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
