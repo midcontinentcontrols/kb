@@ -69,6 +69,11 @@ test:
 
 ## Features
 
+### Transient & (TODO) Persistent Clusters
+Test environments may exist either as an ephemeral cluster that is cleaned up when the tests finish or as a long-running cluster that persists between test runs. Persistent clusters are more performant and therefore recommended when running locally.
+
+Currently, only transient clusters are supported. Persistent clusters that allow for rapid iteration of test code will be implemented very soon.
+
 ### TODO: Kubernetes-Native CI
 All of the features of the `kindest` CLI will eventually be made available as a Kubernetes-native DevOps solution. 
 
@@ -77,11 +82,6 @@ Additional work has gone into automatically generating efficient Dockerfiles for
 
 ### TODO: Modular Testing
 A `kindest.yaml` file may define a minimalistic environment for end-to-end testing. The `test.env:` section dictates how the test pod couples with this environment. When a test is ran inside a given environment, it is passed these variables. This allows any module's environment to be used to test its dependencies, which is particularly useful when using transient clusters to test each commit.
-
-### Transient & (TODO) Persistent Clusters
-Test environments may exist either as an ephemeral cluster that is cleaned up when the tests finish or as a long-running cluster that persists between test runs. Persistent clusters are more performant and therefore recommended when running locally.
-
-Currently, only transient clusters are supported. Persistent clusters that allow for rapid iteration of test code will be implemented very soon.
 
 ## Running the Tests
 To run the tests with full console output:
