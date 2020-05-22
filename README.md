@@ -8,10 +8,6 @@ At its core, the `kindest.yaml` file defines how images are built and tested in 
 
 ### kindest.yaml
 ```yaml
-# Name of the Docker image to build. The tag is chosen
-# by kindest, so only specify repo and image.
-name: midcontinentcontrols/my-example-monorepo
-
 # Relative paths to any dependent modules. Building or
 # testing this module will do the same for all deps.
 # These are built/tested concurrently, so it can be more
@@ -20,6 +16,10 @@ dependencies:
   - my-submodule # ./my-submodule/kindest.yaml
 
 build:
+  # Name of the Docker image to build. The tag is chosen
+  # by kindest, so only specify repo and image.
+  name: midcontinentcontrols/example-image
+
   # This module is built by Dockerfile. By default, it
   # will search for a Dockerfile in the same directory
   # as this kindest.yaml. Images may be built using
@@ -67,6 +67,7 @@ test:
   # image will contain source code for all the monorepo's
   # dependencies and be multiple gb in size. 
   build:
+    name: midcontinentcontrols/example-test
     docker:
       dockerfile: test/Dockerfile
 
@@ -82,17 +83,31 @@ test:
 
 ## Features
 
-### Automatic Dockerfile Generation
+### TODO: Automatic Dockerfile Generation
 Additional work has gone into automatically generating efficient Dockerfiles for golang and Rust projects. These improvements automatically reduce the size of the build context.
 
-### Modular Testing
+### TODO: Modular Testing
 A `kindest.yaml` file may define a minimalistic environment for end-to-end testing. The `test.env:` section dictates how the test pod couples with this environment. When a test is ran inside a given environment, it is passed these variables. This allows any module's environment to be used to test its dependencies, which is particularly useful when using transient clusters to test each commit.
 
-### Transient & Persistent Clusters
+### Transient & (TODO) Persistent Clusters
 Test environments may exist either as an ephemeral cluster that is cleaned up when the tests finish or as a long-running cluster that persists between test runs. Persistent clusters are more performant and therefore recommended when running locally.
+
+Currently, only transient clusters are supported.
+
+## Running the Tests
+To run the tests with full console output:
+```
+cd pkg/kindest
+go test -v
+```
+
+## Docker Desktop Resource Limits
+**The default resource limits for Docker Desktop appear insufficient to run the tests.** If this occurs, you will encounter [kind#1437](https://github.com/kubernetes-sigs/kind/issues/1437#issuecomment-602975739). Configure Docker with 4gb of both memory and swap just to be safe.
 
 ## Security
 Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kindest. Open source developers in particular should consider the risks of using kindest with their community CI and take appropriate mitigating measures. 
+
+
 
 ## License
 Copyright (c) Mid Continent Controls, Inc. 2020
