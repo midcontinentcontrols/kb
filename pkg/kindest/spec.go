@@ -27,7 +27,7 @@ type EnvSpec struct {
 
 type ChartSpec struct {
 	ReleaseName string                 `json:"releaseName"`
-	Path        string                 `json:"path"`
+	Name        string                 `json:"Name"`
 	Values      map[string]interface{} `json:"values,omitempty"`
 }
 
