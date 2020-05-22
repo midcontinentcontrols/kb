@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -549,6 +550,7 @@ func (t *TestSpec) runKind(
 	timeout := 90 * time.Second
 	delay := time.Second
 	start = time.Now()
+	scheduled := false
 	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); {
 		pod, err := pods.Get(
 			context.TODO(),
@@ -560,12 +562,26 @@ func (t *TestSpec) runKind(
 		}
 		switch pod.Status.Phase {
 		case corev1.PodPending:
-			// TODO: inspect conditions
+			if !scheduled {
+				for _, condition := range pod.Status.Conditions {
+					if condition.Status == "PodScheduled" {
+						deadline = time.Now().Add(30 * time.Second)
+						scheduled = true
+					}
+				}
+			}
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.State.Waiting != nil {
+					if strings.Contains(status.State.Waiting.Reason, "Err") {
+						return fmt.Errorf("pod failed with '%s'", status.State.Waiting.Reason)
+					}
+				}
+			}
 			podLog.Info("Still waiting on pod",
 				zap.String("phase", string(pod.Status.Phase)),
+				zap.Bool("scheduled", scheduled),
 				zap.String("elapsed", time.Now().Sub(start).String()),
-				zap.String("timeout", timeout.String()),
-				zap.String("conditions", fmt.Sprintf("%#v", pod.Status.Conditions)))
+				zap.String("timeout", timeout.String()))
 			time.Sleep(delay)
 			continue
 		case corev1.PodRunning:
