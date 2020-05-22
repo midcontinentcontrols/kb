@@ -1,3 +1,4 @@
 cmd/kindest/kindest
 tmp/
 .tmp/
+.vscode/

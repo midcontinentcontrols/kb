@@ -273,3 +273,54 @@ test:
 		},
 	))
 }
+
+func TestTestKindErrManifestNotFound(t *testing.T) {
+}
+
+func TestTestKindErrTestFailure(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	dockerfile := fmt.Sprintf(`FROM alpine:3.11.6
+CMD ["sh", "-c", "sleep 5; exit 1"]`)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	manifest := `apiVersion: v1
+kind: Namespace
+metadata:
+  name: test`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "test.yaml"),
+		[]byte(manifest),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`build:
+  name: test/%s
+  docker: {}
+test:
+  - name: basic
+    env:
+      kind: {}
+    build:
+      name: test/%s-test
+      docker:
+        dockerfile: Dockerfile
+`, name, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	err := Test(
+		&TestOptions{
+			File:      specPath,
+			Transient: true,
+		},
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "basic: test failed")
+}
