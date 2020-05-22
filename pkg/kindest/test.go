@@ -457,7 +457,21 @@ func (t *TestSpec) runKind(
 	provider := cluster.NewProvider()
 	if options.Transient {
 		log.Info("Creating cluster", zap.Bool("transient", options.Transient))
-		if err := provider.Create(name); err != nil {
+		ready := make(chan int, 1)
+		go func() {
+			start := time.Now()
+			for {
+				select {
+				case <-time.After(5 * time.Second):
+					log.Info("Still creating cluster", zap.String("elapsed", time.Now().Sub(start).String()))
+				case <-ready:
+					return
+				}
+			}
+		}()
+		err := provider.Create(name)
+		ready <- 0
+		if err != nil {
 			return err
 		}
 		defer func() {
@@ -531,6 +545,7 @@ func (t *TestSpec) runKind(
 			},
 			Spec: corev1.PodSpec{
 				ServiceAccountName: "test",
+				RestartPolicy:      corev1.RestartPolicyNever,
 				Containers: []corev1.Container{{
 					Name:            t.Name,
 					Image:           t.Build.Name + ":latest",
@@ -572,13 +587,15 @@ func (t *TestSpec) runKind(
 				}
 			}
 			for _, status := range pod.Status.ContainerStatuses {
+				if status.State.Terminated != nil {
+					if code := status.State.Terminated.ExitCode; code != 0 {
+						return fmt.Errorf("pod failed with exit code '%d'", code)
+					}
+					return nil
+				}
 				if status.State.Waiting != nil {
 					if strings.Contains(status.State.Waiting.Reason, "Err") {
 						return fmt.Errorf("pod failed with '%s'", status.State.Waiting.Reason)
-					}
-				} else if status.State.Terminated != nil {
-					if code := status.State.Terminated.ExitCode; code != 0 {
-						return fmt.Errorf("pod failed with exit code '%d'", code)
 					}
 				}
 			}
