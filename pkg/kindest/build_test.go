@@ -189,35 +189,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	))
 }
 
-func TestBuildErrMissingBuildSpec(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
-	defer os.RemoveAll(rootPath)
-	subdir := filepath.Join(rootPath, "subdir")
-	require.NoError(t, os.MkdirAll(subdir, 0766))
-	dockerfile := `FROM alpine:latest
-CMD ["sh", "-c", "echo \"Hello, world\""]`
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(subdir, "Dockerfile"),
-		[]byte(dockerfile),
-		0644,
-	))
-	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`build:
-  name: test/%s
-`, name)
-	require.NoError(t, ioutil.WriteFile(
-		specPath,
-		[]byte(spec),
-		0644,
-	))
-	require.Error(t, ErrMissingBuildSpec, Build(
-		&BuildOptions{File: specPath},
-		newCLI(t),
-	))
-}
-
 func TestBuildErrMissingName(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -229,9 +200,7 @@ func TestBuildErrMissingName(t *testing.T) {
 		0644,
 	))
 	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`build:
-  docker: {}
-`)
+	spec := fmt.Sprintf(`build: {}`)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),

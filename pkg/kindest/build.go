@@ -57,19 +57,11 @@ func (b *BuildSpec) verifyDocker(manifestPath string) error {
 
 var ErrMissingImageName = fmt.Errorf("missing image name")
 
-var ErrMissingBuildSpec = fmt.Errorf("missing build spec")
-
 func (b *BuildSpec) Verify(manifestPath string) error {
-	if b.Docker != nil {
-		if b.Name == "" {
-			return ErrMissingImageName
-		}
-		return b.verifyDocker(manifestPath)
-	} else if b.Name == "" {
-		// No build stage for this module
-		return nil
+	if b.Name == "" {
+		return ErrMissingImageName
 	}
-	return ErrMissingBuildSpec
+	return b.verifyDocker(manifestPath)
 }
 
 func (b *BuildSpec) buildDocker(
