@@ -102,7 +102,9 @@ go test -v
 ```
 
 ## Docker Desktop Resource Limits
-**The default resource limits for Docker Desktop appear insufficient to run the tests.** If this occurs, you will encounter [kind#1437](https://github.com/kubernetes-sigs/kind/issues/1437#issuecomment-602975739). Configure Docker with 4gb of both memory and swap just to be safe.
+**The default resource limits for Docker Desktop appear insufficient to run the tests.** If this occurs, you will encounter [kind#1437](https://github.com/kubernetes-sigs/kind/issues/1437#issuecomment-602975739). Configure Docker with 4gb of both memory and swap just to be safe:
+
+![](docs/images/docker-resources.png)
 
 ## Security
 Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kindest. Open source developers in particular should consider the risks of using kindest with their community CI and take appropriate mitigating measures. 
