@@ -576,6 +576,10 @@ func (t *TestSpec) runKind(
 					if strings.Contains(status.State.Waiting.Reason, "Err") {
 						return fmt.Errorf("pod failed with '%s'", status.State.Waiting.Reason)
 					}
+				} else if status.State.Terminated != nil {
+					if code := status.State.Terminated.ExitCode; code != 0 {
+						return fmt.Errorf("pod failed with exit code '%d'", code)
+					}
 				}
 			}
 			podLog.Info("Still waiting on pod",
@@ -618,7 +622,17 @@ func (t *TestSpec) runKind(
 		default:
 			return fmt.Errorf("unexpected phase '%s'", pod.Status.Phase)
 		}
-		if pod.Status.Phase == corev1.PodSucceeded {
+		if pod, err = pods.Get(
+			context.TODO(),
+			podName,
+			metav1.GetOptions{},
+		); err != nil {
+			return err
+		}
+		if pod.Status.Phase == corev1.PodRunning {
+			time.Sleep(delay)
+			continue
+		} else if pod.Status.Phase == corev1.PodSucceeded {
 			return nil
 		} else if pod.Status.Phase == corev1.PodFailed {
 			return ErrTestFailed
