@@ -111,7 +111,7 @@ func (t *TestSpec) runDocker(
 		"",
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating container: %v", err)
 	}
 	container := resp.ID
 	log := log.With(zap.String("test.Name", t.Name))
@@ -123,7 +123,7 @@ func (t *TestSpec) runDocker(
 		container,
 		types.ContainerStartOptions{},
 	); err != nil {
-		return err
+		return fmt.Errorf("error starting container: %v", err)
 	}
 	logs, err := cli.ContainerLogs(
 		context.TODO(),
@@ -135,7 +135,7 @@ func (t *TestSpec) runDocker(
 		},
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting logs: %v", err)
 	}
 	rd := bufio.NewReader(logs)
 	for {
@@ -156,7 +156,13 @@ func (t *TestSpec) runDocker(
 	select {
 	case v := <-ch:
 		if v.Error != nil {
-			return fmt.Errorf(v.Error.Message)
+			if strings.Contains(v.Error.Message, "No such container") {
+				// Container exited and was cleaned up before we could
+				// wait on its termination. This is also a success
+				// condition.
+				return nil
+			}
+			return fmt.Errorf("error waiting for container: %v", v.Error.Message)
 		}
 		if v.StatusCode != 0 {
 			return fmt.Errorf("exit code %d", v.StatusCode)
