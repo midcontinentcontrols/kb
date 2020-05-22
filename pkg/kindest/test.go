@@ -12,7 +12,15 @@ import (
 	"strings"
 	"time"
 
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/downloader"
+
+	action "helm.sh/helm/v3/pkg/action"
+	helmcli "helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/cli/values"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/helm/pkg/downloader"
 	kinderrors "sigs.k8s.io/kind/pkg/errors"
 	kindexec "sigs.k8s.io/kind/pkg/exec"
 
@@ -447,13 +455,90 @@ func waitForCluster(name string, client *kubernetes.Clientset) error {
 	return nil
 }
 
+// isChartInstallable validates if a chart can be installed
+//
+// Application chart type is only installable
+func isChartInstallable(ch *chart.Chart) (bool, error) {
+	switch ch.Metadata.Type {
+	case "", "application":
+		return true, nil
+	}
+	return false, errors.Errorf("%s charts are not installable", ch.Metadata.Type)
+}
+
+func (t *TestSpec) installChart(
+	clusterName string,
+	rootPath string,
+	options *TestOptions,
+	chart string,
+) error {
+	log.Info("Installing chart", zap.String("name", chart))
+	env := helmcli.New()
+	cfg := &action.Configuration{}
+	client := action.NewInstall(cfg)
+	cp, err := client.ChartPathOptions.LocateChart(chart, env)
+	if err != nil {
+		return err
+	}
+	chartRequested, err := loader.Load(cp)
+	if err != nil {
+		return err
+	}
+	valueOpts := &values.Options{}
+	validInstallableChart, err := isChartInstallable(chartRequested)
+	if !validInstallableChart {
+		return nil, err
+	}
+	if chartRequested.Metadata.Deprecated {
+		log.Warn("Chart is deprecated", zap.String("name", chart))
+	}
+	if req := chartRequested.Metadata.Dependencies; req != nil {
+		// If CheckDependencies returns an error, we have unfulfilled dependencies.
+		// As of Helm 2.4.0, this is treated as a stopping condition:
+		// https://github.com/helm/helm/issues/2209
+		if err := action.CheckDependencies(chartRequested, req); err != nil {
+			if client.DependencyUpdate {
+				man := &downloader.Manager{
+					Out:              out,
+					ChartPath:        cp,
+					Keyring:          client.ChartPathOptions.Keyring,
+					SkipUpdate:       false,
+					Getters:          p,
+					RepositoryConfig: settings.RepositoryConfig,
+					RepositoryCache:  settings.RepositoryCache,
+					Debug:            settings.Debug,
+				}
+				if err := man.Update(); err != nil {
+					return nil, err
+				}
+				// Reload the chart with the updated Chart.lock file.
+				if chartRequested, err = loader.Load(cp); err != nil {
+					return nil, errors.Wrap(err, "failed reloading chart after repo update")
+				}
+			} else {
+				return nil, err
+			}
+		}
+	}
+	return client.Run(chartRequested, valueOpts)
+}
+
 func (t *TestSpec) installCharts(
 	name string,
 	rootPath string,
 	options *TestOptions,
 	cli client.APIClient,
 ) error {
-	log.Info("TODO: install charts")
+	for _, chart := range t.Env.Kind.Charts {
+		if err := t.installChart(
+			name,
+			rootPath,
+			options,
+			chart,
+		); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
