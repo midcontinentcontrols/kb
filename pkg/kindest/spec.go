@@ -33,13 +33,15 @@ type ChartSpec struct {
 
 type KindestSpec struct {
 	Dependencies []string    `json:"dependencies,omitempty"`
-	Build        BuildSpec   `json:"build"`
+	Build        *BuildSpec  `json:"build"`
 	Test         []*TestSpec `json:"test,omitempty"`
 }
 
 func (s *KindestSpec) Validate(manifestPath string) error {
-	if err := s.Build.Verify(manifestPath); err != nil {
-		return err
+	if s.Build != nil {
+		if err := s.Build.Verify(manifestPath); err != nil {
+			return err
+		}
 	}
 	rootDir := filepath.Dir(manifestPath)
 	for i, dep := range s.Dependencies {

@@ -61,6 +61,88 @@ func TestBuildBasic(t *testing.T) {
 	))
 }
 
+func TestBuildErrDependencyBuildFailure(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
+	dockerfile := `FROM alpine:latest
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`dependencies: ["dep"]
+build:
+  name: test/%s
+  docker: {}`, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	depPath := filepath.Join(rootPath, "dep")
+	require.NoError(t, os.MkdirAll(depPath, 0766))
+	depSpec := fmt.Sprintf(`
+build:
+  name: test/%s-dep
+  docker: {}`, name)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(depPath, "kindest.yaml"),
+		[]byte(depSpec),
+		0644,
+	))
+	depDockerfile := `FROM alpine:latest
+RUN exit 1`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(depPath, "Dockerfile"),
+		[]byte(depDockerfile),
+		0644,
+	))
+	err := Build(
+		&BuildOptions{
+			File: specPath,
+		},
+		newCLI(t),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "dependency 'dep': The command '/bin/sh -c exit 1' returned a non-zero code: 1")
+}
+
+func TestBuildErrMissingDependencySpec(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
+	dockerfile := `FROM alpine:latest
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`dependencies: ["dep"]
+build:
+  name: test/%s
+  docker: {}`, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	err := Build(
+		&BuildOptions{
+			File: specPath,
+		},
+		newCLI(t),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "dependency 0: missing kindest.yaml")
+}
+
 func TestBuildErrMissingDockerfile(t *testing.T) {
 	specPath := createBasicTestProject(t, "tmp")
 	rootPath := filepath.Dir(specPath)
@@ -102,6 +184,35 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		0644,
 	))
 	require.NoError(t, Build(
+		&BuildOptions{File: specPath},
+		newCLI(t),
+	))
+}
+
+func TestBuildErrMissingBuildSpec(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
+	subdir := filepath.Join(rootPath, "subdir")
+	require.NoError(t, os.MkdirAll(subdir, 0766))
+	dockerfile := `FROM alpine:latest
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(subdir, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`build:
+  name: test/%s
+`, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	require.Error(t, ErrMissingBuildSpec, Build(
 		&BuildOptions{File: specPath},
 		newCLI(t),
 	))
@@ -250,6 +361,52 @@ build:
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),
+		0644,
+	))
+	depDockerfile := `FROM alpine:latest
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+	depPath := filepath.Join(rootPath, "dep")
+	require.NoError(t, os.MkdirAll(depPath, 0766))
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(depPath, "Dockerfile"),
+		[]byte(depDockerfile),
+		0644,
+	))
+	depSpec := fmt.Sprintf(`build:
+  name: test/%s
+  docker: {}
+`, depName)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(depPath, "kindest.yaml"),
+		[]byte(depSpec),
+		0644,
+	))
+	require.NoError(t, Build(
+		&BuildOptions{
+			File: specPath,
+		},
+		newCLI(t),
+	))
+}
+
+func TestBuildDependencyModule(t *testing.T) {
+	depName := "test-" + uuid.New().String()[:8]
+	name := "test-" + uuid.New().String()[:8]
+	log.Info("Building dep test", zap.String("depName", depName), zap.String("name", name))
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	// Use the dependency as a base image
+	dockerfile := fmt.Sprintf(`FROM test/%s:latest
+CMD ["sh", "-c", "echo \"Hello again, world\""]`, depName)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(`dependencies: ["dep"]`),
 		0644,
 	))
 	depDockerfile := `FROM alpine:latest

@@ -27,7 +27,7 @@ func TestTestPass(t *testing.T) {
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	dockerfile := `FROM alpine:latest
-CMD ["sh", "-c", "echo \"Hello, world\""]`
+CMD ["sh", "-c", "set -eu; echo $MESSAGE"]`
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(rootPath, "Dockerfile"),
 		[]byte(dockerfile),
@@ -40,6 +40,9 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 test:
   - name: basic
     env:
+      variables:
+        - name: MESSAGE
+          value: "It works!"
       docker: {}
     build:
       name: midcontinentcontrols/kindest-basic-test

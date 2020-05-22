@@ -61,6 +61,8 @@ func (b *BuildSpec) verifyDocker(manifestPath string) error {
 
 var ErrMissingImageName = fmt.Errorf("missing image name")
 
+var ErrMissingBuildSpec = fmt.Errorf("missing build spec")
+
 func (b *BuildSpec) Verify(manifestPath string) error {
 	if b.Docker != nil {
 		if b.Name == "" {
@@ -68,12 +70,13 @@ func (b *BuildSpec) Verify(manifestPath string) error {
 		}
 		return b.verifyDocker(manifestPath)
 	} else if b.Name == "" {
+		// No build stage for this module
 		return nil
 	}
-	return fmt.Errorf("missing build spec")
+	return ErrMissingBuildSpec
 }
 
-func (b *BuildSpec) Build(
+func (b *BuildSpec) buildDocker(
 	manifestPath string,
 	options *BuildOptions,
 	cli client.APIClient,
@@ -186,6 +189,23 @@ func (b *BuildSpec) Build(
 		}
 		log.Info("Pushed image")
 	}
+	return nil
+}
+func (b *BuildSpec) Build(
+	manifestPath string,
+	options *BuildOptions,
+	cli client.APIClient,
+	respHandler func(io.ReadCloser) error,
+) error {
+	if b.Docker != nil {
+		return b.buildDocker(
+			manifestPath,
+			options,
+			cli,
+			respHandler,
+		)
+	}
+	// Dependency-only module
 	return nil
 }
 
@@ -335,13 +355,15 @@ func BuildEx(
 	); err != nil {
 		return err
 	}
-	if err := spec.Build.Build(
-		manifestPath,
-		options,
-		cli,
-		respHandler,
-	); err != nil {
-		return err
+	if spec.Build != nil {
+		if err := spec.Build.Build(
+			manifestPath,
+			options,
+			cli,
+			respHandler,
+		); err != nil {
+			return err
+		}
 	}
 	return nil
 }
