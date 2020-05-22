@@ -325,5 +325,5 @@ test:
 		},
 	)
 	require.Error(t, err)
-	require.Contains(t, err, ErrTestFailed.Error())
+	require.Contains(t, err.Error(), ErrTestFailed.Error())
 }
