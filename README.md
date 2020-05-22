@@ -84,12 +84,12 @@ Additional work has gone into automatically generating efficient Dockerfiles for
 A `kindest.yaml` file may define a minimalistic environment for end-to-end testing. The `test.env:` section dictates how the test pod couples with this environment. When a test is ran inside a given environment, it is passed these variables. This allows any module's environment to be used to test its dependencies, which is particularly useful when using transient clusters to test each commit.
 
 ## Running the Tests
-To run the tests with full console output:
+The tests aim to be comprehensive. To run them with full console output:
 ```
 cd pkg/kindest
 go test -v -timeout 2h
 ```
-Image pulling and building is part of the test, so the `-timeout` flag is necessary.
+Image pulling and building is part of the tests, so the `-timeout` flag is necessary. `.vscode/settings.json` is intentionally part of this repository in order for VS Code's `Go: Toggle Test Coverage in Current Package` to work correctly.
 
 ## Docker Desktop Resource Limits
 **The default resource limits for Docker Desktop appear insufficient to run the tests.** If this occurs, you will encounter [kind#1437](https://github.com/kubernetes-sigs/kind/issues/1437#issuecomment-602975739). Configure Docker with 4gb of both memory and swap just to be safe:
