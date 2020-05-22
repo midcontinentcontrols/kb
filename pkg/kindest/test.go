@@ -714,7 +714,7 @@ func (t *TestSpec) runKind(
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.State.Terminated != nil {
 					if strings.Contains(status.State.Terminated.Reason, "Err") {
-						return fmt.Errorf("pod terminated with reason '%v'", status.State.Terminated.Reason)
+						return ErrTestFailed
 					}
 				}
 			}
@@ -752,6 +752,8 @@ func (t *TestSpec) runKind(
 		} else if pod.Status.Phase == corev1.PodSucceeded {
 			return nil
 		} else if pod.Status.Phase == corev1.PodFailed {
+			// This should NOT happen. Container terminated status
+			// should exist if the phase is Failed.
 			return ErrTestFailed
 		} else {
 			return fmt.Errorf("unexpected pod phase '%s'", pod.Status.Phase)

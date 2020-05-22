@@ -318,12 +318,10 @@ test:
 		[]byte(spec),
 		0644,
 	))
-	err := Test(
+	require.Equal(t, ErrTestFailed, Test(
 		&TestOptions{
 			File:      specPath,
 			Transient: true,
 		},
-	)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "basic: test failed")
+	))
 }
