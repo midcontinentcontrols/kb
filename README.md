@@ -20,9 +20,6 @@ build:
   # by kindest, so only specify repo and image.
   name: midcontinentcontrols/example-image
 
-  # This module is built by Dockerfile. By default, it
-  # will search for a Dockerfile in the same directory
-  # as this kindest.yaml.
   #dockerfile: ./Dockerfile
 
   # Docker build context, relative to kindest.yaml
