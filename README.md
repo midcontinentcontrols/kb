@@ -87,8 +87,9 @@ A `kindest.yaml` file may define a minimalistic environment for end-to-end testi
 To run the tests with full console output:
 ```
 cd pkg/kindest
-go test -v
+go test -v -timeout 2h
 ```
+Image pulling and building is part of the test, so the `-timeout` flag is necessary.
 
 ## Docker Desktop Resource Limits
 **The default resource limits for Docker Desktop appear insufficient to run the tests.** If this occurs, you will encounter [kind#1437](https://github.com/kubernetes-sigs/kind/issues/1437#issuecomment-602975739). Configure Docker with 4gb of both memory and swap just to be safe:
