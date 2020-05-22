@@ -37,7 +37,6 @@ CMD ["sh", "-c", "set -eu; echo $MESSAGE"]`
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   name: test/%s
-  docker: {}
 test:
   - name: basic
     env:
@@ -47,8 +46,7 @@ test:
       docker: {}
     build:
       name: midcontinentcontrols/kindest-basic-test
-      docker:
-        dockerfile: Dockerfile
+      dockerfile: Dockerfile
 `, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
@@ -77,13 +75,11 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   name: test/%s
-  docker: {}
 test:
   - name: basic
     build:
       name: midcontinentcontrols/kindest-basic-test
-      docker:
-        dockerfile: Dockerfile
+      dockerfile: Dockerfile
 `, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
@@ -112,7 +108,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   name: test/%s
-  docker: {}
 test:
   - name: basic
     env:
@@ -120,8 +115,7 @@ test:
       docker: {}
     build:
       name: midcontinentcontrols/kindest-basic-test
-      docker:
-        dockerfile: Dockerfile
+      dockerfile: Dockerfile
 `, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
@@ -150,15 +144,13 @@ CMD ["sh", "-c", "exit 1"]`
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   name: test/%s
-  docker: {}
 test:
   - name: basic
     env:
       docker: {}
     build:
       name: test/%s-test
-      docker:
-        dockerfile: Dockerfile
+      dockerfile: Dockerfile
 `, name, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
@@ -189,15 +181,13 @@ CMD ["sh", "-c", "echo 'Hello, world!'"]`
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   name: test/%s
-  docker: {}
 test:
   - name: basic
     env:
       kind: {}
     build:
       name: test/%s-test
-      docker:
-        dockerfile: Dockerfile
+      dockerfile: Dockerfile
 `, name, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
@@ -258,7 +248,6 @@ metadata:
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   name: test/%s
-  docker: {}
 test:
   - name: basic
     env:
@@ -267,8 +256,7 @@ test:
           - test.yaml
     build:
       name: test/%s-test
-      docker:
-        dockerfile: Dockerfile
+      dockerfile: Dockerfile
 `, name, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
@@ -310,15 +298,13 @@ metadata:
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   name: test/%s
-  docker: {}
 test:
   - name: basic
     env:
       kind: {}
     build:
       name: test/%s-test
-      docker:
-        dockerfile: Dockerfile
+      dockerfile: Dockerfile
 `, name, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
