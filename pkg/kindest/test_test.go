@@ -212,6 +212,7 @@ func TestTestKindApplyResource(t *testing.T) {
 	script := `#!/bin/bash
 set -euo pipefail
 namespace=test-foo
+kubectl get namespace
 if [ -z "$(kubectl get namespace | grep $namespace)" ]; then
 	echo "Namespace '$namespace' not found"
 	exit 1

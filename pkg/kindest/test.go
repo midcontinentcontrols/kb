@@ -590,6 +590,13 @@ func (t *TestSpec) runKind(
 		case corev1.PodSucceeded:
 			fallthrough
 		case corev1.PodFailed:
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.State.Terminated != nil {
+					if strings.Contains(status.State.Terminated.Reason, "Err") {
+						return fmt.Errorf("pod terminated with reason '%v'", status.State.Terminated.Reason)
+					}
+				}
+			}
 			req := pods.GetLogs(podName, &corev1.PodLogOptions{
 				Follow: true,
 			})
@@ -616,7 +623,7 @@ func (t *TestSpec) runKind(
 		} else if pod.Status.Phase == corev1.PodFailed {
 			return ErrTestFailed
 		} else {
-			panic("unreachable branch detected")
+			return fmt.Errorf("unexpected pod phase '%s'", pod.Status.Phase)
 		}
 	}
 	return ErrPodTimeout
