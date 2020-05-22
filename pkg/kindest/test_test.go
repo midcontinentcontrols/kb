@@ -14,7 +14,7 @@ import (
 
 func TestNoTests(t *testing.T) {
 	specPath := createBasicTestProject(t, "tmp")
-	defer os.RemoveAll(filepath.Dir(specPath))
+	defer os.RemoveAll(filepath.Dir(filepath.Dir(specPath)))
 	require.Equal(t, ErrNoTests, Test(
 		&TestOptions{
 			File: specPath,
@@ -26,6 +26,7 @@ func TestTestPass(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
 	dockerfile := `FROM alpine:latest
 CMD ["sh", "-c", "set -eu; echo $MESSAGE"]`
 	require.NoError(t, ioutil.WriteFile(
@@ -65,6 +66,7 @@ func TestErrNoTestEnv(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
 	dockerfile := `FROM alpine:latest
 CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, ioutil.WriteFile(
@@ -99,6 +101,7 @@ func TestErrMultipleTestEnv(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
 	dockerfile := `FROM alpine:latest
 CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, ioutil.WriteFile(
@@ -136,6 +139,7 @@ func TestTestError(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
 	dockerfile := `FROM alpine:latest
 CMD ["sh", "-c", "exit 1"]`
 	require.NoError(t, ioutil.WriteFile(
@@ -174,6 +178,7 @@ func TestTestKindEnv(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
 	dockerfile := `FROM alpine:latest
 CMD ["sh", "-c", "echo 'Hello, world!'"]`
 	require.NoError(t, ioutil.WriteFile(
@@ -212,6 +217,7 @@ func TestTestKindApplyResource(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
 	script := `#!/bin/bash
 set -euo pipefail
 namespace=test
@@ -284,6 +290,7 @@ func TestTestKindErrTestFailure(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
 	dockerfile := fmt.Sprintf(`FROM alpine:3.11.6
 CMD ["sh", "-c", "sleep 5; exit 1"]`)
 	require.NoError(t, ioutil.WriteFile(
