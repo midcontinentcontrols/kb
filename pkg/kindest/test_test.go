@@ -211,7 +211,7 @@ func TestTestKindApplyResource(t *testing.T) {
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	script := `#!/bin/bash
 set -euo pipefail
-namespace=test-foo
+namespace=test
 kubectl get namespace
 if [ -z "$(kubectl get namespace | grep $namespace)" ]; then
 	echo "Namespace '$namespace' not found"
