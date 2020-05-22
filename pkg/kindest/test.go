@@ -447,6 +447,16 @@ func waitForCluster(name string, client *kubernetes.Clientset) error {
 	return nil
 }
 
+func (t *TestSpec) installCharts(
+	name string,
+	rootPath string,
+	options *TestOptions,
+	cli client.APIClient,
+) error {
+	log.Info("TODO: install charts")
+	return nil
+}
+
 func (t *TestSpec) runKind(
 	rootPath string,
 	options *TestOptions,
@@ -529,7 +539,14 @@ func (t *TestSpec) runKind(
 		return err
 	}
 
-	// TODO: install/upgrade helm charts
+	if err := t.installCharts(
+		name,
+		rootPath,
+		options,
+		cli,
+	); err != nil {
+		return err
+	}
 
 	namespace := "default"
 	pods := client.CoreV1().Pods(namespace)
