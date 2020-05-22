@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	kinderrors "sigs.k8s.io/kind/pkg/errors"
 	kindexec "sigs.k8s.io/kind/pkg/exec"
 
 	corev1 "k8s.io/api/core/v1"
@@ -402,7 +403,7 @@ func loadImageOnCluster(name string, imageName string, provider *cluster.Provide
 			return loadImage(imageTarPath, selectedNode)
 		})
 	}
-	return nil
+	return kinderrors.UntilErrorConcurrent(fns)
 }
 
 func waitForCluster(name string, client *kubernetes.Clientset) error {
