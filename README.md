@@ -22,63 +22,40 @@ build:
 
   # This module is built by Dockerfile. By default, it
   # will search for a Dockerfile in the same directory
-  # as this kindest.yaml. Images may be built using
-  # Docker or kaniko, with the former being less secure
-  # but probably more performant.
-  # TODO: describe how to configure kaniko
-  docker: {}
-    #dockerfile: ./Dockerfile
-    #context: .
-    #buildArgs:
-    #  - name: ARG_NAME
-    #    value: ARG_VALUE
+  # as this kindest.yaml.
+  #dockerfile: ./Dockerfile
 
-  # Automatically generates a Dockerfile from a Go module.
-  # Import statements across all source files are recursively
-  # followed, and any module within the monorepo but outside
-  # of this module are added to the build context.
-  # The generated Dockerfile will utilize the monorepo's
-  # dependency cache - particularly useful for speeding up
-  # local development.
-  #go:
-    ## Additionally directories to unconditionally include
-    ## in the build context.
-    #include: []
+  # Docker build context, relative to kindest.yaml
+  #context: .
 
-  # Automatically generates a Dockerfile for a Rust project.
-  # Relative path dependencies within Cargo.toml are recursively
-  # followed, and all modules within the monorepo but outside
-  # of this module are added to the build context.
-  #rust:
-    ## Additionally directories to unconditionally include
-    ## in the build context.
-    #include: []
+  # https://docs.docker.com/engine/reference/commandline/build/
+  #buildArgs:
+  #  - name: ARG_NAME
+  #    value: ARG_VALUE
 
 test:
-  # These charts will be installed/upgraded when the
-  # environment is setup.
-  charts:
-    - releaseName: kindest
-      path: ./charts/kindest # ./charts/kindest/Chart.yaml
-      values: {}
-
   # Tests have a `build` section mirroring the module's.
   # The image is automatically named. Typically, this
   # image will contain source code for all the monorepo's
   # dependencies and be multiple gb in size. 
   build:
     name: midcontinentcontrols/example-test
-    docker:
-      dockerfile: test/Dockerfile
-
-  # List of environment variables that will be passed to
-  # the test pod when the minimal environment is used. When
-  # a parent environment is used, those variables will be
-  # passed instead. Use this to couple the test pod to
-  # the environment.
+    dockerfile: test/Dockerfile
+  
+  # 
   env:
-    - name: EXAMPLE_DEPENDENCY_URI
-      value: http://example-dependency-microservice.default.svc.cluster.local:5000
+    #docker: {}
+    kind:
+      # These charts will be installed/upgraded when the
+      # environment is setup.
+      charts:
+        - releaseName: kindest
+          path: ./charts/kindest # ./charts/kindest/Chart.yaml
+          values: {}
+    # List of environment variables that will be passed to the test container.
+    variables:
+      - name: EXAMPLE_DEPENDENCY_URI
+        value: http://example-dependency-microservice.default.svc.cluster.local:5000
 ```
 
 ## Features

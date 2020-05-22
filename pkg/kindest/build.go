@@ -30,22 +30,18 @@ type DockerBuildArg struct {
 	Value string `json:"value"`
 }
 
-type DockerBuildSpec struct {
+type BuildSpec struct {
+	Name       string            `json:"name"`
 	Dockerfile string            `json:"dockerfile"`
 	Context    string            `json:"context,omitempty"`
 	BuildArgs  []*DockerBuildArg `json:"buildArgs,omitempty"`
 }
 
-type BuildSpec struct {
-	Name   string           `json:"name"`
-	Docker *DockerBuildSpec `json:"docker,omitempty"`
-}
-
 func (b *BuildSpec) verifyDocker(manifestPath string) error {
 	var path string
 	var err error
-	if b.Docker.Dockerfile != "" {
-		path = filepath.Join(filepath.Dir(manifestPath), b.Docker.Dockerfile)
+	if b.Dockerfile != "" {
+		path = filepath.Join(filepath.Dir(manifestPath), b.Dockerfile)
 	} else {
 		path = filepath.Join(filepath.Dir(manifestPath), "Dockerfile")
 	}
@@ -82,8 +78,7 @@ func (b *BuildSpec) buildDocker(
 	cli client.APIClient,
 	respHandler func(io.ReadCloser) error,
 ) error {
-	docker := b.Docker
-	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), docker.Context))
+	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), b.Context))
 	u, err := user.Current()
 	if err != nil {
 		return err
@@ -112,13 +107,13 @@ func (b *BuildSpec) buildDocker(
 	}
 	defer dockerBuildContext.Close()
 	buildArgs := make(map[string]*string)
-	for _, arg := range docker.BuildArgs {
+	for _, arg := range b.BuildArgs {
 		buildArgs[arg.Name] = &arg.Value
 	}
 	resolvedDockerfile, err := resolveDockerfile(
 		manifestPath,
-		docker.Dockerfile,
-		docker.Context,
+		b.Dockerfile,
+		b.Context,
 	)
 	if err != nil {
 		return err
@@ -197,16 +192,12 @@ func (b *BuildSpec) Build(
 	cli client.APIClient,
 	respHandler func(io.ReadCloser) error,
 ) error {
-	if b.Docker != nil {
-		return b.buildDocker(
-			manifestPath,
-			options,
-			cli,
-			respHandler,
-		)
-	}
-	// Dependency-only module
-	return nil
+	return b.buildDocker(
+		manifestPath,
+		options,
+		cli,
+		respHandler,
+	)
 }
 
 type BuildOptions struct {
