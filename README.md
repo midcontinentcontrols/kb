@@ -1,10 +1,10 @@
 # Kindest DevOps for Monorepos
 
-WIP. Expect nothing here to work.
-
 This is a toolchain built on top of [kind](https://github.com/kubernetes-sigs/kind) that aims to reduce the complexity associated with using it as a tool for microservice development. It was born out of necessity to reduce increasing execution times and maintenance overhead of bash scripts that accomplished more or less the same thing.
 
 At its core, the `kindest.yaml` file defines how images are built and tested in a transient Kubernetes cluster running either locally (with Docker daemon) or on another Kubernetes cluster (with some security caveats). The build process is fully parallelized and utilizes caching, so as to bypass redundant work for each submodule when no files have changed. Hooks are exposed for use with CI/CD.
+
+Currently, kindest only runs locally using the Docker daemon. The ultimate goal is a Kubernetes-native DevOps solution. 
 
 ### kindest.yaml
 ```yaml
@@ -41,14 +41,26 @@ test:
   
   # 
   env:
+    # Run the test image locally with Docker.
     #docker: {}
+
+    # Run the test in a Kubernetes environment using KIND.
+    # A transient cluster is created for the sake of running
+    # the tests and is destroyed after they complete.
+    # TODO: implement persistent clusters for rapidly iterating on test code  
     kind:
-      # These charts will be installed/upgraded when the
-      # environment is setup.
+      # List of relative paths to manifests that should be
+      # applied before running tests.
+      resources:
+        - path/to/my_custom_resource_definitions.yaml
+
+      # These charts will be installed/upgraded before the
+      # tests run.
       charts:
         - releaseName: kindest
           path: ./charts/kindest # ./charts/kindest/Chart.yaml
           values: {}
+
     # List of environment variables that will be passed to the test container.
     variables:
       - name: EXAMPLE_DEPENDENCY_URI
@@ -56,6 +68,9 @@ test:
 ```
 
 ## Features
+
+### TODO: Kubernetes-Native CI
+All of the features of the `kindest` CLI will eventually be made available as a Kubernetes-native DevOps solution. 
 
 ### TODO: Automatic Dockerfile Generation
 Additional work has gone into automatically generating efficient Dockerfiles for golang and Rust projects. These improvements automatically reduce the size of the build context.
@@ -66,7 +81,7 @@ A `kindest.yaml` file may define a minimalistic environment for end-to-end testi
 ### Transient & (TODO) Persistent Clusters
 Test environments may exist either as an ephemeral cluster that is cleaned up when the tests finish or as a long-running cluster that persists between test runs. Persistent clusters are more performant and therefore recommended when running locally.
 
-Currently, only transient clusters are supported.
+Currently, only transient clusters are supported. Persistent clusters that allow for rapid iteration of test code will be implemented very soon.
 
 ## Running the Tests
 To run the tests with full console output:
@@ -83,7 +98,8 @@ go test -v
 ## Security
 Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kindest. Open source developers in particular should consider the risks of using kindest with their community CI and take appropriate mitigating measures. 
 
-
+## Contributing
+Please open an issue or email [Tom Havlik](mailto:thavlik@midcontinentcontrols.com) if you would like to contribute or offer feedback. 
 
 ## License
 Copyright (c) Mid Continent Controls, Inc. 2020
