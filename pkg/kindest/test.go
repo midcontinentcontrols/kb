@@ -93,19 +93,20 @@ func (t *TestSpec) Verify(manifestPath string) error {
 func (t *TestSpec) runDocker(
 	options *TestOptions,
 	cli client.APIClient,
-) error {
+) (err error) {
 	var env []string
 	for _, v := range t.Env.Variables {
 		env = append(env, fmt.Sprintf("%s=%s", v.Name, v.Value))
 	}
-	resp, err := cli.ContainerCreate(
+	var resp containertypes.ContainerCreateCreatedBody
+	resp, err = cli.ContainerCreate(
 		context.TODO(),
 		&containertypes.Config{
 			Image: t.Build.Name + ":latest",
 			Env:   env,
 		},
 		&containertypes.HostConfig{
-			AutoRemove: true,
+			//AutoRemove: true,
 		},
 		nil,
 		"",
@@ -115,6 +116,21 @@ func (t *TestSpec) runDocker(
 	}
 	container := resp.ID
 	log := log.With(zap.String("test.Name", t.Name))
+	defer func() {
+		if rmerr := cli.ContainerRemove(
+			context.TODO(),
+			container,
+			types.ContainerRemoveOptions{},
+		); rmerr != nil {
+			if err == nil {
+				err = rmerr
+			} else {
+				log.Error("error removing container",
+					zap.String("id", container),
+					zap.String("message", rmerr.Error()))
+			}
+		}
+	}()
 	for _, warning := range resp.Warnings {
 		log.Debug("Docker", zap.String("warning", warning))
 	}
@@ -151,17 +167,27 @@ func (t *TestSpec) runDocker(
 	ch, e := cli.ContainerWait(
 		context.TODO(),
 		container,
-		containertypes.WaitConditionRemoved,
+		containertypes.WaitConditionNotRunning,
 	)
+	done := make(chan int, 1)
+	go func() {
+		start := time.Now()
+		for {
+			select {
+			case <-time.After(3 * time.Second):
+				log.Info("Still waiting on container", zap.String("elapsed", time.Now().Sub(start).String()))
+			case <-done:
+				return
+			}
+		}
+	}()
+	defer func() {
+		done <- 0
+		close(done)
+	}()
 	select {
 	case v := <-ch:
 		if v.Error != nil {
-			if strings.Contains(v.Error.Message, "No such container") {
-				// Container exited and was cleaned up before we could
-				// wait on its termination. This is also a success
-				// condition.
-				return nil
-			}
 			return fmt.Errorf("error waiting for container: %v", v.Error.Message)
 		}
 		if v.StatusCode != 0 {
@@ -169,7 +195,7 @@ func (t *TestSpec) runDocker(
 		}
 		return nil
 	case err := <-e:
-		return err
+		return fmt.Errorf("error waiting for container: %v", err)
 	}
 }
 
