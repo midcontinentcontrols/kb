@@ -32,9 +32,9 @@ build:
 
 test:
   # Tests have a `build` section mirroring the module's.
-  # The image is automatically named. Typically, this
-  # image will contain source code for all the monorepo's
-  # dependencies and be multiple gb in size. 
+  # Typically, this image will contain source code for all
+  # the repo's dependencies and potentially be multiple gb
+  # in size. 
   build:
     name: midcontinentcontrols/example-test
     dockerfile: test/Dockerfile
