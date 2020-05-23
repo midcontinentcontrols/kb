@@ -39,9 +39,10 @@ test:
     name: midcontinentcontrols/example-test
     dockerfile: test/Dockerfile
   
-  # 
+  # We can specify a minimal environment for running the tests
   env:
-    # Run the test image locally with Docker.
+    # Run the test image locally with Docker. This is useful
+    # for incorporating unit tests into your kindest.yaml
     #docker: {}
 
     # Run the test in a Kubernetes environment using KIND.
