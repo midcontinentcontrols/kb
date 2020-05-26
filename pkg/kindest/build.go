@@ -81,13 +81,23 @@ func (b *BuildSpec) buildDocker(
 	if tag == "" {
 		tag = "latest"
 	}
+	resolvedDockerfile, err := resolveDockerfile(
+		manifestPath,
+		b.Dockerfile,
+		b.Context,
+	)
+	if err != nil {
+		return err
+	}
 	tag = fmt.Sprintf("%s:%s", b.Name, tag)
 	log.Info("Building",
+		zap.String("resolvedDockerfile", resolvedDockerfile),
 		zap.String("context", contextPath),
 		zap.String("tag", tag),
 		zap.Bool("noCache", options.NoCache))
 	tar := new(archivex.TarFile)
 	tar.Create(ctxPath)
+	// TODO: consider .dockerignore
 	tar.AddAll(contextPath, false)
 	tar.Close()
 	defer os.Remove(ctxPath)
@@ -99,14 +109,6 @@ func (b *BuildSpec) buildDocker(
 	buildArgs := make(map[string]*string)
 	for _, arg := range b.BuildArgs {
 		buildArgs[arg.Name] = &arg.Value
-	}
-	resolvedDockerfile, err := resolveDockerfile(
-		manifestPath,
-		b.Dockerfile,
-		b.Context,
-	)
-	if err != nil {
-		return err
 	}
 	resp, err := cli.ImageBuild(
 		context.TODO(),
@@ -247,6 +249,9 @@ func locateSpec(file string) (string, error) {
 }
 
 func resolveDockerfile(manifestPath string, dockerfilePath string, contextPath string) (string, error) {
+	if dockerfilePath == "" {
+		dockerfilePath = "Dockerfile"
+	}
 	rootDir := filepath.Dir(manifestPath)
 	dockerfilePath = filepath.Clean(filepath.Join(rootDir, dockerfilePath))
 	contextPath = filepath.Clean(filepath.Join(rootDir, contextPath))
