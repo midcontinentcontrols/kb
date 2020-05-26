@@ -22,7 +22,7 @@ func TestNoTests(t *testing.T) {
 	))
 }
 
-func TestTestPass(t *testing.T) {
+func TestTestDockerEnv(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
