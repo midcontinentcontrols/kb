@@ -174,8 +174,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   name: test/%s
-  docker:
-    dockerfile: subdir/Dockerfile
+  dockerfile: subdir/Dockerfile
 `, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
