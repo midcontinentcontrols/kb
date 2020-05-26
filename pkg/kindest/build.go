@@ -83,6 +83,7 @@ func (b *BuildSpec) buildDocker(
 	}
 	tag = fmt.Sprintf("%s:%s", b.Name, tag)
 	log.Info("Building",
+		zap.String("context", contextPath),
 		zap.String("tag", tag),
 		zap.Bool("noCache", options.NoCache))
 	tar := new(archivex.TarFile)

@@ -476,6 +476,8 @@ build:
 		0644,
 	))
 	depPath := filepath.Join(rootPath, "dep")
+	subdir := filepath.Join(depPath, "subdir")
+	require.NoError(t, os.MkdirAll(subdir, 0766))
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(depPath, "foo.txt"),
 		[]byte("Hello, world!"),
@@ -484,8 +486,6 @@ build:
 	depDockerfile := `FROM alpine:latest
 COPY dep/foo.txt .
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-	subdir := filepath.Join(depPath, "subdir")
-	require.NoError(t, os.MkdirAll(subdir, 0766))
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(subdir, "Dockerfile"),
 		[]byte(depDockerfile),
