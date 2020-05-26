@@ -405,11 +405,14 @@ func TestBuildDependencyDockerfile(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.Remove(rootPath)
+	fooPath := filepath.Join(rootPath, "foo")
+	require.NoError(t, os.MkdirAll(fooPath, 0766))
 	// Use the dependency as a base image
 	dockerfile := fmt.Sprintf(`FROM test/%s:latest
 CMD ["sh", "-c", "echo \"Hello again, world\""]`, depName)
 	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "Dockerfile"),
+		filepath.Join(fooPath, "Dockerfile"),
 		[]byte(dockerfile),
 		0644,
 	))
@@ -418,6 +421,7 @@ CMD ["sh", "-c", "echo \"Hello again, world\""]`, depName)
   - dep
 build:
   name: test/%s
+  dockerfile: foo/Dockerfile
 `, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
