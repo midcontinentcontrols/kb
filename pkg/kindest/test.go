@@ -641,11 +641,14 @@ func (t *TestSpec) runKubernetes(
 		if err != nil {
 			return err
 		}
+		if err := waitForCluster(client); err != nil {
+			return err
+		}
 		image := t.Build.Name + ":latest"
 		imageLog := log.With(zap.String("image", image))
 		imageLog.Info("Loading image onto cluster")
 		if err := loadImageOnCluster(
-			options.Kind,
+			name,
 			image,
 			provider,
 		); err != nil {
@@ -698,6 +701,9 @@ func (t *TestSpec) runKubernetes(
 		if err != nil {
 			return err
 		}
+		if err := waitForCluster(client); err != nil {
+			return err
+		}
 		image := t.Build.Name + ":latest"
 		imageLog := log.With(zap.String("image", image))
 		imageLog.Info("Loading image onto cluster")
@@ -713,10 +719,6 @@ func (t *TestSpec) runKubernetes(
 		// request a transient cluster. It's unclear where the
 		// user is expecting these tests to run.
 		return ErrUnknownCluster
-	}
-
-	if err := waitForCluster(client); err != nil {
-		return err
 	}
 
 	start := time.Now()
