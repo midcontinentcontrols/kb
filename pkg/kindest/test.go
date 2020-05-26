@@ -641,6 +641,16 @@ func (t *TestSpec) runKubernetes(
 		if err != nil {
 			return err
 		}
+		image := t.Build.Name + ":latest"
+		imageLog := log.With(zap.String("image", image))
+		imageLog.Info("Loading image onto cluster")
+		if err := loadImageOnCluster(
+			options.Kind,
+			image,
+			provider,
+		); err != nil {
+			return err
+		}
 	} else if options.Context != "" {
 		// Use existing kubernetes context from ~/.kube/config
 		var err error
@@ -688,6 +698,16 @@ func (t *TestSpec) runKubernetes(
 		if err != nil {
 			return err
 		}
+		image := t.Build.Name + ":latest"
+		imageLog := log.With(zap.String("image", image))
+		imageLog.Info("Loading image onto cluster")
+		if err := loadImageOnCluster(
+			options.Kind,
+			image,
+			provider,
+		); err != nil {
+			return err
+		}
 	} else {
 		// We didn't specify an existing cluster and we didn't
 		// request a transient cluster. It's unclear where the
@@ -700,22 +720,6 @@ func (t *TestSpec) runKubernetes(
 	}
 
 	start := time.Now()
-
-	// TODO: fix me
-	/*
-
-		image := t.Build.Name + ":latest"
-		imageLog := log.With(zap.String("image", image))
-			imageLog.Info("Loading image onto cluster")
-			if err := loadImageOnCluster(
-				name,
-				image,
-				provider,
-			); err != nil {
-				return err
-			}
-			imageLog.Info("Loaded image onto cluster", zap.String("elapsed", time.Now().Sub(start).String()))
-	*/
 
 	log.Debug("Checking RBAC...")
 	if err := createTestRBAC(client); err != nil {

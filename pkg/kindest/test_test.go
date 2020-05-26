@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/kind/pkg/cluster"
 )
 
 func TestNoTests(t *testing.T) {
@@ -431,4 +432,87 @@ test:
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), fmt.Sprintf("kube context '%s' not found", name))
+}
+
+func TestTestKubernetesCreateKind(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	provider := cluster.NewProvider()
+	defer func() {
+		require.NoError(t, provider.Delete(name, ""))
+	}()
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
+	dockerfile := `FROM alpine:latest
+CMD ["sh", "-c", "echo 'Hello, world!'"]`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`build:
+  name: test/%s
+test:
+  - name: basic
+    env:
+      kubernetes: {}
+    build:
+      name: test/%s-test
+      dockerfile: Dockerfile
+`, name, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	err := Test(
+		&TestOptions{
+			File: specPath,
+			Kind: name,
+		},
+	)
+	require.NoError(t, err)
+}
+
+func TestTestKubernetesExistingKind(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	provider := cluster.NewProvider()
+	require.NoError(t, provider.Create(name))
+	defer func() {
+		require.NoError(t, provider.Delete(name, ""))
+	}()
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
+	dockerfile := `FROM alpine:latest
+CMD ["sh", "-c", "echo 'Hello, world!'"]`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`build:
+  name: test/%s
+test:
+  - name: basic
+    env:
+      kubernetes: {}
+    build:
+      name: test/%s-test
+      dockerfile: Dockerfile
+`, name, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	err := Test(
+		&TestOptions{
+			File: specPath,
+			Kind: name,
+		},
+	)
+	require.NoError(t, err)
 }
