@@ -438,6 +438,16 @@ func TestTestKubernetesCreateKind(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	provider := cluster.NewProvider()
 	defer func() {
+		clusters, err := provider.List()
+		require.NoError(t, err)
+		found := false
+		for _, cluster := range clusters {
+			if cluster == name {
+				found = true
+				break
+			}
+		}
+		require.True(t, found)
 		require.NoError(t, provider.Delete(name, ""))
 	}()
 	rootPath := filepath.Join("tmp", name)
@@ -480,6 +490,16 @@ func TestTestKubernetesExistingKind(t *testing.T) {
 	provider := cluster.NewProvider()
 	require.NoError(t, provider.Create(name))
 	defer func() {
+		clusters, err := provider.List()
+		require.NoError(t, err)
+		found := false
+		for _, cluster := range clusters {
+			if cluster == name {
+				found = true
+				break
+			}
+		}
+		require.True(t, found)
 		require.NoError(t, provider.Delete(name, ""))
 	}()
 	rootPath := filepath.Join("tmp", name)
