@@ -111,7 +111,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 test:
   - name: basic
     env:
-      kind: {}
+      kubernetes: {}
       docker: {}
     build:
       name: midcontinentcontrols/kindest-basic-test
@@ -166,7 +166,7 @@ test:
 	require.True(t, strings.Contains(err.Error(), "exit code 1"))
 }
 
-func TestTestKindEnv(t *testing.T) {
+func TestTestKubernetesEnv(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -184,7 +184,7 @@ CMD ["sh", "-c", "echo 'Hello, world!'"]`
 test:
   - name: basic
     env:
-      kind: {}
+      kubernetes: {}
     build:
       name: test/%s-test
       dockerfile: Dockerfile
@@ -203,7 +203,7 @@ test:
 	require.NoError(t, err)
 }
 
-func TestTestKindApplyResource(t *testing.T) {
+func TestTestKubernetesApplyResource(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -214,7 +214,7 @@ namespace=test
 kubectl get namespace
 if [ -z "$(kubectl get namespace | grep $namespace)" ]; then
 	echo "Namespace '$namespace' not found"
-	exit 1
+	exit 2
 fi
 echo "Manifests were applied correctly!"`
 	require.NoError(t, ioutil.WriteFile(
@@ -251,7 +251,7 @@ metadata:
 test:
   - name: basic
     env:
-      kind:
+      kubernetes:
         resources:
           - test.yaml
     build:
@@ -271,7 +271,7 @@ test:
 	))
 }
 
-func TestTestKindErrTestFailure(t *testing.T) {
+func TestTestKubernetesErrTestFailure(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -298,7 +298,7 @@ metadata:
 test:
   - name: basic
     env:
-      kind: {}
+      kubernetes: {}
     build:
       name: test/%s-test
       dockerfile: Dockerfile
@@ -318,5 +318,5 @@ test:
 	require.Contains(t, err.Error(), ErrTestFailed.Error())
 }
 
-func TestTestKindErrManifestNotFound(t *testing.T) {
+func TestTestKubernetesErrManifestNotFound(t *testing.T) {
 }

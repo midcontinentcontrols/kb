@@ -45,11 +45,10 @@ test:
     # for incorporating unit tests into your kindest.yaml
     #docker: {}
 
-    # Run the test in a Kubernetes environment using KIND.
-    # A transient cluster is created for the sake of running
-    # the tests and is destroyed after they complete.
-    # TODO: implement persistent clusters for rapidly iterating on test code  
-    kind:
+    # Run the test in a Kubernetes environment. The cluster
+    # may be an actual k8s cluster or a KIND cluster running
+    # either locally or inside a pod. 
+    kubernetes:
       # List of relative paths to manifests that should be
       # applied before running tests.
       resources:

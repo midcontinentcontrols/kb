@@ -11,7 +11,7 @@ type EnvVariable struct {
 	Value string `json:"value"`
 }
 
-type KindEnvSpec struct {
+type KubernetesEnvSpec struct {
 	Resources []string     `json:"resources,omitempty"`
 	Charts    []*ChartSpec `json:"charts,omitempty"`
 }
@@ -20,9 +20,9 @@ type DockerEnvSpec struct {
 }
 
 type EnvSpec struct {
-	Kind      *KindEnvSpec   `json:"kind,omitempty"`
-	Docker    *DockerEnvSpec `json:"docker,omitempty"`
-	Variables []*EnvVariable `json:"variables,omitempty"`
+	Kubernetes *KubernetesEnvSpec `json:"kubernetes,omitempty"`
+	Docker     *DockerEnvSpec     `json:"docker,omitempty"`
+	Variables  []*EnvVariable     `json:"variables,omitempty"`
 }
 
 type ChartSpec struct {

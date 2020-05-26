@@ -61,11 +61,11 @@ func (t *TestSpec) Verify(manifestPath string) error {
 		return err
 	}
 	if t.Env.Docker != nil {
-		if t.Env.Kind != nil {
+		if t.Env.Kubernetes != nil {
 			return ErrMultipleTestEnv
 		}
 		return nil
-	} else if kind := t.Env.Kind; kind != nil {
+	} else if kind := t.Env.Kubernetes; kind != nil {
 		rootDir := filepath.Dir(manifestPath)
 		for _, resource := range kind.Resources {
 			resourcePath := filepath.Clean(filepath.Join(rootDir, resource))
@@ -559,7 +559,7 @@ func (t *TestSpec) installCharts(
 	options *TestOptions,
 	cli client.APIClient,
 ) error {
-	for _, chart := range t.Env.Kind.Charts {
+	for _, chart := range t.Env.Kubernetes.Charts {
 		if err := t.installChart(
 			name,
 			rootPath,
@@ -649,7 +649,7 @@ func (t *TestSpec) runKind(
 	if err := applyTestManifests(
 		kubeContext,
 		rootPath,
-		t.Env.Kind.Resources,
+		t.Env.Kubernetes.Resources,
 	); err != nil {
 		return err
 	}
@@ -811,7 +811,7 @@ func (t *TestSpec) Run(
 	}
 	if t.Env.Docker != nil {
 		return t.runDocker(options, cli)
-	} else if t.Env.Kind != nil {
+	} else if t.Env.Kubernetes != nil {
 		return t.runKind(filepath.Dir(manifestPath), options, cli)
 	} else {
 		panic("unreachable branch detected")
