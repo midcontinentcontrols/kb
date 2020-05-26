@@ -21,6 +21,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	"github.com/jhoonb/archivex"
+	"github.com/monochromegane/go-gitignore"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 )
@@ -98,7 +99,16 @@ func (b *BuildSpec) buildDocker(
 	tar := new(archivex.TarFile)
 	tar.Create(ctxPath)
 	// TODO: consider .dockerignore
-	tar.AddAll(contextPath, false)
+	dockerignorePath := filepath.Join(contextPath, ".dockerignore")
+	if _, err := os.Stat(dockerignorePath); err == nil {
+		_, err := gitignore.NewGitIgnore(dockerignorePath, contextPath)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf(".dockerignore is not yet implemented")
+	} else {
+		tar.AddAll(contextPath, false)
+	}
 	tar.Close()
 	defer os.Remove(ctxPath)
 	dockerBuildContext, err := os.Open(ctxPath)

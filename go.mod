@@ -11,6 +11,7 @@ require (
 	github.com/gorilla/mux v1.7.4 // indirect
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/jhoonb/archivex v0.0.0-20180718040744-0488e4ce1681
+	github.com/monochromegane/go-gitignore v0.0.0-20200525100937-58356a36e03f
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.6.0 // indirect
 	github.com/spf13/cobra v1.0.0
