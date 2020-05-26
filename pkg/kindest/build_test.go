@@ -406,6 +406,11 @@ func TestBuildDependencyDockerfile(t *testing.T) {
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.Remove(rootPath)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "foo.txt"),
+		[]byte("Hello, world!"),
+		0644,
+	))
 	fooPath := filepath.Join(rootPath, "foo")
 	require.NoError(t, os.MkdirAll(fooPath, 0766))
 	// Use the dependency as a base image
@@ -429,6 +434,75 @@ build:
 		0644,
 	))
 	depDockerfile := `FROM alpine:latest
+COPY foo.txt .
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+	depPath := filepath.Join(rootPath, "dep")
+	subdir := filepath.Join(depPath, "subdir")
+	require.NoError(t, os.MkdirAll(subdir, 0766))
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(subdir, "Dockerfile"),
+		[]byte(depDockerfile),
+		0644,
+	))
+	depSpec := fmt.Sprintf(`build:
+  name: test/%s
+  dockerfile: subdir/Dockerfile
+  context: ..
+`, depName)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(depPath, "kindest.yaml"),
+		[]byte(depSpec),
+		0644,
+	))
+	require.NoError(t, Build(
+		&BuildOptions{
+			File: specPath,
+		},
+		newCLI(t),
+	))
+}
+
+func TestBuildDockerignore(t *testing.T) {
+	depName := "test-" + uuid.New().String()[:8]
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.Remove(rootPath)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "foo.txt"),
+		[]byte("Hello, world!"),
+		0644,
+	))
+	dockerignore := `foo.txt`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, ".dockerignore"),
+		[]byte(dockerignore),
+		0644,
+	))
+	fooPath := filepath.Join(rootPath, "foo")
+	require.NoError(t, os.MkdirAll(fooPath, 0766))
+	// Use the dependency as a base image
+	dockerfile := fmt.Sprintf(`FROM test/%s:latest
+CMD ["sh", "-c", "echo \"Hello again, world\""]`, depName)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(fooPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`dependencies:
+  - dep
+build:
+  name: test/%s
+  dockerfile: foo/Dockerfile
+`, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	depDockerfile := `FROM alpine:latest
+COPY foo.txt .
 CMD ["sh", "-c", "echo \"Hello, world\""]`
 	depPath := filepath.Join(rootPath, "dep")
 	subdir := filepath.Join(depPath, "subdir")
@@ -447,12 +521,14 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		[]byte(depSpec),
 		0644,
 	))
-	require.NoError(t, Build(
+	err := Build(
 		&BuildOptions{
 			File: specPath,
 		},
 		newCLI(t),
-	))
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "foo.txt: no such file or directory")
 }
 
 func TestBuildDependencyContext(t *testing.T) {

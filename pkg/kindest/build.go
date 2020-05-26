@@ -122,7 +122,7 @@ func (b *BuildSpec) buildDocker(
 					if err != nil {
 						return err
 					}
-					//log.Info("Adding file to build context", zap.String("rel", rel), zap.String("abs", abs))
+					log.Info("Adding file to build context", zap.String("rel", rel), zap.String("abs", abs))
 					if err := tar.Add(rel, f, info); err != nil {
 						return err
 					}
