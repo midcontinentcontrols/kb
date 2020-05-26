@@ -11,7 +11,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/Jeffail/tunny"
 	"github.com/docker/docker/api/types"
@@ -98,18 +97,47 @@ func (b *BuildSpec) buildDocker(
 		zap.Bool("noCache", options.NoCache))
 	tar := new(archivex.TarFile)
 	tar.Create(ctxPath)
-	// TODO: consider .dockerignore
 	dockerignorePath := filepath.Join(contextPath, ".dockerignore")
 	if _, err := os.Stat(dockerignorePath); err == nil {
-		_, err := gitignore.NewGitIgnore(dockerignorePath, contextPath)
+		dockerignore, err := gitignore.NewGitIgnore(dockerignorePath, contextPath)
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf(".dockerignore is not yet implemented")
-	} else {
-		tar.AddAll(contextPath, false)
+		if err := filepath.Walk(contextPath, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if dockerignore.Match(path, info.IsDir()) {
+				if !info.IsDir() {
+					abs, err := filepath.Abs(path)
+					if err != nil {
+						return err
+					}
+					f, err := os.Open(abs)
+					if err != nil {
+						return err
+					}
+					defer f.Close()
+					rel, err := filepath.Rel(contextPath, abs)
+					if err != nil {
+						return err
+					}
+					//log.Info("Adding file to build context", zap.String("rel", rel), zap.String("abs", abs))
+					if err := tar.Add(rel, f, info); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	} else if err := tar.AddAll(contextPath, false); err != nil {
+		return err
 	}
-	tar.Close()
+	if err := tar.Close(); err != nil {
+		return err
+	}
 	defer os.Remove(ctxPath)
 	dockerBuildContext, err := os.Open(ctxPath)
 	if err != nil {
@@ -265,22 +293,11 @@ func resolveDockerfile(manifestPath string, dockerfilePath string, contextPath s
 	rootDir := filepath.Dir(manifestPath)
 	dockerfilePath = filepath.Clean(filepath.Join(rootDir, dockerfilePath))
 	contextPath = filepath.Clean(filepath.Join(rootDir, contextPath))
-	dockerfileParts := strings.Split(dockerfilePath, string(os.PathSeparator))
-	contextParts := strings.Split(contextPath, string(os.PathSeparator))
-	var n int
-	if m, o := len(dockerfileParts), len(contextParts); m < 0 {
-		n = m
-	} else {
-		n = o
+	rel, err := filepath.Rel(contextPath, dockerfilePath)
+	if err != nil {
+		return "", err
 	}
-	var common int
-	for i := 0; i < n; i++ {
-		if dockerfileParts[i] != contextParts[i] {
-			break
-		}
-		common++
-	}
-	return filepath.ToSlash(filepath.Join(dockerfileParts[common:]...)), nil
+	return rel, nil
 }
 
 func loadSpec(file string) (*KindestSpec, string, error) {
