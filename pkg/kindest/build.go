@@ -32,23 +32,21 @@ type DockerBuildArg struct {
 
 type BuildSpec struct {
 	Name       string            `json:"name"`
-	Dockerfile string            `json:"dockerfile"`
+	Dockerfile string            `json:"dockerfile,omitempty"`
 	Context    string            `json:"context,omitempty"`
 	BuildArgs  []*DockerBuildArg `json:"buildArgs,omitempty"`
 }
 
 func (b *BuildSpec) verifyDocker(manifestPath string) error {
 	var path string
-	var err error
 	if b.Dockerfile != "" {
+		log.Info("Using custom Dockerfile path", zap.String("name", b.Name), zap.String("path", path))
 		path = filepath.Join(filepath.Dir(manifestPath), b.Dockerfile)
 	} else {
+		log.Info("Using default Dockerfile path", zap.String("name", b.Name), zap.String("path", path))
 		path = filepath.Join(filepath.Dir(manifestPath), "Dockerfile")
 	}
-	path, err = filepath.Abs(path)
-	if err != nil {
-		return err
-	}
+	path = filepath.Clean(path)
 	if _, err := os.Stat(path); err != nil {
 		return fmt.Errorf("missing Dockerfile at '%s'", path)
 	}
@@ -328,7 +326,7 @@ func BuildEx(
 	if err != nil {
 		return err
 	}
-	log.Debug("Loaded spec", zap.String("path", manifestPath))
+	log.Info("Loaded spec", zap.String("path", manifestPath))
 	if err := buildDependencies(
 		spec,
 		manifestPath,

@@ -17,7 +17,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 func newCLI(t *testing.T) client.APIClient {
@@ -309,7 +308,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 func TestBuildDependency(t *testing.T) {
 	depName := "test-" + uuid.New().String()[:8]
 	name := "test-" + uuid.New().String()[:8]
-	log.Info("Building dep test", zap.String("depName", depName), zap.String("name", name))
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	// Use the dependency as a base image
@@ -361,7 +359,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 func TestBuildDependencyModule(t *testing.T) {
 	depName := "test-" + uuid.New().String()[:8]
 	name := "test-" + uuid.New().String()[:8]
-	log.Info("Building dep test", zap.String("depName", depName), zap.String("name", name))
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	// Use the dependency as a base image
@@ -390,6 +387,57 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	depSpec := fmt.Sprintf(`build:
   name: test/%s
   docker: {}
+`, depName)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(depPath, "kindest.yaml"),
+		[]byte(depSpec),
+		0644,
+	))
+	require.NoError(t, Build(
+		&BuildOptions{
+			File: specPath,
+		},
+		newCLI(t),
+	))
+}
+
+func TestBuildDependencyCustomDockerfilePath(t *testing.T) {
+	depName := "test-" + uuid.New().String()[:8]
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	// Use the dependency as a base image
+	dockerfile := fmt.Sprintf(`FROM test/%s:latest
+CMD ["sh", "-c", "echo \"Hello again, world\""]`, depName)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`dependencies:
+  - dep
+build:
+  name: test/%s
+`, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	depDockerfile := `FROM alpine:latest
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+	depPath := filepath.Join(rootPath, "dep")
+	subdir := filepath.Join(depPath, "subdir")
+	require.NoError(t, os.MkdirAll(subdir, 0766))
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(subdir, "Dockerfile"),
+		[]byte(depDockerfile),
+		0644,
+	))
+	depSpec := fmt.Sprintf(`build:
+  name: test/%s
+  dockerfile: subdir/Dockerfile
 `, depName)
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(depPath, "kindest.yaml"),

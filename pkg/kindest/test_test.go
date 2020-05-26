@@ -271,9 +271,6 @@ test:
 	))
 }
 
-func TestTestKindErrManifestNotFound(t *testing.T) {
-}
-
 func TestTestKindErrTestFailure(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -319,4 +316,7 @@ test:
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), ErrTestFailed.Error())
+}
+
+func TestTestKindErrManifestNotFound(t *testing.T) {
 }
