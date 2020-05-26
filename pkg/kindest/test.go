@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -46,6 +47,7 @@ type TestOptions struct {
 	Concurrency int    `json:"concurrency,omitempty"`
 	Transient   bool   `json:"transient,omitempty"`
 	Context     string `json:"context,omitempty"`
+	Kind        string `json:"kind,omitempty"`
 }
 
 type TestSpec struct {
@@ -182,7 +184,36 @@ func (t *TestSpec) runDocker(
 	}
 }
 
-func clientForCluster(name string, provider *cluster.Provider) (*kubernetes.Clientset, string, error) {
+func buildConfigFromFlags(context, kubeconfigPath string) (*rest.Config, error) {
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
+		&clientcmd.ConfigOverrides{
+			CurrentContext: context,
+		}).ClientConfig()
+}
+
+func homeDir() string {
+	if h := os.Getenv("HOME"); h != "" {
+		return h
+	}
+	return os.Getenv("USERPROFILE") // windows
+}
+
+func clientForContext(context string) (*kubernetes.Clientset, error) {
+	// TODO: in-cluster config
+	kubeConfigPath := filepath.Join(homeDir(), ".kube", "config")
+	config, err := buildConfigFromFlags(context, kubeConfigPath)
+	if err != nil {
+		return nil, err
+	}
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+func clientForKindCluster(name string, provider *cluster.Provider) (*kubernetes.Clientset, string, error) {
 	if err := provider.ExportKubeConfig(name, ""); err != nil {
 		return nil, "", err
 	}
@@ -424,8 +455,7 @@ func loadImageOnCluster(name string, imageName string, provider *cluster.Provide
 	return kinderrors.UntilErrorConcurrent(fns)
 }
 
-func waitForCluster(name string, client *kubernetes.Clientset) error {
-	log := log.With(zap.String("name", name))
+func waitForCluster(client *kubernetes.Clientset) error {
 	timeout := time.Second * 120
 	delay := time.Second
 	start := time.Now()
@@ -557,23 +587,23 @@ func (t *TestSpec) installCharts(
 
 var ErrUnknownCluster = fmt.Errorf("unknown cluster")
 
+func ensureClusterExists(name string) error {
+	return nil
+}
+
 func (t *TestSpec) runKubernetes(
 	rootPath string,
 	options *TestOptions,
 	cli client.APIClient,
 ) error {
-	if options.Context == "" && !options.Transient {
-		// We didn't specify an existing cluster and we didn't
-		// request a transient cluster. It's unclear where the
-		// user is expecting these tests to run.
-		return ErrUnknownCluster
-	}
+	var client *kubernetes.Clientset
+	var kubeContext string
 
-	name := "test-" + uuid.New().String()[:8]
-	log := log.With(zap.String("name", name))
-	provider := cluster.NewProvider()
 	if options.Transient {
-		log.Info("Creating cluster", zap.Bool("transient", options.Transient))
+		name := "test-" + uuid.New().String()[:8]
+		log := log.With(zap.String("name", name))
+		log.Info("Creating transient cluster")
+		provider := cluster.NewProvider()
 		ready := make(chan int, 1)
 		go func() {
 			start := time.Now()
@@ -607,31 +637,85 @@ func (t *TestSpec) runKubernetes(
 				log.Info("Deleted transient cluster")
 			}
 		}()
+		client, kubeContext, err = clientForKindCluster(name, provider)
+		if err != nil {
+			return err
+		}
+	} else if options.Context != "" {
+		// Use existing kubernetes context from ~/.kube/config
+		var err error
+		kubeContext = options.Context
+		client, err = clientForContext(options.Context)
+		if err != nil {
+			return err
+		}
+	} else if options.Kind != "" {
+		provider := cluster.NewProvider()
+		clusters, err := provider.List()
+		if err != nil {
+			return err
+		}
+		exists := false
+		for _, cluster := range clusters {
+			if cluster == options.Kind {
+				exists = true
+				break
+			}
+		}
+		if exists {
+			log.Info("Using existing kind cluster", zap.String("name", options.Kind))
+		} else {
+			log.Info("Creating persistent kind cluster", zap.String("name", options.Kind))
+			ready := make(chan int, 1)
+			go func() {
+				start := time.Now()
+				for {
+					select {
+					case <-time.After(5 * time.Second):
+						log.Info("Still creating cluster", zap.String("elapsed", time.Now().Sub(start).String()))
+					case <-ready:
+						return
+					}
+				}
+			}()
+			err := provider.Create(options.Kind)
+			ready <- 0
+			if err != nil {
+				return err
+			}
+		}
+		client, kubeContext, err = clientForKindCluster(options.Kind, provider)
+		if err != nil {
+			return err
+		}
 	} else {
-		return fmt.Errorf("unimplemented")
+		// We didn't specify an existing cluster and we didn't
+		// request a transient cluster. It's unclear where the
+		// user is expecting these tests to run.
+		return ErrUnknownCluster
 	}
 
-	client, kubeContext, err := clientForCluster(name, provider)
-	if err != nil {
-		return err
-	}
-
-	if err := waitForCluster(name, client); err != nil {
+	if err := waitForCluster(client); err != nil {
 		return err
 	}
 
 	start := time.Now()
-	image := t.Build.Name + ":latest"
-	imageLog := log.With(zap.String("image", image))
-	imageLog.Info("Loading image onto cluster")
-	if err := loadImageOnCluster(
-		name,
-		image,
-		provider,
-	); err != nil {
-		return err
-	}
-	imageLog.Info("Loaded image onto cluster", zap.String("elapsed", time.Now().Sub(start).String()))
+
+	// TODO: fix me
+	/*
+
+		image := t.Build.Name + ":latest"
+		imageLog := log.With(zap.String("image", image))
+			imageLog.Info("Loading image onto cluster")
+			if err := loadImageOnCluster(
+				name,
+				image,
+				provider,
+			); err != nil {
+				return err
+			}
+			imageLog.Info("Loaded image onto cluster", zap.String("elapsed", time.Now().Sub(start).String()))
+	*/
 
 	log.Debug("Checking RBAC...")
 	if err := createTestRBAC(client); err != nil {
@@ -646,14 +730,15 @@ func (t *TestSpec) runKubernetes(
 		return err
 	}
 
-	if err := t.installCharts(
-		name,
-		rootPath,
-		options,
-		cli,
-	); err != nil {
-		return err
-	}
+	// TODO: implement helm charts
+	//if err := t.installCharts(
+	//	name,
+	//	rootPath,
+	//	options,
+	//	cli,
+	//); err != nil {
+	//	return err
+	//}
 
 	namespace := "default"
 	pods := client.CoreV1().Pods(namespace)

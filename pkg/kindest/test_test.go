@@ -394,3 +394,41 @@ test:
 	require.Error(t, err)
 	require.Contains(t, err.Error(), ErrUnknownCluster.Error())
 }
+
+func TestTestKubernetesErrContextNotFound(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
+	dockerfile := fmt.Sprintf(`FROM alpine:3.11.6
+CMD ["sh", "-c", "sleep 5; echo 'All done!'"]`)
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`build:
+  name: test/%s
+test:
+  - name: basic
+    env:
+      kubernetes: {}
+    build:
+      name: test/%s-test
+      dockerfile: Dockerfile
+`, name, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	err := Test(
+		&TestOptions{
+			File:    specPath,
+			Context: name,
+		},
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), fmt.Sprintf("kube context '%s' not found", name))
+}
