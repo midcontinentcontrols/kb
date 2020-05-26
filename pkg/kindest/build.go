@@ -40,13 +40,12 @@ type BuildSpec struct {
 func (b *BuildSpec) verifyDocker(manifestPath string) error {
 	var path string
 	if b.Dockerfile != "" {
-		log.Info("Using custom Dockerfile path", zap.String("name", b.Name), zap.String("path", path))
 		path = filepath.Join(filepath.Dir(manifestPath), b.Dockerfile)
 	} else {
-		log.Info("Using default Dockerfile path", zap.String("name", b.Name), zap.String("path", path))
 		path = filepath.Join(filepath.Dir(manifestPath), "Dockerfile")
 	}
 	path = filepath.Clean(path)
+	log.Info("Resolving Dockerfile", zap.String("name", b.Name), zap.String("path", path))
 	if _, err := os.Stat(path); err != nil {
 		return fmt.Errorf("missing Dockerfile at '%s'", path)
 	}

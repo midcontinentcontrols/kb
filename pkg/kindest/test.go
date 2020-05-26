@@ -555,11 +555,20 @@ func (t *TestSpec) installCharts(
 	return nil
 }
 
-func (t *TestSpec) runKind(
+var ErrUnknownCluster = fmt.Errorf("unknown cluster")
+
+func (t *TestSpec) runKubernetes(
 	rootPath string,
 	options *TestOptions,
 	cli client.APIClient,
 ) error {
+	if options.Context == "" && !options.Transient {
+		// We didn't specify an existing cluster and we didn't
+		// request a transient cluster. It's unclear where the
+		// user is expecting these tests to run.
+		return ErrUnknownCluster
+	}
+
 	name := "test-" + uuid.New().String()[:8]
 	log := log.With(zap.String("name", name))
 	provider := cluster.NewProvider()
@@ -795,7 +804,7 @@ func (t *TestSpec) Run(
 	if t.Env.Docker != nil {
 		return t.runDocker(options, cli)
 	} else if t.Env.Kubernetes != nil {
-		return t.runKind(filepath.Dir(manifestPath), options, cli)
+		return t.runKubernetes(filepath.Dir(manifestPath), options, cli)
 	} else {
 		panic("unreachable branch detected")
 	}
