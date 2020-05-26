@@ -431,7 +431,7 @@ test:
 		},
 	)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), fmt.Sprintf("kube context '%s' not found", name))
+	require.Contains(t, err.Error(), fmt.Sprintf("context \"%s\" does not exist", name))
 }
 
 func TestTestKubernetesCreateKind(t *testing.T) {
