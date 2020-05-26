@@ -45,6 +45,7 @@ type TestOptions struct {
 	File        string `json:"file,omitempty"`
 	Concurrency int    `json:"concurrency,omitempty"`
 	Transient   bool   `json:"transient,omitempty"`
+	Context     string `json:"context,omitempty"`
 }
 
 type TestSpec struct {
@@ -64,27 +65,9 @@ func (t *TestSpec) Verify(manifestPath string) error {
 		if t.Env.Kubernetes != nil {
 			return ErrMultipleTestEnv
 		}
-		return nil
-	} else if kind := t.Env.Kubernetes; kind != nil {
-		rootDir := filepath.Dir(manifestPath)
-		for _, resource := range kind.Resources {
-			resourcePath := filepath.Clean(filepath.Join(rootDir, resource))
-			if _, err := os.Stat(resourcePath); err != nil {
-				return fmt.Errorf("test '%s' env: '%s' not found", t.Name, resourcePath)
-			}
-		}
-		// TODO: validate helm charts
-		//for _, chart := range kind.Charts {
-		//	chartPath := filepath.Join(chart.Name, "Chart.yaml")
-		//	if _, err := os.Stat(chartPath); err != nil {
-		//		return fmt.Errorf("test '%s' env chart '%s': missing Chart.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
-		//	}
-		//	valuesPath := filepath.Join(chart.Name, "values.yaml")
-		//	if _, err := os.Stat(valuesPath); err != nil {
-		//		return fmt.Errorf("test '%s' env chart '%s': missing values.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
-		//	}
-		//}
-		return nil
+		return t.Env.Docker.Verify(manifestPath)
+	} else if t.Env.Kubernetes != nil {
+		return t.Env.Kubernetes.Verify(manifestPath)
 	} else {
 		return ErrNoTestEnv
 	}

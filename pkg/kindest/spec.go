@@ -16,7 +16,33 @@ type KubernetesEnvSpec struct {
 	Charts    []*ChartSpec `json:"charts,omitempty"`
 }
 
+func (k *KubernetesEnvSpec) Verify(manifestPath string) error {
+	rootDir := filepath.Dir(manifestPath)
+	for _, resource := range k.Resources {
+		resourcePath := filepath.Clean(filepath.Join(rootDir, resource))
+		if _, err := os.Stat(resourcePath); err != nil {
+			return fmt.Errorf("resource '%s' not found", resourcePath)
+		}
+	}
+	// TODO: validate helm charts
+	//for _, chart := range kind.Charts {
+	//	chartPath := filepath.Join(chart.Name, "Chart.yaml")
+	//	if _, err := os.Stat(chartPath); err != nil {
+	//		return fmt.Errorf("test '%s' env chart '%s': missing Chart.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
+	//	}
+	//	valuesPath := filepath.Join(chart.Name, "values.yaml")
+	//	if _, err := os.Stat(valuesPath); err != nil {
+	//		return fmt.Errorf("test '%s' env chart '%s': missing values.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
+	//	}
+	//}
+	return nil
+}
+
 type DockerEnvSpec struct {
+}
+
+func (d *DockerEnvSpec) Verify(manifestPath string) error {
+	return nil
 }
 
 type EnvSpec struct {

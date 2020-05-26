@@ -67,29 +67,63 @@ test:
         value: http://example-dependency-microservice.default.svc.cluster.local:5000
 ```
 
-## Features
+## Test Environments
+The minimal environment required by the tests is configured under the `test.env:` section of `kindest.yaml`. 
 
-### Transient & (TODO) Persistent Clusters
-Test environments may exist either as an ephemeral cluster that is cleaned up when the tests finish or as a long-running cluster that persists between test runs. Persistent clusters are more performant and therefore recommended when running locally.
+### Docker
+For tests that do not require Kubernetes (e.g. unit tests), there is Docker executor that runs the test image in isolation: 
 
-Currently, only transient clusters are supported. Persistent clusters that allow for rapid iteration of test code will be implemented very soon.
+```yaml
+# kindest.yaml
+test:
+  build:
+    # Name of the test image. This image is not pushed unless
+    # necessary, so you can use whatever you want.
+    name: midcontinentcontrols/example-test-image
 
-### TODO: Kubernetes-Native CI
-All of the features of the `kindest` CLI will eventually be made available as a Kubernetes-native DevOps solution. 
+    # Custom dockerfile path typically has to be assigned
+    # for tests, as it defaults to ./Dockerfile. The build
+    # context will be the root and includes ./test/Dockerfile
+    dockerfile: test/Dockerfile
 
-### TODO: Automatic Dockerfile Generation
-Additional work has gone into automatically generating efficient Dockerfiles for golang and Rust projects. These improvements automatically reduce the size of the build context.
+  env:
+    # Run tests in a simple Docker container. Note: if no
+    # additional settings are required, the empty object
+    # `{}` is used to make the field non-nil
+    docker: {}
 
-### TODO: Modular Testing
-A `kindest.yaml` file may define a minimalistic environment for end-to-end testing. The `test.env:` section dictates how the test pod couples with this environment. When a test is ran inside a given environment, it is passed these variables. This allows any module's environment to be used to test its dependencies, which is particularly useful when using transient clusters to test each commit.
-
-## Running the Tests
-The tests aim to be comprehensive. To run them with full console output:
+    # Environment variables passed to the test container
+    #variables:
+    #- name: FOO
+    #  value: BAR
 ```
-cd pkg/kindest
-go test -v -timeout 2h
+
+Note that tests using the Docker environment may still run as pods on Kubernetes (such as for CI purposes) but they will not have access to the cluster.
+
+### Kubernetes
+Tests requiring a Kubernetes environment can indicate this by defining the `test.env.kubernetes:` object. 
+
+```yaml
+# kindest.yaml
+test:
+  ...
+  env:
+    # Run these tests on kubernetes
+    kubernetes:
+      # Paths to resources that will be applied every time
+      # before running tests
+      resources:
+        - crds/my-example-crd.yaml
+      
+      # These charts will be installed/upgraded before the
+      # tests run.
+      charts:
+        - releaseName: kindest
+          path: ./charts/kindest # ./charts/kindest/Chart.yaml
+          values: {}
 ```
-Image pulling and building is part of the tests, so the `-timeout` flag is necessary. `.vscode/settings.json` is intentionally part of this repository in order for VS Code's `Go: Toggle Test Coverage in Current Package` to work correctly.
+
+The test container will now run as a pod on Kubernetes with cluster admin privileges. Any setup necessary for your tests, such as applying manifests or syncing helm charts, should go in `test.env.kubernetes`. If the current functionality is insufficient to prepare your test environment, please [open an issue](https://github.com/midcontinentcontrols/kindest/issues).
 
 ## Docker Desktop Resource Limits
 **The default resource limits for Docker Desktop appear insufficient to run the tests.** If this occurs, you will encounter [kind#1437](https://github.com/kubernetes-sigs/kind/issues/1437#issuecomment-602975739). Configure Docker with 4gb of both memory and swap just to be safe:
@@ -97,10 +131,21 @@ Image pulling and building is part of the tests, so the `-timeout` flag is neces
 ![](docs/images/docker-resources.png)
 
 ## Security
-Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kindest. Open source developers in particular should consider the risks of using kindest with their community CI and take appropriate mitigating measures. 
+Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kindest. Open source developers in particular should consider the risks of using kindest with their community CI and take appropriate mitigating measures.
+
+Even when not using kind, test pods always run with cluster admin permissions. This may change in the future, but for now the goal is to keep things simple.
 
 ## Contributing
 Please open an issue or email [Tom Havlik](mailto:thavlik@midcontinentcontrols.com) if you would like to contribute or offer feedback. 
+
+### Running the Tests
+The unit tests aim to be comprehensive. To run them with full console output:
+```
+git clone git@github.com:midcontinentcontrols/kindest.git
+cd kindest/pkg/kindest
+go test -v -timeout 2h
+```
+Image pulling and building is part of the tests, so the `-timeout` flag is necessary. `.vscode/settings.json` is intentionally part of this repository in order for VS Code's `Go: Toggle Test Coverage in Current Package` to work correctly.
 
 ## License
 Copyright (c) Mid Continent Controls, Inc. 2020
