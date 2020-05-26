@@ -167,7 +167,7 @@ test:
 	require.True(t, strings.Contains(err.Error(), "exit code 1"))
 }
 
-func TestTestKubernetesEnv(t *testing.T) {
+func TestTestKubernetesTransientKind(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
