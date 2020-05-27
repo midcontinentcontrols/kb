@@ -78,18 +78,18 @@ func walkDir(
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		log.Info("Matching", zap.String("rel", rel), zap.Bool("isDir", info.IsDir()))
+		//log.Info("Matching", zap.String("rel", rel), zap.Bool("isDir", info.IsDir()))
 		if dockerignore.Match(rel, info.IsDir()) {
-			log.Info("Should ignore", zap.String("rel", rel), zap.Bool("isDir", info.IsDir()))
+			continue
 		} else {
-			log.Info("Should not ignore", zap.String("rel", rel), zap.Bool("isDir", info.IsDir()))
+			//log.Info("Should not ignore", zap.String("rel", rel), zap.Bool("isDir", info.IsDir()))
 			if info.IsDir() {
 				if err := walkDir(path, contextPath, dockerignore, tar); err != nil {
 					return err
 				}
 			} else {
 				// Add the file to the build context
-				log.Info("Adding file to build context", zap.String("rel", rel), zap.String("abs", path))
+				//log.Info("Adding file to build context", zap.String("rel", rel), zap.String("abs", path))
 				f, err := os.Open(path)
 				if err != nil {
 					return err
@@ -164,7 +164,7 @@ func (b *BuildSpec) buildDocker(
 	if err := tar.Close(); err != nil {
 		return err
 	}
-	defer os.Remove(tarPath)
+	//defer os.Remove(tarPath)
 	dockerBuildContext, err := os.Open(tarPath)
 	if err != nil {
 		return err

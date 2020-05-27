@@ -521,6 +521,7 @@ build:
 		name := "test-" + uuid.New().String()[:8]
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(filepath.Join(rootPath, ".git"), 0766))
+		require.NoError(t, os.MkdirAll(filepath.Join(rootPath, "subdir"), 0766))
 		defer os.Remove(rootPath)
 		require.NoError(t, ioutil.WriteFile(
 			filepath.Join(rootPath, "foo.txt"),
@@ -543,6 +544,11 @@ build:
 			[]byte("Hello, world!"),
 			0644,
 		))
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "subdir", "baz.txt"),
+			[]byte("Hello, world!"),
+			0644,
+		))
 		script := `#!/bin/bash
 echo "Ensuring .git folder was successfully excluded from build context"
 find .
@@ -553,6 +559,15 @@ fi
 bartxt=$(find . | grep bar.txt)
 if [ -n "$bartxt" ]; then
 	echo "bar.txt was found at ${bartxt}"
+	exit 66
+fi
+if [ -n "$(ls | grep baz.txt)" ]; then
+	echo "baz.txt was found in root dir!"
+	exit 66
+fi
+cd subdir
+if [ -z "$(ls | grep baz.txt)" ]; then
+	echo "subdir/baz.txt was not found!"
 	exit 66
 fi
 echo ".git folder was successfully ignored"`
