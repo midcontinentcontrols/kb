@@ -1,6 +1,7 @@
 package kindest
 
 import (
+	"archive/tar"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -65,7 +66,7 @@ func walkDir(
 	dir string,
 	contextPath string,
 	dockerignore gitignore.IgnoreMatcher,
-	tar archivex.Archivex,
+	archive *archivex.TarFile,
 ) error {
 	infos, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -83,23 +84,38 @@ func walkDir(
 			continue
 		} else {
 			//log.Info("Should not ignore", zap.String("rel", rel), zap.Bool("isDir", info.IsDir()))
+			header, err := tar.FileInfoHeader(info, "")
+			if err != nil {
+				return err
+			}
+			header.Name = rel
 			if info.IsDir() {
-				if err := walkDir(path, contextPath, dockerignore, tar); err != nil {
+				header.Name += "/"
+				if err := archive.Writer.WriteHeader(header); err != nil {
+					return err
+				}
+				if err := walkDir(path, contextPath, dockerignore, archive); err != nil {
 					return err
 				}
 			} else {
-				// Add the file to the build context
-				log.Info("Adding file to build context", zap.String("rel", rel), zap.String("abs", path))
+				//log.Info("Adding file to build context", zap.String("rel", rel), zap.String("abs", path))
+				if err := archive.Writer.WriteHeader(header); err != nil {
+					return err
+				}
 				f, err := os.Open(path)
 				if err != nil {
 					return err
 				}
-				if err := tar.Add(rel, f, info); err != nil {
+				n, err := io.Copy(archive.Writer, f)
+				if err != nil {
 					f.Close()
 					return err
 				}
 				if err := f.Close(); err != nil {
 					return err
+				}
+				if n != info.Size() {
+					return fmt.Errorf("unexpected amount of bytes copied")
 				}
 			}
 		}
@@ -142,8 +158,8 @@ func (b *BuildSpec) buildDocker(
 		zap.String("tag", tag),
 		zap.String("tar", tarPath),
 		zap.Bool("noCache", options.NoCache))
-	tar := new(archivex.TarFile)
-	tar.Create(tarPath)
+	archive := new(archivex.TarFile)
+	archive.Create(tarPath)
 	dockerignorePath := filepath.Join(contextPath, ".dockerignore")
 	if _, err := os.Stat(dockerignorePath); err == nil {
 		r, err := os.Open(dockerignorePath)
@@ -155,13 +171,13 @@ func (b *BuildSpec) buildDocker(
 		if err != nil {
 			return err
 		}
-		if err := walkDir(contextPath, contextPath, dockerignore, tar); err != nil {
+		if err := walkDir(contextPath, contextPath, dockerignore, archive); err != nil {
 			return err
 		}
-	} else if err := tar.AddAll(contextPath, false); err != nil {
+	} else if err := archive.AddAll(contextPath, false); err != nil {
 		return err
 	}
-	if err := tar.Close(); err != nil {
+	if err := archive.Close(); err != nil {
 		return err
 	}
 	//defer os.Remove(tarPath)
