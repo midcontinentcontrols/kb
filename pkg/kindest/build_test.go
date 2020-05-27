@@ -521,7 +521,7 @@ build:
 		name := "test-" + uuid.New().String()[:8]
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(filepath.Join(rootPath, ".git"), 0766))
-		require.NoError(t, os.MkdirAll(filepath.Join(rootPath, "subdir"), 0766))
+		require.NoError(t, os.MkdirAll(filepath.Join(rootPath, "subdir", "nested"), 0766))
 		defer os.Remove(rootPath)
 		require.NoError(t, ioutil.WriteFile(
 			filepath.Join(rootPath, "foo.txt"),
@@ -545,7 +545,7 @@ build:
 			0644,
 		))
 		require.NoError(t, ioutil.WriteFile(
-			filepath.Join(rootPath, "subdir", "baz.txt"),
+			filepath.Join(rootPath, "subdir", "nested", "baz.txt"),
 			[]byte("Hello, world!"),
 			0644,
 		))
@@ -562,12 +562,12 @@ if [ -n "$bartxt" ]; then
 	exit 66
 fi
 if [ -n "$(ls | grep baz.txt)" ]; then
-	echo "baz.txt was found in root dir when it should be at ./subdir/baz.txt!"
+	echo "baz.txt was found in root dir when it should be at ./subdir/nested/baz.txt!"
 	exit 66
 fi
-cd subdir
+cd subdir/nested
 if [ -z "$(ls | grep baz.txt)" ]; then
-	echo "./subdir/baz.txt was not found!"
+	echo "./subdir/nested/baz.txt was not found!"
 	exit 66
 fi
 echo ".git folder was successfully ignored"`

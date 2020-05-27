@@ -180,7 +180,7 @@ func (b *BuildSpec) buildDocker(
 	if err := archive.Close(); err != nil {
 		return err
 	}
-	//defer os.Remove(tarPath)
+	defer os.Remove(tarPath)
 	dockerBuildContext, err := os.Open(tarPath)
 	if err != nil {
 		return err
