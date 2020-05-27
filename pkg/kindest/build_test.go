@@ -463,56 +463,131 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 }
 
 func TestBuildDockerignore(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
-	defer os.Remove(rootPath)
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "foo.txt"),
-		[]byte("Hello, world!"),
-		0644,
-	))
-	dockerignore := `bar.txt`
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, ".dockerignore"),
-		[]byte(dockerignore),
-		0644,
-	))
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "foo.txt"),
-		[]byte("Hello, world!"),
-		0644,
-	))
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "bar.txt"),
-		[]byte("Hello, world!"),
-		0644,
-	))
-	dockerfile := fmt.Sprintf(`FROM alpine:3.11.6
+	t.Run("file", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0766))
+		defer os.Remove(rootPath)
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "foo.txt"),
+			[]byte("Hello, world!"),
+			0644,
+		))
+		dockerignore := `bar.txt`
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, ".dockerignore"),
+			[]byte(dockerignore),
+			0644,
+		))
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "foo.txt"),
+			[]byte("Hello, world!"),
+			0644,
+		))
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "bar.txt"),
+			[]byte("Hello, world!"),
+			0644,
+		))
+		dockerfile := fmt.Sprintf(`FROM alpine:3.11.6
+COPY foo.txt .
+COPY bar.txt .
 CMD ["sh", "-c", "echo \"Hello again, world\""]`)
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "Dockerfile"),
-		[]byte(dockerfile),
-		0644,
-	))
-	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "Dockerfile"),
+			[]byte(dockerfile),
+			0644,
+		))
+		specPath := filepath.Join(rootPath, "kindest.yaml")
+		spec := fmt.Sprintf(`
 build:
   name: test/%s
 `, name)
-	require.NoError(t, ioutil.WriteFile(
-		specPath,
-		[]byte(spec),
-		0644,
-	))
-	err := Build(
-		&BuildOptions{
-			File: specPath,
-		},
-		newCLI(t),
-	)
-	require.NoError(t, err)
-	//require.Contains(t, err.Error(), "bar.txt: no such file or directory")
+		require.NoError(t, ioutil.WriteFile(
+			specPath,
+			[]byte(spec),
+			0644,
+		))
+		err := Build(
+			&BuildOptions{
+				File: specPath,
+			},
+			newCLI(t),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "bar.txt: no such file or directory")
+	})
+	t.Run("dir", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(filepath.Join(rootPath, ".git"), 0766))
+		defer os.Remove(rootPath)
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "foo.txt"),
+			[]byte("Hello, world!"),
+			0644,
+		))
+		dockerignore := `.git/`
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, ".dockerignore"),
+			[]byte(dockerignore),
+			0644,
+		))
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "foo.txt"),
+			[]byte("Hello, world!"),
+			0644,
+		))
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, ".git", "bar.txt"),
+			[]byte("Hello, world!"),
+			0644,
+		))
+		script := `#!/bin/bash
+set -euo pipefail
+if [ -n "$(find . | grep .git)" ]; then
+	echo ".git folder was found in build context"
+	exit 66
+fi
+bartxt=$(find . | grep bar.txt)
+if [ -n $bartxt ]; then
+	echo "bar.txt was found at ${bartxt}"
+	exit 66
+fi
+echo ".git folder was successfully ignored"`
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "script"),
+			[]byte(script),
+			0644,
+		))
+		dockerfile := fmt.Sprintf(`FROM alpine:3.11.6
+RUN apk add --no-cache bash
+WORKDIR /app
+COPY . .
+RUN chmod +x ./script && ./script`)
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "Dockerfile"),
+			[]byte(dockerfile),
+			0644,
+		))
+		specPath := filepath.Join(rootPath, "kindest.yaml")
+		spec := fmt.Sprintf(`
+build:
+  name: test/%s
+`, name)
+		require.NoError(t, ioutil.WriteFile(
+			specPath,
+			[]byte(spec),
+			0644,
+		))
+		err := Build(
+			&BuildOptions{
+				File: specPath,
+			},
+			newCLI(t),
+		)
+		require.NoError(t, err)
+	})
 }
 
 func TestBuildDependencyContext(t *testing.T) {
