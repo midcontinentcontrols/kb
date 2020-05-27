@@ -591,6 +591,15 @@ func ensureClusterExists(name string) error {
 	return nil
 }
 
+var kindConfig = `kind: Cluster
+apiVersion: kind.sigs.k8s.io/v1alpha3
+nodes:
+- role: control-plane`
+
+//  extraMounts:
+//  - containerPath: /var/lib/etcd
+//    hostPath: /tmp/etcd`
+
 func (t *TestSpec) runKubernetes(
 	rootPath string,
 	options *TestOptions,
@@ -616,7 +625,7 @@ func (t *TestSpec) runKubernetes(
 				}
 			}
 		}()
-		err := provider.Create(name)
+		err := provider.Create(name, cluster.CreateWithRawConfig([]byte(kindConfig)))
 		ready <- 0
 		if err != nil {
 			return err
@@ -691,7 +700,7 @@ func (t *TestSpec) runKubernetes(
 					}
 				}
 			}()
-			err := provider.Create(options.Kind)
+			err := provider.Create(options.Kind, cluster.CreateWithRawConfig([]byte(kindConfig)))
 			ready <- 0
 			if err != nil {
 				return err
