@@ -89,7 +89,7 @@ func walkDir(
 				}
 			} else {
 				// Add the file to the build context
-				//log.Info("Adding file to build context", zap.String("rel", rel), zap.String("abs", path))
+				log.Info("Adding file to build context", zap.String("rel", rel), zap.String("abs", path))
 				f, err := os.Open(path)
 				if err != nil {
 					return err

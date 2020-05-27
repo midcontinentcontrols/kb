@@ -562,12 +562,12 @@ if [ -n "$bartxt" ]; then
 	exit 66
 fi
 if [ -n "$(ls | grep baz.txt)" ]; then
-	echo "baz.txt was found in root dir!"
+	echo "baz.txt was found in root dir when it should be at ./subdir/baz.txt!"
 	exit 66
 fi
 cd subdir
 if [ -z "$(ls | grep baz.txt)" ]; then
-	echo "subdir/baz.txt was not found!"
+	echo "./subdir/baz.txt was not found!"
 	exit 66
 fi
 echo ".git folder was successfully ignored"`
