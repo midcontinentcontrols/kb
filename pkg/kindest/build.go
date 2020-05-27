@@ -76,7 +76,7 @@ func (b *BuildSpec) buildDocker(
 	if err := os.MkdirAll(tmpDir, 0766); err != nil {
 		return err
 	}
-	ctxPath := filepath.Join(tmpDir, fmt.Sprintf("build-context-%s.tar", uuid.New().String()))
+	tarPath := filepath.Join(tmpDir, fmt.Sprintf("build-context-%s.tar", uuid.New().String()))
 	tag := options.Tag
 	if tag == "" {
 		tag = "latest"
@@ -94,9 +94,10 @@ func (b *BuildSpec) buildDocker(
 		zap.String("resolvedDockerfile", resolvedDockerfile),
 		zap.String("context", contextPath),
 		zap.String("tag", tag),
+		zap.String("tar", tarPath),
 		zap.Bool("noCache", options.NoCache))
 	tar := new(archivex.TarFile)
-	tar.Create(ctxPath)
+	tar.Create(tarPath)
 	dockerignorePath := filepath.Join(contextPath, ".dockerignore")
 	if _, err := os.Stat(dockerignorePath); err == nil {
 		dockerignore, err := gitignore.NewGitIgnore(dockerignorePath, contextPath)
@@ -107,7 +108,7 @@ func (b *BuildSpec) buildDocker(
 			if err != nil {
 				return err
 			}
-			if dockerignore.Match(path, info.IsDir()) {
+			if !dockerignore.Match(path, info.IsDir()) {
 				if !info.IsDir() {
 					abs, err := filepath.Abs(path)
 					if err != nil {
@@ -122,6 +123,7 @@ func (b *BuildSpec) buildDocker(
 					if err != nil {
 						return err
 					}
+					rel = filepath.ToSlash(rel)
 					log.Info("Adding file to build context", zap.String("rel", rel), zap.String("abs", abs))
 					if err := tar.Add(rel, f, info); err != nil {
 						return err
@@ -138,8 +140,8 @@ func (b *BuildSpec) buildDocker(
 	if err := tar.Close(); err != nil {
 		return err
 	}
-	defer os.Remove(ctxPath)
-	dockerBuildContext, err := os.Open(ctxPath)
+	//defer os.Remove(tarPath)
+	dockerBuildContext, err := os.Open(tarPath)
 	if err != nil {
 		return err
 	}
