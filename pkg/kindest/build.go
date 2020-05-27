@@ -40,7 +40,7 @@ type BuildSpec struct {
 func (b *BuildSpec) verifyDocker(manifestPath string) error {
 	var path string
 	if b.Dockerfile != "" {
-		path = filepath.Join(filepath.Dir(manifestPath), b.Dockerfile)
+		path = filepath.Join(filepath.Dir(manifestPath), filepath.FromSlash(b.Dockerfile))
 	} else {
 		path = filepath.Join(filepath.Dir(manifestPath), "Dockerfile")
 	}
@@ -67,7 +67,7 @@ func (b *BuildSpec) buildDocker(
 	cli client.APIClient,
 	respHandler func(io.ReadCloser) error,
 ) error {
-	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), b.Context))
+	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), filepath.FromSlash(b.Context)))
 	u, err := user.Current()
 	if err != nil {
 		return err
@@ -297,7 +297,8 @@ func resolveDockerfile(manifestPath string, dockerfilePath string, contextPath s
 	if err != nil {
 		return "", err
 	}
-	return rel, nil
+	// On Windows, the dockerfile path has to be converted to forward slashes
+	return filepath.ToSlash(rel), nil
 }
 
 func loadSpec(file string) (*KindestSpec, string, error) {
