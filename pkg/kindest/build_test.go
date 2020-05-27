@@ -544,13 +544,14 @@ build:
 			0644,
 		))
 		script := `#!/bin/bash
-set -euo pipefail
+echo "Ensuring .git folder was successfully excluded from build context"
+find .
 if [ -n "$(find . | grep .git)" ]; then
 	echo ".git folder was found in build context"
 	exit 66
 fi
 bartxt=$(find . | grep bar.txt)
-if [ -n $bartxt ]; then
+if [ -n "$bartxt" ]; then
 	echo "bar.txt was found at ${bartxt}"
 	exit 66
 fi

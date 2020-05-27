@@ -61,6 +61,52 @@ func (b *BuildSpec) Verify(manifestPath string) error {
 	return b.verifyDocker(manifestPath)
 }
 
+func walkDir(
+	dir string,
+	contextPath string,
+	dockerignore gitignore.IgnoreMatcher,
+	tar archivex.Archivex,
+) error {
+	infos, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, info := range infos {
+		path := filepath.Join(dir, info.Name())
+		rel, err := filepath.Rel(contextPath, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		log.Info("Matching", zap.String("rel", rel), zap.Bool("isDir", info.IsDir()))
+		if dockerignore.Match(rel, info.IsDir()) {
+			log.Info("Should ignore", zap.String("rel", rel), zap.Bool("isDir", info.IsDir()))
+		} else {
+			log.Info("Should not ignore", zap.String("rel", rel), zap.Bool("isDir", info.IsDir()))
+			if info.IsDir() {
+				if err := walkDir(path, contextPath, dockerignore, tar); err != nil {
+					return err
+				}
+			} else {
+				// Add the file to the build context
+				log.Info("Adding file to build context", zap.String("rel", rel), zap.String("abs", path))
+				f, err := os.Open(path)
+				if err != nil {
+					return err
+				}
+				if err := tar.Add(rel, f, info); err != nil {
+					f.Close()
+					return err
+				}
+				if err := f.Close(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (b *BuildSpec) buildDocker(
 	manifestPath string,
 	options *BuildOptions,
@@ -100,38 +146,16 @@ func (b *BuildSpec) buildDocker(
 	tar.Create(tarPath)
 	dockerignorePath := filepath.Join(contextPath, ".dockerignore")
 	if _, err := os.Stat(dockerignorePath); err == nil {
-		dockerignore, err := gitignore.NewGitIgnore(dockerignorePath, contextPath)
+		r, err := os.Open(dockerignorePath)
 		if err != nil {
 			return err
 		}
-		if err := filepath.Walk(contextPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if !dockerignore.Match(path, info.IsDir()) {
-				if !info.IsDir() {
-					abs, err := filepath.Abs(path)
-					if err != nil {
-						return err
-					}
-					f, err := os.Open(abs)
-					if err != nil {
-						return err
-					}
-					defer f.Close()
-					rel, err := filepath.Rel(contextPath, abs)
-					if err != nil {
-						return err
-					}
-					rel = filepath.ToSlash(rel)
-					log.Info("Adding file to build context", zap.String("rel", rel), zap.String("abs", abs))
-					if err := tar.Add(rel, f, info); err != nil {
-						return err
-					}
-				}
-			}
-			return nil
-		}); err != nil {
+		defer r.Close()
+		dockerignore := gitignore.NewGitIgnoreFromReader("", r)
+		if err != nil {
+			return err
+		}
+		if err := walkDir(contextPath, contextPath, dockerignore, tar); err != nil {
 			return err
 		}
 	} else if err := tar.AddAll(contextPath, false); err != nil {
