@@ -67,6 +67,7 @@ func walkDir(
 	contextPath string,
 	dockerignore gitignore.IgnoreMatcher,
 	archive *archivex.TarFile,
+	resolvedDockerfile string,
 ) error {
 	infos, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -80,7 +81,10 @@ func walkDir(
 		}
 		rel = filepath.ToSlash(rel)
 		//log.Info("Matching", zap.String("rel", rel), zap.Bool("isDir", info.IsDir()))
-		if dockerignore.Match(rel, info.IsDir()) {
+		// Always include the specific Dockerfile in the build context,
+		// regardless of what .dockerignore says. It's something sneaky
+		// that `docker build` does.
+		if rel != resolvedDockerfile && dockerignore.Match(rel, info.IsDir()) {
 			continue
 		} else {
 			//log.Info("Should not ignore", zap.String("rel", rel), zap.Bool("isDir", info.IsDir()))
@@ -94,7 +98,7 @@ func walkDir(
 				if err := archive.Writer.WriteHeader(header); err != nil {
 					return err
 				}
-				if err := walkDir(path, contextPath, dockerignore, archive); err != nil {
+				if err := walkDir(path, contextPath, dockerignore, archive, resolvedDockerfile); err != nil {
 					return err
 				}
 			} else {
@@ -171,7 +175,13 @@ func (b *BuildSpec) buildDocker(
 		if err != nil {
 			return err
 		}
-		if err := walkDir(contextPath, contextPath, dockerignore, archive); err != nil {
+		if err := walkDir(
+			contextPath,
+			contextPath,
+			dockerignore,
+			archive,
+			resolvedDockerfile,
+		); err != nil {
 			return err
 		}
 	} else if err := archive.AddAll(contextPath, false); err != nil {
@@ -180,7 +190,7 @@ func (b *BuildSpec) buildDocker(
 	if err := archive.Close(); err != nil {
 		return err
 	}
-	defer os.Remove(tarPath)
+	//defer os.Remove(tarPath)
 	dockerBuildContext, err := os.Open(tarPath)
 	if err != nil {
 		return err
