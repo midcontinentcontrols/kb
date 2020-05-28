@@ -2,9 +2,9 @@
 
 This is a toolchain built on top of [kind](https://github.com/kubernetes-sigs/kind) that aims to reduce the complexity associated with using it as a tool for microservice development. It was born out of necessity to reduce increasing execution times and maintenance overhead of bash scripts that accomplished more or less the same thing.
 
-At its core, the `kindest.yaml` file defines how images are built and tested in a transient Kubernetes cluster running either locally (with Docker daemon) or on another Kubernetes cluster (with some security caveats). The build process is fully parallelized and utilizes caching, so as to bypass redundant work for each submodule when no files have changed. Hooks are exposed for use with CI/CD.
+At its core, the `kindest.yaml` file defines how images are built and tested either locally or on Kubernetes. The build process is fully parallelized and utilizes caching, so as to bypass redundant work for each submodule when no files have changed. Hooks are exposed for use with CI/CD.
 
-Currently, kindest only runs locally using the Docker daemon. The ultimate goal is a comprehensive Kubernetes-native DevOps solution.
+Currently, kindest only runs locally using the Docker daemon. Soon you'll be able to use any kube context (kind or otherwise). The ultimate goal is a comprehensive Kubernetes-native DevOps solution where you interact with the cluster using the same tools you use on your local machine.
 
 ### kindest.yaml
 ```yaml

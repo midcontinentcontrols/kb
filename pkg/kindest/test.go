@@ -594,7 +594,10 @@ func ensureClusterExists(name string) error {
 var kindConfig = `kind: Cluster
 apiVersion: kind.sigs.k8s.io/v1alpha3
 nodes:
-- role: control-plane`
+- role: control-plane
+  extraMounts:
+  - containerPath: /var/lib/etcd
+    hostPath: /tmp/etcd`
 
 //  extraMounts:
 //  - containerPath: /var/lib/etcd
