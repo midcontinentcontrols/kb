@@ -34,7 +34,7 @@ require (
 	google.golang.org/genproto v0.0.0-20200601130524-0f60399e6634 // indirect
 	google.golang.org/grpc v1.29.1 // indirect
 	gopkg.in/yaml.v2 v2.3.0
-	gopkg.in/yaml.v3 v3.0.0-20200506231410-2ff61e1afc86 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200601152816-913338de1bd2
 	helm.sh/helm/v3 v3.2.1
 	k8s.io/api v0.18.3
 	k8s.io/apimachinery v0.18.3
@@ -43,9 +43,8 @@ require (
 	k8s.io/kube-openapi v0.0.0-20200427153329-656914f816f9 // indirect
 	k8s.io/utils v0.0.0-20200529193333-24a76e807f40 // indirect
 	rsc.io/letsencrypt v0.0.3 // indirect
-	sigs.k8s.io/kind v0.8.1
+	sigs.k8s.io/kind v0.8.2-0.20200531182706-f4df803a1b7a
+	sigs.k8s.io/yaml v1.2.0
 )
 
 replace github.com/docker/docker => github.com/docker/engine v17.12.0-ce-rc1.0.20190717161051-705d9623b7c1+incompatible
-
-replace sigs.k8s.io/kind => github.com/thavlik/kind v0.8.2-0.20200601141851-55b8e6920120

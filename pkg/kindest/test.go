@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/midcontinentcontrols/kindest/pkg/kubeconfig"
 	"helm.sh/helm/v3/pkg/chart"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -57,6 +58,7 @@ type TestSpec struct {
 }
 
 var ErrMultipleTestEnv = fmt.Errorf("multiple test environments defined")
+
 var ErrNoTestEnv = fmt.Errorf("no test environment")
 
 func (t *TestSpec) Verify(manifestPath string) error {
@@ -214,7 +216,7 @@ func clientForContext(context string) (*kubernetes.Clientset, error) {
 }
 
 func clientForKindCluster(name string, provider *cluster.Provider) (*kubernetes.Clientset, string, error) {
-	if err := provider.ExportKubeConfig(name, "", false); err != nil {
+	if err := kubeconfig.Save(provider, name, "", false); err != nil {
 		return nil, "", err
 	}
 	kubeConfig, err := provider.KubeConfig(name, false)
