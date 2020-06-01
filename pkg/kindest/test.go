@@ -706,6 +706,9 @@ func (t *TestSpec) runKubernetes(
 				return err
 			}
 		} else {
+			if err := EnsureRegistryRunning(cli); err != nil {
+				return err
+			}
 			parts := strings.Split(image, "/")
 			numParts := len(parts)
 			oldImage := image
@@ -724,7 +727,7 @@ func (t *TestSpec) runKubernetes(
 				"kind",
 				"kind-registry",
 				&networktypes.EndpointSettings{},
-			); err != nil {
+			); err != nil && !strings.Contains(err.Error(), "Error response from daemon: endpoint with name kind-registry already exists in network kind") {
 				return err
 			}
 			if err := cli.ImageTag(

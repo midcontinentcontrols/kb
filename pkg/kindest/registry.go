@@ -13,8 +13,51 @@ import (
 	"go.uber.org/zap"
 )
 
-func CreateLocalRegistry(name string, port int, cli client.APIClient) error {
-	portStr := fmt.Sprintf("%d", port)
+func waitForRegistry(regName string, cli client.APIClient) error {
+	done := make(chan int)
+	go func() {
+		log := log.With(zap.String("name", regName))
+		for {
+			select {
+			case <-time.After(5 * time.Second):
+				log.Info("Still waiting for registry")
+			case <-done:
+				return
+			}
+		}
+	}()
+	defer func() {
+		done <- 0
+		close(done)
+	}()
+	for {
+		info, err := cli.ContainerInspect(context.TODO(), regName)
+		if err != nil {
+			return err
+		}
+		if info.State == nil {
+			panic("nil container state")
+		}
+		switch info.State.Status {
+		case "created":
+			if err := cli.ContainerStart(
+				context.TODO(),
+				regName,
+				types.ContainerStartOptions{},
+			); err != nil {
+				return fmt.Errorf("error starting container: %v", err)
+			}
+			time.Sleep(time.Second)
+		case "running":
+			return nil
+		default:
+			return fmt.Errorf("unexpected container state '%s'", info.State.Status)
+		}
+	}
+}
+
+func CreateLocalRegistry(regName string, regPort int, cli client.APIClient) error {
+	portStr := fmt.Sprintf("%d/tcp", regPort)
 	info, err := cli.ContainerCreate(
 		context.TODO(),
 		&containertypes.Config{
@@ -26,14 +69,18 @@ func CreateLocalRegistry(name string, port int, cli client.APIClient) error {
 			},
 			PortBindings: nat.PortMap(map[nat.Port][]nat.PortBinding{
 				nat.Port(portStr): []nat.PortBinding{{
+					HostIP:   "127.0.0.1",
 					HostPort: portStr,
 				}},
 			}),
 		},
 		nil,
-		name,
+		regName,
 	)
 	if err != nil {
+		return err
+	}
+	if err := waitForRegistry(regName, cli); err != nil {
 		return err
 	}
 	log := log.With(zap.String("id", info.ID))
@@ -73,12 +120,11 @@ func DeleteRegistry(cli client.APIClient) error {
 // EnsureRegistryRunning ensures a local docker registry is running,
 // as per https://kind.sigs.k8s.io/docs/user/local-registry/
 func EnsureRegistryRunning(cli client.APIClient) error {
-	name := "kind-registry"
-	port := 5000
-	_, err := cli.ContainerInspect(context.TODO(), name)
-	if err != nil {
+	regName := "kind-registry"
+	regPort := 5000
+	if err := waitForRegistry(regName, cli); err != nil {
 		if client.IsErrNotFound(err) {
-			return CreateLocalRegistry(name, port, cli)
+			return CreateLocalRegistry(regName, regPort, cli)
 		}
 		return err
 	}
