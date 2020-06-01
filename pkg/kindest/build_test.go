@@ -473,7 +473,9 @@ func TestBuildDockerignore(t *testing.T) {
 			[]byte("Hello, world!"),
 			0644,
 		))
-		dockerignore := `bar.txt`
+		// Ensure the Dockerfile isn't excluded
+		dockerignore := `bar.txt
+Dockerfile`
 		require.NoError(t, ioutil.WriteFile(
 			filepath.Join(rootPath, ".dockerignore"),
 			[]byte(dockerignore),

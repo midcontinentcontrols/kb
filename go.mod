@@ -6,6 +6,7 @@ require (
 	github.com/Jeffail/tunny v0.0.0-20190930221602-f13eb662a36a
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/docker/docker v1.13.1
+	github.com/docker/go-connections v0.4.0
 	github.com/google/go-cmp v0.4.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4 // indirect
