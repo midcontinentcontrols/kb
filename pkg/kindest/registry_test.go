@@ -19,7 +19,13 @@ func TestDockerContainerInspect(t *testing.T) {
 	})
 }
 
-func TestRegistryCreate(t *testing.T) {
+func TestRegistryCreateDelete(t *testing.T) {
+	var err error
 	cli := newCLI(t)
 	require.NoError(t, EnsureRegistryRunning(cli))
+	_, err = cli.ContainerInspect(context.TODO(), "kind-registry")
+	require.NoError(t, err)
+	require.NoError(t, DeleteRegistry(cli))
+	_, err = cli.ContainerInspect(context.TODO(), "kind-registry")
+	require.True(t, client.IsErrNotFound(err))
 }

@@ -3,6 +3,9 @@ package kindest
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/docker/docker/api/types"
 
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -11,7 +14,7 @@ import (
 )
 
 func CreateLocalRegistry(name string, port int, cli client.APIClient) error {
-	portStr := fmt.Sprintf("%d", name)
+	portStr := fmt.Sprintf("%d", port)
 	info, err := cli.ContainerCreate(
 		context.TODO(),
 		&containertypes.Config{
@@ -37,6 +40,32 @@ func CreateLocalRegistry(name string, port int, cli client.APIClient) error {
 	log.Info("Created registry container")
 	for _, warning := range info.Warnings {
 		log.Warn("Container create warning", zap.String("message", warning))
+	}
+	return nil
+}
+
+func DeleteRegistry(cli client.APIClient) error {
+	name := "kind-registry"
+	timeout := 10 * time.Second
+	log := log.With(zap.String("name", name))
+	log.Info("Stopping registry container")
+	if err := cli.ContainerStop(
+		context.TODO(),
+		name,
+		&timeout,
+	); err != nil {
+		return err
+	}
+	force := true
+	log.Info("Removing registry container", zap.Bool("force", force))
+	if err := cli.ContainerRemove(
+		context.TODO(),
+		name,
+		types.ContainerRemoveOptions{
+			Force: force,
+		},
+	); err != nil {
+		return err
 	}
 	return nil
 }
