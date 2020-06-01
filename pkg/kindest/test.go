@@ -49,6 +49,7 @@ type TestOptions struct {
 	Transient   bool   `json:"transient,omitempty"`
 	Context     string `json:"context,omitempty"`
 	Kind        string `json:"kind,omitempty"`
+	NoRegistry  bool   `json:"noRegistry,omitempty"`
 }
 
 type TestSpec struct {
@@ -662,12 +663,17 @@ func (t *TestSpec) runKubernetes(
 		image := t.Build.Name + ":latest"
 		imageLog := log.With(zap.String("image", image))
 		imageLog.Info("Loading image onto cluster")
-		if err := loadImageOnCluster(
-			name,
-			image,
-			provider,
-		); err != nil {
-			return err
+		if options.NoRegistry {
+			if err := loadImageOnCluster(
+				name,
+				image,
+				provider,
+			); err != nil {
+				return err
+			}
+		} else {
+			// TODO: Tag and push image to localhost:5000
+			return fmt.Errorf("unimplemented")
 		}
 	} else if options.Context != "" {
 		// Use existing kubernetes context from ~/.kube/config
@@ -723,12 +729,17 @@ func (t *TestSpec) runKubernetes(
 		image := t.Build.Name + ":latest"
 		imageLog := log.With(zap.String("image", image))
 		imageLog.Info("Loading image onto cluster")
-		if err := loadImageOnCluster(
-			options.Kind,
-			image,
-			provider,
-		); err != nil {
-			return err
+		if options.NoRegistry {
+			if err := loadImageOnCluster(
+				options.Kind,
+				image,
+				provider,
+			); err != nil {
+				return err
+			}
+		} else {
+			// TODO: Tag and push image to localhost:5000
+			return fmt.Errorf("unimplemented")
 		}
 	} else {
 		// We didn't specify an existing cluster and we didn't

@@ -18,7 +18,8 @@ func TestNoTests(t *testing.T) {
 	defer os.RemoveAll(filepath.Dir(filepath.Dir(specPath)))
 	require.Equal(t, ErrNoTests, Test(
 		&TestOptions{
-			File: specPath,
+			File:       specPath,
+			NoRegistry: true,
 		},
 	))
 }
@@ -56,7 +57,8 @@ test:
 	))
 	require.NoError(t, Test(
 		&TestOptions{
-			File: specPath,
+			File:       specPath,
+			NoRegistry: true,
 		},
 	))
 }
@@ -89,7 +91,8 @@ test:
 	))
 	require.Equal(t, ErrNoTestEnv, Test(
 		&TestOptions{
-			File: specPath,
+			File:       specPath,
+			NoRegistry: true,
 		},
 	))
 }
@@ -125,7 +128,8 @@ test:
 	))
 	require.Equal(t, ErrMultipleTestEnv, Test(
 		&TestOptions{
-			File: specPath,
+			File:       specPath,
+			NoRegistry: true,
 		},
 	))
 }
@@ -160,7 +164,8 @@ test:
 	))
 	err := Test(
 		&TestOptions{
-			File: specPath,
+			File:       specPath,
+			NoRegistry: true,
 		},
 	)
 	require.Error(t, err)
@@ -197,8 +202,9 @@ test:
 	))
 	err := Test(
 		&TestOptions{
-			File:      specPath,
-			Transient: true,
+			File:       specPath,
+			NoRegistry: true,
+			Transient:  true,
 		},
 	)
 	require.NoError(t, err)
@@ -266,8 +272,9 @@ test:
 	))
 	require.NoError(t, Test(
 		&TestOptions{
-			File:      specPath,
-			Transient: true,
+			File:       specPath,
+			NoRegistry: true,
+			Transient:  true,
 		},
 	))
 }
@@ -311,8 +318,9 @@ test:
 	))
 	err := Test(
 		&TestOptions{
-			File:      specPath,
-			Transient: true,
+			File:       specPath,
+			NoRegistry: true,
+			Transient:  true,
 		},
 	)
 	require.Error(t, err)
@@ -351,8 +359,9 @@ test:
 	))
 	err := Test(
 		&TestOptions{
-			File:      specPath,
-			Transient: true,
+			File:       specPath,
+			NoRegistry: true,
+			Transient:  true,
 		},
 	)
 	require.Error(t, err)
@@ -389,7 +398,8 @@ test:
 	))
 	err := Test(
 		&TestOptions{
-			File: specPath,
+			File:       specPath,
+			NoRegistry: true,
 		},
 	)
 	require.Error(t, err)
@@ -426,8 +436,9 @@ test:
 	))
 	err := Test(
 		&TestOptions{
-			File:    specPath,
-			Context: name,
+			File:       specPath,
+			Context:    name,
+			NoRegistry: true,
 		},
 	)
 	require.Error(t, err)
@@ -478,8 +489,9 @@ test:
 	))
 	err := Test(
 		&TestOptions{
-			File: specPath,
-			Kind: name,
+			File:       specPath,
+			Kind:       name,
+			NoRegistry: true,
 		},
 	)
 	require.NoError(t, err)
@@ -530,8 +542,9 @@ test:
 	))
 	err := Test(
 		&TestOptions{
-			File: specPath,
-			Kind: name,
+			File:       specPath,
+			Kind:       name,
+			NoRegistry: true,
 		},
 	)
 	require.NoError(t, err)
