@@ -591,13 +591,14 @@ func ensureClusterExists(name string) error {
 	return nil
 }
 
-var kindConfig = `kind: Cluster
-apiVersion: kind.sigs.k8s.io/v1alpha3
-nodes:
-- role: control-plane
-  extraMounts:
-  - containerPath: /var/lib/etcd
-    hostPath: /tmp/etcd`
+func generateKindConfig(regName string, regPort int) string {
+	return fmt.Sprintf(`kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+- |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:%d"]
+    endpoint = ["http://%s:%d"]`, regPort, regName, regPort)
+}
 
 //  extraMounts:
 //  - containerPath: /var/lib/etcd
@@ -610,7 +611,6 @@ func (t *TestSpec) runKubernetes(
 ) error {
 	var client *kubernetes.Clientset
 	var kubeContext string
-
 	if options.Transient {
 		name := "test-" + uuid.New().String()[:8]
 		log := log.With(zap.String("name", name))
@@ -628,6 +628,7 @@ func (t *TestSpec) runKubernetes(
 				}
 			}
 		}()
+		kindConfig := generateKindConfig("kind-registry", 5000)
 		err := provider.Create(name, cluster.CreateWithRawConfig([]byte(kindConfig)))
 		ready <- 0
 		if err != nil {
@@ -703,6 +704,7 @@ func (t *TestSpec) runKubernetes(
 					}
 				}
 			}()
+			kindConfig := generateKindConfig("kind-registry", 5000)
 			err := provider.Create(options.Kind, cluster.CreateWithRawConfig([]byte(kindConfig)))
 			ready <- 0
 			if err != nil {
