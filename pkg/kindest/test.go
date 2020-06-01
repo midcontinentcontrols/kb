@@ -810,6 +810,15 @@ func (t *TestSpec) runKubernetes(
 		zap.String("image", image),
 	)
 	podLog.Debug("Creating pod")
+
+	if err := pods.Delete(
+		context.TODO(),
+		podName,
+		metav1.DeleteOptions{},
+	); err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
 	if _, err := pods.Create(
 		context.TODO(),
 		&corev1.Pod{
