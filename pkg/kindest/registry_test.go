@@ -69,8 +69,7 @@ test:
 	require.NoError(t, Test(
 		&TestOptions{
 			File:       specPath,
-			Kind:       "kind-test",
-			Transient:  false,
+			Transient:  true,
 			NoRegistry: false,
 		},
 	))
