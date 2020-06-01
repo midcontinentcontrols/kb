@@ -214,7 +214,7 @@ func clientForContext(context string) (*kubernetes.Clientset, error) {
 }
 
 func clientForKindCluster(name string, provider *cluster.Provider) (*kubernetes.Clientset, string, error) {
-	if err := provider.ExportKubeConfig(name, ""); err != nil {
+	if err := provider.ExportKubeConfig(name, "", false); err != nil {
 		return nil, "", err
 	}
 	kubeConfig, err := provider.KubeConfig(name, false)
