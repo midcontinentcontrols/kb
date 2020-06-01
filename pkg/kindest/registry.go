@@ -22,7 +22,7 @@ func CreateLocalRegistry(name string, port int, cli client.APIClient) error {
 		},
 		&containertypes.HostConfig{
 			RestartPolicy: containertypes.RestartPolicy{
-				Name: "Always",
+				Name: "always",
 			},
 			PortBindings: nat.PortMap(map[nat.Port][]nat.PortBinding{
 				nat.Port(portStr): []nat.PortBinding{{
