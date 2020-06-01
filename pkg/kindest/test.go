@@ -313,6 +313,7 @@ func createTestRoleBinding(client *kubernetes.Clientset) error {
 	}
 	return nil
 }
+
 func createTestServiceAccount(client *kubernetes.Clientset) error {
 	if _, err := client.CoreV1().ServiceAccounts("default").Get(
 		context.TODO(),
