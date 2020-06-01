@@ -2,6 +2,10 @@ package kindest
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/docker/docker/client"
@@ -34,7 +38,6 @@ func TestRegistryCreateDelete(t *testing.T) {
 	require.True(t, client.IsErrNotFound(err))
 }
 
-/*
 func TestRegistryPullImage(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -53,9 +56,7 @@ CMD ["sh", "-c", "echo \"Hello world!\""]`)
 test:
   - name: basic
     env:
-      kubernetes:
-        resources:
-          - test.yaml
+      kubernetes: {}
     build:
       name: test/%s-test
       dockerfile: Dockerfile
@@ -67,9 +68,9 @@ test:
 	))
 	require.NoError(t, Test(
 		&TestOptions{
-			File:      specPath,
-			Transient: true,
+			File:       specPath,
+			Transient:  true,
+			NoRegistry: false,
 		},
 	))
 }
-*/
