@@ -22,6 +22,10 @@ func TestDockerContainerInspect(t *testing.T) {
 func TestRegistryCreateDelete(t *testing.T) {
 	var err error
 	cli := newCLI(t)
+	// Successive calls to EnsureRegistryRunning should do nothing
+	require.NoError(t, EnsureRegistryRunning(cli))
+	require.NoError(t, EnsureRegistryRunning(cli))
+	require.NoError(t, EnsureRegistryRunning(cli))
 	require.NoError(t, EnsureRegistryRunning(cli))
 	_, err = cli.ContainerInspect(context.TODO(), "kind-registry")
 	require.NoError(t, err)
