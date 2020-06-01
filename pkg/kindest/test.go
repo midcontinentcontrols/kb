@@ -31,6 +31,8 @@ import (
 
 	"github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/docker/docker/pkg/term"
 	"github.com/google/uuid"
 	"sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/kind/pkg/cluster/nodes"
@@ -236,7 +238,9 @@ func clientForKindCluster(name string, provider *cluster.Provider) (*kubernetes.
 }
 
 func createTestRole(client *kubernetes.Clientset) error {
-	if _, err := client.RbacV1().ClusterRoles().Get(
+	rbac := client.RbacV1()
+	clusterroles := rbac.ClusterRoles()
+	if _, err := clusterroles.Get(
 		context.TODO(),
 		"test",
 		metav1.GetOptions{},
@@ -614,92 +618,32 @@ func (t *TestSpec) runKubernetes(
 ) error {
 	var client *kubernetes.Clientset
 	var kubeContext string
-	if options.Transient {
-		name := "test-" + uuid.New().String()[:8]
-		log := log.With(zap.String("name", name))
-		log.Info("Creating transient cluster")
+	image := t.Build.Name + ":latest"
+	imagePullPolicy := corev1.PullAlways
+	if options.Transient || options.Kind != "" {
+		name := options.Kind
+		if name == "" {
+			name = "test-" + uuid.New().String()[:8]
+		}
 		provider := cluster.NewProvider()
-		ready := make(chan int, 1)
-		go func() {
-			start := time.Now()
-			for {
-				select {
-				case <-time.After(5 * time.Second):
-					log.Info("Still creating cluster", zap.String("elapsed", time.Now().Sub(start).String()))
-				case <-ready:
-					return
-				}
-			}
-		}()
-		kindConfig := generateKindConfig("kind-registry", 5000)
-		err := provider.Create(name, cluster.CreateWithRawConfig([]byte(kindConfig)))
-		ready <- 0
-		if err != nil {
-			return err
-		}
-		defer func() {
-			log.Info("Deleting transient cluster")
-			if err := func() error {
-				if err := provider.Delete(
-					name,
-					"",
-				); err != nil {
-					return err
-				}
-				return nil
-			}(); err != nil {
-				log.Error("Error cleaning up transient cluster", zap.String("message", err.Error()))
-			} else {
-				log.Info("Deleted transient cluster")
-			}
-		}()
-		client, kubeContext, err = clientForKindCluster(name, provider)
-		if err != nil {
-			return err
-		}
-		if err := waitForCluster(client); err != nil {
-			return err
-		}
-		image := t.Build.Name + ":latest"
-		imageLog := log.With(zap.String("image", image))
-		imageLog.Info("Loading image onto cluster")
-		if options.NoRegistry {
-			if err := loadImageOnCluster(
-				name,
-				image,
-				provider,
-			); err != nil {
+		exists := false
+		if !options.Transient {
+			clusters, err := provider.List()
+			if err != nil {
 				return err
 			}
-		} else {
-			// TODO: Tag and push image to localhost:5000
-			return fmt.Errorf("unimplemented")
-		}
-	} else if options.Context != "" {
-		// Use existing kubernetes context from ~/.kube/config
-		var err error
-		kubeContext = options.Context
-		client, err = clientForContext(options.Context)
-		if err != nil {
-			return err
-		}
-	} else if options.Kind != "" {
-		provider := cluster.NewProvider()
-		clusters, err := provider.List()
-		if err != nil {
-			return err
-		}
-		exists := false
-		for _, cluster := range clusters {
-			if cluster == options.Kind {
-				exists = true
-				break
+			for _, cluster := range clusters {
+				if cluster == options.Kind {
+					exists = true
+					break
+				}
 			}
 		}
 		if exists {
 			log.Info("Using existing kind cluster", zap.String("name", options.Kind))
 		} else {
-			log.Info("Creating persistent kind cluster", zap.String("name", options.Kind))
+			log := log.With(zap.String("name", name))
+			log.Info("Creating transient cluster")
 			ready := make(chan int, 1)
 			go func() {
 				start := time.Now()
@@ -713,34 +657,101 @@ func (t *TestSpec) runKubernetes(
 				}
 			}()
 			kindConfig := generateKindConfig("kind-registry", 5000)
-			err := provider.Create(options.Kind, cluster.CreateWithRawConfig([]byte(kindConfig)))
+			err := provider.Create(name, cluster.CreateWithRawConfig([]byte(kindConfig)))
 			ready <- 0
 			if err != nil {
 				return err
 			}
+			if options.Transient {
+				defer func() {
+					log.Info("Deleting transient cluster")
+					if err := func() error {
+						if err := provider.Delete(
+							name,
+							"",
+						); err != nil {
+							return err
+						}
+						return nil
+					}(); err != nil {
+						log.Error("Error cleaning up transient cluster", zap.String("message", err.Error()))
+					} else {
+						log.Info("Deleted transient cluster")
+					}
+				}()
+			}
 		}
-		client, kubeContext, err = clientForKindCluster(options.Kind, provider)
+		var err error
+		client, kubeContext, err = clientForKindCluster(name, provider)
 		if err != nil {
 			return err
 		}
 		if err := waitForCluster(client); err != nil {
 			return err
 		}
-		image := t.Build.Name + ":latest"
-		imageLog := log.With(zap.String("image", image))
-		imageLog.Info("Loading image onto cluster")
 		if options.NoRegistry {
+			log := log.With(zap.String("image", image))
+			log.Info("Copying image onto cluster")
+			imagePullPolicy = corev1.PullNever
 			if err := loadImageOnCluster(
-				options.Kind,
+				name,
 				image,
 				provider,
 			); err != nil {
 				return err
 			}
 		} else {
-			// TODO: Tag and push image to localhost:5000
-			return fmt.Errorf("unimplemented")
+			parts := strings.Split(image, "/")
+			numParts := len(parts)
+			oldImage := image
+			switch numParts {
+			case 1:
+				image = "localhost:5000/" + image
+			case 2:
+				image = "localhost:5000/" + parts[1]
+			default:
+				return fmt.Errorf("malformed image '%s'", image)
+			}
+			log := log.With(zap.String("image", image))
+			log.Info("Pushing image to local registry")
+			if err := cli.ImageTag(
+				context.TODO(),
+				oldImage,
+				image,
+			); err != nil {
+				return err
+			}
+			resp, err := cli.ImagePush(
+				context.TODO(),
+				image,
+				types.ImagePushOptions{
+					RegistryAuth: "this_can_be_anything",
+				},
+			)
+			if err != nil {
+				return err
+			}
+			termFd, isTerm := term.GetFdInfo(os.Stderr)
+			if err := jsonmessage.DisplayJSONMessagesStream(
+				resp,
+				os.Stderr,
+				termFd,
+				isTerm,
+				nil,
+			); err != nil {
+				return err
+			}
+			log.Info("Pushed image", zap.String("image", image))
 		}
+	} else if options.Context != "" {
+		// Use existing kubernetes context from ~/.kube/config
+		var err error
+		kubeContext = options.Context
+		client, err = clientForContext(options.Context)
+		if err != nil {
+			return err
+		}
+		// TODO: push image to registry
 	} else {
 		// We didn't specify an existing cluster and we didn't
 		// request a transient cluster. It's unclear where the
@@ -776,7 +787,11 @@ func (t *TestSpec) runKubernetes(
 	namespace := "default"
 	pods := client.CoreV1().Pods(namespace)
 	podName := "test-" + t.Name
-	podLog := log.With(zap.String("name", podName), zap.String("namespace", namespace))
+	podLog := log.With(
+		zap.String("name", podName),
+		zap.String("namespace", namespace),
+		zap.String("image", image),
+	)
 	podLog.Debug("Creating pod")
 	if _, err := pods.Create(
 		context.TODO(),
@@ -790,8 +805,8 @@ func (t *TestSpec) runKubernetes(
 				RestartPolicy:      corev1.RestartPolicyNever,
 				Containers: []corev1.Container{{
 					Name:            t.Name,
-					Image:           t.Build.Name + ":latest",
-					ImagePullPolicy: corev1.PullNever,
+					Image:           image,
+					ImagePullPolicy: imagePullPolicy,
 				}},
 			},
 		},
