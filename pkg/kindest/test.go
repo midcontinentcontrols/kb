@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	networktypes "github.com/docker/docker/api/types/network"
+
 	"github.com/midcontinentcontrols/kindest/pkg/kubeconfig"
 	"helm.sh/helm/v3/pkg/chart"
 
@@ -642,8 +644,11 @@ func (t *TestSpec) runKubernetes(
 		if exists {
 			log.Info("Using existing kind cluster", zap.String("name", options.Kind))
 		} else {
-			log := log.With(zap.String("name", name))
-			log.Info("Creating transient cluster")
+			log := log.With(
+				zap.String("name", name),
+				zap.Bool("transient", options.Transient),
+			)
+			log.Info("Creating cluster")
 			ready := make(chan int, 1)
 			go func() {
 				start := time.Now()
@@ -714,6 +719,14 @@ func (t *TestSpec) runKubernetes(
 			}
 			log := log.With(zap.String("image", image))
 			log.Info("Pushing image to local registry")
+			if err := cli.NetworkConnect(
+				context.TODO(),
+				"kind",
+				"kind-registry",
+				&networktypes.EndpointSettings{},
+			); err != nil {
+				return err
+			}
 			if err := cli.ImageTag(
 				context.TODO(),
 				oldImage,
