@@ -176,8 +176,7 @@ func (t *TestSpec) installChart(
 				}*/
 		}
 		install.CreateNamespace = true
-		install.Replace = true
-		// TODO: find out why deployments always end up in default namespace
+		//install.Replace = true
 		install.Namespace = chart.Namespace
 		install.ReleaseName = chart.ReleaseName
 		log.Info("Installing resolved chart")
@@ -205,5 +204,10 @@ func (t *TestSpec) installChart(
 	if chartRequested.Metadata.Deprecated {
 		log.Warn("This chart is deprecated")
 	}
-	return fmt.Errorf("helm upgrade is still unimplemented")
+	rel, err := upgrade.Run(chart.ReleaseName, chartRequested, values)
+	if err != nil {
+		return err
+	}
+	log.Info("Chart upgraded", zap.Int("version", rel.Version))
+	return nil
 }

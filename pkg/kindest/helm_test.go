@@ -376,7 +376,7 @@ spec:
       containers:
         - name: foo
           imagePullPolicy: Never
-		  image: test/%s:latest
+          image: test/%s:latest
           env:
             - name: FOO
               value: BAR`, name)
@@ -391,6 +391,9 @@ kubectl get deployment -n bar
 if [ -z "$(kubectl get deployment -n bar | grep foo-deployment)" ]; then
 	echo "foo-deployment not found"
 	exit 2
+fi
+if [ "$FOO" -ne "BAR" ]; then
+	exit 3
 fi
 echo "Chart was installed correctly!"`
 	require.NoError(t, ioutil.WriteFile(
@@ -452,6 +455,14 @@ test:
 			Kind:       kind,
 		},
 	))
+	require.NoError(t, Test(
+		&TestOptions{
+			File:       specPath,
+			NoRegistry: true,
+			Transient:  false,
+			Kind:       kind,
+		},
+	))
 	deploymentYaml = fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -470,21 +481,23 @@ spec:
       containers:
         - name: foo
           imagePullPolicy: Never
-		  image: test/%s:latest
+          image: test/%s:latest
 		  env:
-			- name: FOO
+            - name: FOO
               value: BAZ`, name)
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(templatesPath, "deployment.yaml"),
 		[]byte(deploymentYaml),
 		0644,
 	))
-	require.NoError(t, Test(
+	err := Test(
 		&TestOptions{
 			File:       specPath,
 			NoRegistry: true,
 			Transient:  false,
 			Kind:       kind,
 		},
-	))
+	)
+	require.NoError(t, err)
+	//require.Contains(t, err.Error())
 }
