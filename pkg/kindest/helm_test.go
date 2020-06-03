@@ -235,8 +235,8 @@ maintainers:
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-deployment
-    labels:
-      chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+  labels:
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
 spec:
   selector:
     matchLabels:

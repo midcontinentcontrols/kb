@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/docker/docker/api/types/strslice"
@@ -412,7 +414,86 @@ func imageID(containerNameOrID string) (string, error) {
 	return lines[0], nil
 }
 
-func loadImageOnCluster(name string, imageName string, provider *cluster.Provider) error {
+func getSpecImages(spec *KindestSpec, rootPath string) ([]string, error) {
+	var images []string
+	for i, dependency := range spec.Dependencies {
+		if err := func() error {
+			depPath := filepath.Clean(filepath.Join(rootPath, dependency))
+			otherSpec := &KindestSpec{}
+			docBytes, err := ioutil.ReadFile(depPath)
+			if err != nil {
+				return err
+			}
+			if err := yaml.Unmarshal(docBytes, otherSpec); err != nil {
+				return err
+			}
+			others, err := getSpecImages(otherSpec, depPath)
+			if err != nil {
+				return err
+			}
+			images = append(images, others...)
+			return nil
+		}(); err != nil {
+			return nil, fmt.Errorf("dependency.%d (%s): %v", i, dependency, err)
+		}
+	}
+	if spec.Build != nil {
+		images = append(images, spec.Build.Name+":latest")
+	}
+	return images, nil
+}
+
+func loadImagesOnCluster(imageNames []string, name string, provider *cluster.Provider, concurrency int) error {
+	if concurrency == 0 {
+		concurrency = runtime.NumCPU()
+	}
+	pool := tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
+		imageName := payload.(string)
+		stop := make(chan int, 1)
+		defer func() {
+			stop <- 0
+			close(stop)
+		}()
+		go func() {
+			log := log.With(
+				zap.String("image", imageName),
+				zap.String("cluster", name),
+			)
+			for {
+				select {
+				case <-time.After(time.Second):
+					log.Info("Still copying image onto cluster")
+				case <-stop:
+					return
+				}
+			}
+		}()
+		return loadImageOnCluster(imageName, name, provider)
+	})
+	defer pool.Close()
+	numImages := len(imageNames)
+	dones := make([]chan error, numImages, numImages)
+	for i, imageName := range imageNames {
+		done := make(chan error, 1)
+		dones[i] = done
+		go func(imageName string, done chan<- error) {
+			defer close(done)
+			done <- func() error {
+				err, _ := pool.Process(imageName).(error)
+				return err
+			}()
+		}(imageName, done)
+	}
+	var multi error
+	for i, done := range dones {
+		if err := <-done; err != nil {
+			multi = multierror.Append(multi, fmt.Errorf("%s: %v", imageNames[i], err))
+		}
+	}
+	return nil
+}
+
+func loadImageOnCluster(imageName, name string, provider *cluster.Provider) error {
 	imageID, err := imageID(imageName)
 	if err != nil {
 		return fmt.Errorf("image: %q not present locally", imageName)
@@ -578,10 +659,15 @@ func deleteOldPods(pods corev1types.PodInterface, envName string) error {
 	return nil
 }
 
+func loadDependenciesOnCluster(spec *KindestSpec, provider *cluster.Provider) error {
+	return nil
+}
+
 func (t *TestSpec) runKubernetes(
 	rootPath string,
 	options *TestOptions,
 	cli client.APIClient,
+	spec *KindestSpec,
 ) error {
 	var client *kubernetes.Clientset
 	var kubeContext string
@@ -660,13 +746,20 @@ func (t *TestSpec) runKubernetes(
 			return err
 		}
 		if options.NoRegistry {
-			log := log.With(zap.String("image", image))
-			log.Info("Copying image onto cluster")
 			imagePullPolicy = corev1.PullNever
-			if err := loadImageOnCluster(
+			images, err := getSpecImages(spec, rootPath)
+			if err != nil {
+				return err
+			}
+			images = append(images, image)
+			log.Info("Copying images onto cluster",
+				zap.Int("numImages", len(images)),
+				zap.Int("concurrency", options.Concurrency))
+			if err := loadImagesOnCluster(
+				images,
 				name,
-				image,
 				provider,
+				options.Concurrency,
 			); err != nil {
 				return err
 			}
@@ -909,6 +1002,7 @@ func (t *TestSpec) Run(
 	manifestPath string,
 	options *TestOptions,
 	cli client.APIClient,
+	spec *KindestSpec,
 ) error {
 	if err := t.Build.Build(
 		manifestPath,
@@ -923,7 +1017,7 @@ func (t *TestSpec) Run(
 	if t.Env.Docker != nil {
 		return t.runDocker(options, cli)
 	} else if t.Env.Kubernetes != nil {
-		return t.runKubernetes(filepath.Dir(manifestPath), options, cli)
+		return t.runKubernetes(filepath.Dir(manifestPath), options, cli, spec)
 	} else {
 		panic("unreachable branch detected")
 	}
@@ -934,6 +1028,7 @@ var ErrNoTests = fmt.Errorf("no tests configured")
 type testRun struct {
 	test         *TestSpec
 	options      *TestOptions
+	spec         *KindestSpec
 	manifestPath string
 }
 
@@ -949,7 +1044,7 @@ func Test(options *TestOptions) error {
 	}
 	pool = tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
 		item := payload.(*testRun)
-		return item.test.Run(item.manifestPath, item.options, cli)
+		return item.test.Run(item.manifestPath, item.options, cli, item.spec)
 	})
 	defer pool.Close()
 	return TestEx(options, pool)
@@ -975,6 +1070,7 @@ func TestEx(options *TestOptions, pool *tunny.Pool) error {
 				manifestPath: manifestPath,
 				test:         test,
 				options:      options,
+				spec:         spec,
 			}).(error)
 			done <- err
 		}(test, done)

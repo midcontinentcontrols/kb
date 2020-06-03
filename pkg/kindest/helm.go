@@ -2,12 +2,19 @@ package kindest
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
+
+	kubefake "helm.sh/helm/v3/pkg/kube/fake"
 
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/storage/driver"
 
 	"helm.sh/helm/v3/pkg/cli"
 )
@@ -30,6 +37,47 @@ func (t *TestSpec) installCharts(
 
 func debug(format string, v ...interface{}) {
 	log.Debug(fmt.Sprintf(format, v...))
+}
+
+// This function loads releases into the memory storage if the
+// environment variable is properly set.
+func loadReleasesInMemory(actionConfig *action.Configuration, env *cli.EnvSettings) error {
+	filePaths := strings.Split(os.Getenv("HELM_MEMORY_DRIVER_DATA"), ":")
+	if len(filePaths) == 0 {
+		return nil
+	}
+
+	store := actionConfig.Releases
+	mem, ok := store.Driver.(*driver.Memory)
+	if !ok {
+		// For an unexpected reason we are not dealing with the memory storage driver.
+		return nil
+	}
+
+	actionConfig.KubeClient = &kubefake.PrintingKubeClient{Out: ioutil.Discard}
+
+	for _, path := range filePaths {
+		b, err := ioutil.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("Unable to read memory driver data: %v", err)
+		}
+
+		releases := []*release.Release{}
+		if err := yaml.Unmarshal(b, &releases); err != nil {
+			return fmt.Errorf("Unable to unmarshal memory driver data: %v", err)
+		}
+
+		for _, rel := range releases {
+			if err := store.Create(rel); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Must reset namespace to the proper one
+	mem.SetNamespace(env.Namespace())
+
+	return nil
 }
 
 func (t *TestSpec) installChart(
@@ -55,6 +103,9 @@ func (t *TestSpec) installChart(
 		debug,
 	); err != nil {
 		return err
+	}
+	if helmDriver == "memory" {
+		loadReleasesInMemory(cfg, env)
 	}
 	client := action.NewInstall(cfg)
 	cp, err := client.ChartPathOptions.LocateChart(chartPath, env)
@@ -106,7 +157,13 @@ func (t *TestSpec) installChart(
 	if values == nil {
 		values = make(map[string]interface{})
 	}
+	// TODO: fix upgrade code
+	// https://github.com/helm/helm/blob/master/cmd/helm/upgrade.go
+	client.CreateNamespace = true
+	client.Replace = true
 	client.Namespace = chart.Namespace
+	client.ReleaseName = chart.ReleaseName
+	log.Info("Installing resolved chart")
 	release, err := client.Run(chartRequested, values)
 	if err != nil {
 		return err
