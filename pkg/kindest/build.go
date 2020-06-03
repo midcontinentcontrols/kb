@@ -36,6 +36,7 @@ type BuildSpec struct {
 	Dockerfile string            `json:"dockerfile,omitempty"`
 	Context    string            `json:"context,omitempty"`
 	BuildArgs  []*DockerBuildArg `json:"buildArgs,omitempty"`
+	Target     string            `json:"target,omitempty"`
 }
 
 func (b *BuildSpec) verifyDocker(manifestPath string) error {
@@ -209,6 +210,7 @@ func (b *BuildSpec) buildDocker(
 			BuildArgs:  buildArgs,
 			Squash:     options.Squash,
 			Tags:       []string{tag},
+			Target:     b.Target,
 		},
 	)
 	if err != nil {
