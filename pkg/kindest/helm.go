@@ -161,6 +161,7 @@ func (t *TestSpec) installChart(
 	// https://github.com/helm/helm/blob/master/cmd/helm/upgrade.go
 	client.CreateNamespace = true
 	client.Replace = true
+	// TODO: find out why deployments always end up in default namespace
 	client.Namespace = chart.Namespace
 	client.ReleaseName = chart.ReleaseName
 	log.Info("Installing resolved chart")
