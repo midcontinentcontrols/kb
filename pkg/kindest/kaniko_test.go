@@ -11,11 +11,8 @@ import (
 func TestBuildKanikoLocal(t *testing.T) {
 	specPath := createBasicTestProject(t, "tmp")
 	defer os.RemoveAll(filepath.Dir(specPath))
-	require.NoError(t, Build(
-		&BuildOptions{
-			File:    specPath,
-			Builder: "kaniko",
-		},
-		newCLI(t),
-	))
+	require.NoError(t, Build(&BuildOptions{
+		File:    specPath,
+		Builder: "kaniko",
+	}))
 }

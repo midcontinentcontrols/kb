@@ -13,49 +13,6 @@ import (
 	"go.uber.org/zap"
 )
 
-func waitForRegistry(regName string, cli client.APIClient) error {
-	done := make(chan int)
-	go func() {
-		log := log.With(zap.String("name", regName))
-		for {
-			select {
-			case <-time.After(5 * time.Second):
-				log.Info("Still waiting for registry")
-			case <-done:
-				return
-			}
-		}
-	}()
-	defer func() {
-		done <- 0
-		close(done)
-	}()
-	for {
-		info, err := cli.ContainerInspect(context.TODO(), regName)
-		if err != nil {
-			return err
-		}
-		if info.State == nil {
-			panic("nil container state")
-		}
-		switch info.State.Status {
-		case "created":
-			if err := cli.ContainerStart(
-				context.TODO(),
-				regName,
-				types.ContainerStartOptions{},
-			); err != nil {
-				return fmt.Errorf("error starting container: %v", err)
-			}
-			time.Sleep(time.Second)
-		case "running":
-			return nil
-		default:
-			return fmt.Errorf("unexpected container state '%s'", info.State.Status)
-		}
-	}
-}
-
 func CreateLocalRegistry(regName string, regPort int, cli client.APIClient) error {
 	portStr := fmt.Sprintf("%d/tcp", regPort)
 	info, err := cli.ContainerCreate(
@@ -80,7 +37,7 @@ func CreateLocalRegistry(regName string, regPort int, cli client.APIClient) erro
 	if err != nil {
 		return err
 	}
-	if err := waitForRegistry(regName, cli); err != nil {
+	if err := waitForContainer(regName, cli); err != nil {
 		return err
 	}
 	log := log.With(zap.String("id", info.ID))
@@ -122,7 +79,7 @@ func DeleteRegistry(cli client.APIClient) error {
 func EnsureRegistryRunning(cli client.APIClient) error {
 	regName := "kind-registry"
 	regPort := 5000
-	if err := waitForRegistry(regName, cli); err != nil {
+	if err := waitForContainer(regName, cli); err != nil {
 		if client.IsErrNotFound(err) {
 			return CreateLocalRegistry(regName, regPort, cli)
 		}

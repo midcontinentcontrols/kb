@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	dockerclient "github.com/docker/docker/client"
+
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -88,10 +90,11 @@ func (t *TestSpec) Verify(manifestPath string) error {
 	}
 }
 
-func (t *TestSpec) runDocker(
-	options *TestOptions,
-	cli client.APIClient,
-) (err error) {
+func (t *TestSpec) runDocker(options *TestOptions) error {
+	cli, err := client.NewEnvClient()
+	if err != nil {
+		return err
+	}
 	var env []string
 	for _, v := range t.Env.Variables {
 		env = append(env, fmt.Sprintf("%s=%s", v.Name, v.Value))
@@ -674,7 +677,6 @@ func loadDependenciesOnCluster(spec *KindestSpec, provider *cluster.Provider) er
 func (t *TestSpec) runKubernetes(
 	rootPath string,
 	options *TestOptions,
-	cli client.APIClient,
 	spec *KindestSpec,
 ) error {
 	var client *kubernetes.Clientset
@@ -682,6 +684,10 @@ func (t *TestSpec) runKubernetes(
 	image := t.Build.Name + ":latest"
 	imagePullPolicy := corev1.PullAlways
 	if options.Transient || options.Kind != "" {
+		cli, err := dockerclient.NewEnvClient()
+		if err != nil {
+			return err
+		}
 		name := options.Kind
 		if name == "" {
 			name = "test-" + uuid.New().String()[:8]
@@ -745,7 +751,6 @@ func (t *TestSpec) runKubernetes(
 				}()
 			}
 		}
-		var err error
 		client, kubeContext, err = clientForKindCluster(name, provider)
 		if err != nil {
 			return err
@@ -1014,7 +1019,6 @@ func (t *TestSpec) runKubernetes(
 func (t *TestSpec) Run(
 	manifestPath string,
 	options *TestOptions,
-	cli client.APIClient,
 	spec *KindestSpec,
 ) error {
 	if err := t.Build.Build(
@@ -1022,15 +1026,14 @@ func (t *TestSpec) Run(
 		&BuildOptions{
 			Concurrency: 1,
 		},
-		cli,
 		nil,
 	); err != nil {
 		return err
 	}
 	if t.Env.Docker != nil {
-		return t.runDocker(options, cli)
+		return t.runDocker(options)
 	} else if t.Env.Kubernetes != nil {
-		return t.runKubernetes(filepath.Dir(manifestPath), options, cli, spec)
+		return t.runKubernetes(filepath.Dir(manifestPath), options, spec)
 	} else {
 		panic("unreachable branch detected")
 	}
@@ -1046,14 +1049,10 @@ type testRun struct {
 }
 
 func Test(options *TestOptions) error {
-	cli, err := client.NewEnvClient()
-	if err != nil {
-		return err
-	}
 	if err := Build(&BuildOptions{
 		File:        options.File,
 		Concurrency: options.Concurrency,
-	}, cli); err != nil {
+	}); err != nil {
 		return err
 	}
 	var pool *tunny.Pool
@@ -1063,7 +1062,7 @@ func Test(options *TestOptions) error {
 	}
 	pool = tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
 		item := payload.(*testRun)
-		return item.test.Run(item.manifestPath, item.options, cli, item.spec)
+		return item.test.Run(item.manifestPath, item.options, item.spec)
 	})
 	defer pool.Close()
 	return TestEx(options, pool)

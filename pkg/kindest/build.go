@@ -132,9 +132,12 @@ func walkDir(
 func (b *BuildSpec) buildDocker(
 	manifestPath string,
 	options *BuildOptions,
-	cli client.APIClient,
 	respHandler func(io.ReadCloser) error,
 ) error {
+	cli, err := client.NewEnvClient()
+	if err != nil {
+		return err
+	}
 	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), filepath.FromSlash(b.Context)))
 	u, err := user.Current()
 	if err != nil {
@@ -275,7 +278,6 @@ func (b *BuildSpec) buildDocker(
 func (b *BuildSpec) Build(
 	manifestPath string,
 	options *BuildOptions,
-	cli client.APIClient,
 	respHandler func(io.ReadCloser) error,
 ) error {
 	switch options.Builder {
@@ -290,7 +292,6 @@ func (b *BuildSpec) Build(
 		return b.buildDocker(
 			manifestPath,
 			options,
-			cli,
 			respHandler,
 		)
 	default:
@@ -313,7 +314,6 @@ func buildDependencies(
 	spec *KindestSpec,
 	manifestPath string,
 	options *BuildOptions,
-	cli client.APIClient,
 	pool *tunny.Pool,
 ) error {
 	n := len(spec.Dependencies)
@@ -390,7 +390,7 @@ func loadSpec(file string) (*KindestSpec, string, error) {
 	return spec, manifestPath, nil
 }
 
-func Build(options *BuildOptions, cli client.APIClient) error {
+func Build(options *BuildOptions) error {
 	var pool *tunny.Pool
 	concurrency := options.Concurrency
 	if concurrency == 0 {
@@ -398,10 +398,10 @@ func Build(options *BuildOptions, cli client.APIClient) error {
 	}
 	pool = tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
 		options := payload.(*BuildOptions)
-		return BuildEx(options, cli, pool, nil)
+		return BuildEx(options, pool, nil)
 	})
 	defer pool.Close()
-	return BuildEx(options, cli, pool, nil)
+	return BuildEx(options, pool, nil)
 }
 
 func RegistryAuthFromEnv() (*types.AuthConfig, error) {
@@ -421,7 +421,6 @@ func RegistryAuthFromEnv() (*types.AuthConfig, error) {
 
 func BuildEx(
 	options *BuildOptions,
-	cli client.APIClient,
 	pool *tunny.Pool,
 	respHandler func(io.ReadCloser) error,
 ) error {
@@ -434,7 +433,6 @@ func BuildEx(
 		spec,
 		manifestPath,
 		options,
-		cli,
 		pool,
 	); err != nil {
 		return err
@@ -443,7 +441,6 @@ func BuildEx(
 		if err := spec.Build.Build(
 			manifestPath,
 			options,
-			cli,
 			respHandler,
 		); err != nil {
 			return err

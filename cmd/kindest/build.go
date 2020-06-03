@@ -4,7 +4,6 @@ import (
 	"runtime"
 
 	"github.com/Jeffail/tunny"
-	"github.com/docker/docker/client"
 	"github.com/midcontinentcontrols/kindest/pkg/kindest"
 	"github.com/spf13/cobra"
 )
@@ -15,15 +14,10 @@ var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cli, err := client.NewEnvClient()
-		if err != nil {
-			return err
-		}
 		var pool *tunny.Pool
 		pool = tunny.NewFunc(buildArgs.Concurrency, func(payload interface{}) interface{} {
 			return kindest.BuildEx(
 				payload.(*kindest.BuildOptions),
-				cli,
 				pool,
 				nil,
 			)

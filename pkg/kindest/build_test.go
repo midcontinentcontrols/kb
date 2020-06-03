@@ -57,7 +57,6 @@ func TestBuildBasic(t *testing.T) {
 			File:    specPath,
 			Builder: "docker",
 		},
-		newCLI(t),
 	))
 }
 
@@ -105,7 +104,6 @@ RUN exit 1`
 		&BuildOptions{
 			File: specPath,
 		},
-		newCLI(t),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "dependency 'dep': The command '/bin/sh -c exit 1' returned a non-zero code: 1")
@@ -137,7 +135,6 @@ build:
 		&BuildOptions{
 			File: specPath,
 		},
-		newCLI(t),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "dependency 0: missing kindest.yaml")
@@ -152,7 +149,6 @@ func TestBuildErrMissingDockerfile(t *testing.T) {
 		&BuildOptions{
 			File: specPath,
 		},
-		newCLI(t),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing Dockerfile")
@@ -184,7 +180,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	))
 	require.NoError(t, Build(
 		&BuildOptions{File: specPath},
-		newCLI(t),
 	))
 }
 
@@ -261,7 +256,6 @@ func TestBuildErrMissingName(t *testing.T) {
 	))
 	require.Equal(t, ErrMissingImageName, Build(
 		&BuildOptions{File: specPath},
-		newCLI(t),
 	))
 }
 
@@ -290,7 +284,6 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
 	))
 	require.Error(t, Build(
 		&BuildOptions{File: specPath},
-		newCLI(t),
 	))
 }
 
@@ -322,7 +315,6 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
 	))
 	require.Error(t, Build(
 		&BuildOptions{File: specPath},
-		newCLI(t),
 	))
 }
 
@@ -355,7 +347,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	))
 	require.NoError(t, Build(
 		&BuildOptions{File: specPath},
-		newCLI(t),
 	))
 }
 
@@ -406,7 +397,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		&BuildOptions{
 			File: specPath,
 		},
-		newCLI(t),
 	))
 }
 
@@ -451,7 +441,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		&BuildOptions{
 			File: specPath,
 		},
-		newCLI(t),
 	))
 }
 
@@ -513,7 +502,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		&BuildOptions{
 			File: specPath,
 		},
-		newCLI(t),
 	))
 }
 
@@ -569,7 +557,6 @@ build:
 			&BuildOptions{
 				File: specPath,
 			},
-			newCLI(t),
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bar.txt: no such file or directory")
@@ -657,7 +644,6 @@ build:
 			&BuildOptions{
 				File: specPath,
 			},
-			newCLI(t),
 		)
 		require.NoError(t, err)
 	})
@@ -717,7 +703,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		&BuildOptions{
 			File: specPath,
 		},
-		newCLI(t),
 	))
 }
 
@@ -744,12 +729,11 @@ CMD ["cat", "/message"]`
 		[]byte(spec),
 		0644,
 	))
-	cli := newCLI(t)
 	var pool *tunny.Pool
 	var isUsingCache int32
 	pool = tunny.NewFunc(runtime.NumCPU(), func(payload interface{}) interface{} {
 		options := payload.(*BuildOptions)
-		return BuildEx(options, cli, pool, func(r io.ReadCloser) error {
+		return BuildEx(options, pool, func(r io.ReadCloser) error {
 			rd := bufio.NewReader(r)
 			for {
 				message, err := rd.ReadString('\n')
