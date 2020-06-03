@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/kind/pkg/cluster"
 )
 
 func TestHelmErrMissingChartYaml(t *testing.T) {
@@ -327,7 +328,12 @@ test:
 func TestHelmLocalChartUpgrade(t *testing.T) {
 	transient := os.Getenv("KINDEST_PERSISTENT") != "1"
 	var kind string
-	if !transient {
+	if transient {
+		kind = "kindest-helm-" + uuid.New().String()[:8]
+		defer func() {
+			require.NoError(t, cluster.NewProvider().Delete(kind, ""))
+		}()
+	} else {
 		kind = "kindest-helm"
 	}
 	name := "test-" + uuid.New().String()[:8]
