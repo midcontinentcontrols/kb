@@ -120,8 +120,77 @@ func (t *TestSpec) installChart(
 	if helmDriver == "memory" {
 		loadReleasesInMemory(cfg, env, chart.Namespace)
 	}
-	client := action.NewInstall(cfg)
-	cp, err := client.ChartPathOptions.LocateChart(chartPath, env)
+
+	values := chart.Values
+	if values == nil {
+		values = make(map[string]interface{})
+	}
+
+	histClient := action.NewHistory(cfg)
+	histClient.Max = 1
+	if _, err := histClient.Run(chart.ReleaseName); err == driver.ErrReleaseNotFound {
+		install := action.NewInstall(cfg)
+		cp, err := install.ChartPathOptions.LocateChart(chartPath, env)
+		if err != nil {
+			return err
+		}
+		chartRequested, err := loader.Load(cp)
+		if err != nil {
+			return err
+		}
+		validInstallableChart, err := isChartInstallable(chartRequested)
+		if !validInstallableChart {
+			return err
+		}
+		if chartRequested.Metadata.Deprecated {
+			log.Warn("This chart is deprecated")
+		}
+		if req := chartRequested.Metadata.Dependencies; req != nil {
+			return fmt.Errorf("chart dependencies are not yet implemented")
+			/*
+				// If CheckDependencies returns an error, we have unfulfilled dependencies.
+				// As of Helm 2.4.0, this is treated as a stopping condition:
+				// https://github.com/helm/helm/issues/2209
+				if err := action.CheckDependencies(chartRequested, req); err != nil {
+					if client.DependencyUpdate {
+						man := &downloader.Manager{
+							//Out:              out,
+							//ChartPath:        cp,
+							//Keyring:          client.ChartPathOptions.Keyring,
+							//SkipUpdate:       false,
+							//Getters:          p,
+							//RepositoryConfig: settings.RepositoryConfig,
+							//RepositoryCache:  settings.RepositoryCache,
+							//Debug:            settings.Debug,
+						}
+						if err := man.Update(); err != nil {
+							return err
+						}
+						// Reload the chart with the updated Chart.lock file.
+						if chartRequested, err = loader.Load(cp); err != nil {
+							return fmt.Errorf("failed reloading chart after repo update: %v", err)
+						}
+					} else {
+						return err
+					}
+				}*/
+		}
+		install.CreateNamespace = true
+		install.Replace = true
+		// TODO: find out why deployments always end up in default namespace
+		install.Namespace = chart.Namespace
+		install.ReleaseName = chart.ReleaseName
+		log.Info("Installing resolved chart")
+		release, err := install.Run(chartRequested, values)
+		if err != nil {
+			return err
+		}
+		log.Info("Installed chart", zap.Int("version", release.Version))
+	} else if err != nil {
+		return err
+	}
+	upgrade := action.NewUpgrade(cfg)
+	cp, err := upgrade.ChartPathOptions.LocateChart(chartPath, env)
 	if err != nil {
 		return err
 	}
@@ -136,59 +205,5 @@ func (t *TestSpec) installChart(
 	if chartRequested.Metadata.Deprecated {
 		log.Warn("This chart is deprecated")
 	}
-	if req := chartRequested.Metadata.Dependencies; req != nil {
-		return fmt.Errorf("chart dependencies are not yet implemented")
-		/*
-			// If CheckDependencies returns an error, we have unfulfilled dependencies.
-			// As of Helm 2.4.0, this is treated as a stopping condition:
-			// https://github.com/helm/helm/issues/2209
-			if err := action.CheckDependencies(chartRequested, req); err != nil {
-				if client.DependencyUpdate {
-					man := &downloader.Manager{
-						//Out:              out,
-						//ChartPath:        cp,
-						//Keyring:          client.ChartPathOptions.Keyring,
-						//SkipUpdate:       false,
-						//Getters:          p,
-						//RepositoryConfig: settings.RepositoryConfig,
-						//RepositoryCache:  settings.RepositoryCache,
-						//Debug:            settings.Debug,
-					}
-					if err := man.Update(); err != nil {
-						return err
-					}
-					// Reload the chart with the updated Chart.lock file.
-					if chartRequested, err = loader.Load(cp); err != nil {
-						return fmt.Errorf("failed reloading chart after repo update: %v", err)
-					}
-				} else {
-					return err
-				}
-			}*/
-	}
-	values := chart.Values
-	if values == nil {
-		values = make(map[string]interface{})
-	}
-
-	histClient := action.NewHistory(cfg)
-	histClient.Max = 1
-	if _, err := histClient.Run(chart.ReleaseName); err == driver.ErrReleaseNotFound {
-		// TODO: fix upgrade code
-		// https://github.com/helm/helm/blob/master/cmd/helm/upgrade.go
-		client.CreateNamespace = true
-		client.Replace = true
-		// TODO: find out why deployments always end up in default namespace
-		client.Namespace = chart.Namespace
-		client.ReleaseName = chart.ReleaseName
-		log.Info("Installing resolved chart")
-		release, err := client.Run(chartRequested, values)
-		if err != nil {
-			return err
-		}
-		log.Info("Installed chart", zap.Int("version", release.Version))
-	} else {
-		return fmt.Errorf("helm upgrade is unimplemented")
-	}
-	return nil
+	return fmt.Errorf("helm upgrade is still unimplemented")
 }
