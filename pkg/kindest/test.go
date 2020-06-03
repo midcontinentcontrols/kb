@@ -447,28 +447,34 @@ func loadImagesOnCluster(imageNames []string, name string, provider *cluster.Pro
 	if concurrency == 0 {
 		concurrency = runtime.NumCPU()
 	}
+	log := log.With(zap.String("cluster", name))
+	log.Info("Copying images onto cluster",
+		zap.Int("numImages", len(imageNames)),
+		zap.Int("concurrency", concurrency))
 	pool := tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
 		imageName := payload.(string)
+		log := log.With(zap.String("image", imageName))
+		start := time.Now()
 		stop := make(chan int, 1)
 		defer func() {
 			stop <- 0
 			close(stop)
 		}()
 		go func() {
-			log := log.With(
-				zap.String("image", imageName),
-				zap.String("cluster", name),
-			)
 			for {
 				select {
 				case <-time.After(time.Second):
-					log.Info("Still copying image onto cluster")
+					log.Info("Still copying image onto cluster", zap.String("elapsed", time.Now().Sub(start).String()))
 				case <-stop:
 					return
 				}
 			}
 		}()
-		return loadImageOnCluster(imageName, name, provider)
+		if err := loadImageOnCluster(imageName, name, provider); err != nil {
+			return err
+		}
+		log.Info("Copied image onto cluster", zap.String("elapsed", time.Now().Sub(start).String()))
+		return nil
 	})
 	defer pool.Close()
 	numImages := len(imageNames)
@@ -752,9 +758,6 @@ func (t *TestSpec) runKubernetes(
 				return err
 			}
 			images = append(images, image)
-			log.Info("Copying images onto cluster",
-				zap.Int("numImages", len(images)),
-				zap.Int("concurrency", options.Concurrency))
 			if err := loadImagesOnCluster(
 				images,
 				name,

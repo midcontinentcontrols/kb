@@ -157,18 +157,25 @@ func (t *TestSpec) installChart(
 	if values == nil {
 		values = make(map[string]interface{})
 	}
-	// TODO: fix upgrade code
-	// https://github.com/helm/helm/blob/master/cmd/helm/upgrade.go
-	client.CreateNamespace = true
-	client.Replace = true
-	// TODO: find out why deployments always end up in default namespace
-	client.Namespace = chart.Namespace
-	client.ReleaseName = chart.ReleaseName
-	log.Info("Installing resolved chart")
-	release, err := client.Run(chartRequested, values)
-	if err != nil {
-		return err
+
+	histClient := action.NewHistory(cfg)
+	histClient.Max = 1
+	if _, err := histClient.Run(chart.ReleaseName); err == driver.ErrReleaseNotFound {
+		// TODO: fix upgrade code
+		// https://github.com/helm/helm/blob/master/cmd/helm/upgrade.go
+		client.CreateNamespace = true
+		client.Replace = true
+		// TODO: find out why deployments always end up in default namespace
+		client.Namespace = chart.Namespace
+		client.ReleaseName = chart.ReleaseName
+		log.Info("Installing resolved chart")
+		release, err := client.Run(chartRequested, values)
+		if err != nil {
+			return err
+		}
+		log.Info("Installed chart", zap.Int("version", release.Version))
+	} else {
+		return fmt.Errorf("helm upgrade is unimplemented")
 	}
-	log.Info("Installed chart", zap.Int("version", release.Version))
 	return nil
 }
