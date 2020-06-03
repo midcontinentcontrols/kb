@@ -48,15 +48,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	return specPath
 }
 
-func TestBuildBasic(t *testing.T) {
-	specPath := createBasicTestProject(t, "tmp")
-	defer os.RemoveAll(filepath.Dir(specPath))
-	require.NoError(t, Build(&BuildOptions{
-		File:    specPath,
-		Builder: "docker",
-	}))
-}
-
 func TestBuildErrDependencyBuildFailure(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -714,4 +705,23 @@ CMD ["cat", "/message"]`
 	err, _ = pool.Process(&BuildOptions{File: specPath}).(error)
 	require.NoError(t, err)
 	require.Equal(t, int32(1), atomic.LoadInt32(&isUsingCache))
+}
+
+func testBuilder(t *testing.T, builder string) {
+	t.Run("basic", func(t *testing.T) {
+		specPath := createBasicTestProject(t, "tmp")
+		defer os.RemoveAll(filepath.Dir(specPath))
+		require.NoError(t, Build(&BuildOptions{
+			File:    specPath,
+			Builder: builder,
+		}))
+	})
+}
+
+func TestBuildDocker(t *testing.T) {
+	testBuilder(t, "docker")
+}
+
+func TestBuildKaniko(t *testing.T) {
+	testBuilder(t, "kaniko")
 }
