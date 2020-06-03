@@ -870,6 +870,13 @@ func (t *TestSpec) runKubernetes(
 		return err
 	}
 	podName := t.Name + "-" + uuid.New().String()[:8]
+	var env []corev1.EnvVar
+	for _, v := range t.Env.Variables {
+		env = append(env, corev1.EnvVar{
+			Name:  v.Name,
+			Value: v.Value,
+		})
+	}
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
@@ -886,6 +893,7 @@ func (t *TestSpec) runKubernetes(
 				Image:           image,
 				ImagePullPolicy: imagePullPolicy,
 				Command:         t.Build.Command,
+				Env:             env,
 			}},
 		},
 	}
