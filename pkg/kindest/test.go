@@ -1045,7 +1045,6 @@ func Test(options *TestOptions) error {
 	if err := Build(&BuildOptions{
 		File:        options.File,
 		Concurrency: options.Concurrency,
-		Push:        false,
 	}, cli); err != nil {
 		return err
 	}
