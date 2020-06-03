@@ -519,11 +519,12 @@ func isChartInstallable(ch *chart.Chart) (bool, error) {
 
 func (t *TestSpec) installChart(
 	chart *ChartSpec,
-	client client.Client,
 	rootPath string,
 	options *TestOptions,
 ) error {
-	log.Info("Installing chart", zap.String("name", chart.Name))
+	log.Info("Installing chart", zap.String("releaseName", chart.ReleaseName))
+	if chart.RepoURL != "" {
+	}
 	/*
 		env := helmcli.New()
 		cfg := &action.Configuration{}
@@ -578,14 +579,12 @@ func (t *TestSpec) installChart(
 }
 
 func (t *TestSpec) installCharts(
-	client client.Client,
 	rootPath string,
 	options *TestOptions,
 ) error {
 	for _, chart := range t.Env.Kubernetes.Charts {
 		if err := t.installChart(
 			chart,
-			client,
 			rootPath,
 			options,
 		); err != nil {
@@ -792,7 +791,6 @@ func (t *TestSpec) runKubernetes(
 	}
 
 	if err := t.installCharts(
-		nil,
 		rootPath,
 		options,
 	); err != nil {

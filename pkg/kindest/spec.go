@@ -32,10 +32,9 @@ func (k *KubernetesEnvSpec) verifyResources(rootDir string) error {
 
 func (k *KubernetesEnvSpec) verifyCharts(rootDir string) error {
 	for _, chart := range k.Charts {
-		if chart.Path != "" {
-			if chart.RepoURL != "" {
-				return ErrMultipleChartSources
-			}
+		if chart.RepoURL != "" {
+			return fmt.Errorf("chart.repoURL is not implemented")
+		} else if chart.Path != "" {
 			chartDir := filepath.Clean(filepath.Join(rootDir, chart.Path))
 			chartPath := filepath.Join(chartDir, "Chart.yaml")
 			if _, err := os.Stat(chartPath); err != nil {
@@ -45,8 +44,6 @@ func (k *KubernetesEnvSpec) verifyCharts(rootDir string) error {
 			if _, err := os.Stat(valuesPath); err != nil {
 				return fmt.Errorf("missing values.yaml at %s", valuesPath)
 			}
-		} else if chart.RepoURL != "" {
-			return fmt.Errorf("unimplemented")
 		} else {
 			return ErrMissingChartSource
 		}
