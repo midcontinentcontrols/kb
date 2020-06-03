@@ -16,23 +16,51 @@ type KubernetesEnvSpec struct {
 	Charts    []*ChartSpec `json:"charts,omitempty"`
 }
 
-func (k *KubernetesEnvSpec) Verify(manifestPath string) error {
-	rootDir := filepath.Dir(manifestPath)
+var ErrMultipleChartSources = fmt.Errorf("multiple chart sources not allowed")
+
+var ErrMissingChartSource = fmt.Errorf("missing chart source")
+
+func (k *KubernetesEnvSpec) verifyResources(rootDir string) error {
 	for _, resource := range k.Resources {
 		resourcePath := filepath.Clean(filepath.Join(rootDir, resource))
 		if _, err := os.Stat(resourcePath); err != nil {
 			return fmt.Errorf("resource '%s' not found", resourcePath)
 		}
 	}
+	return nil
+}
+
+func (k *KubernetesEnvSpec) verifyCharts(rootDir string) error {
 	for _, chart := range k.Charts {
-		chartPath := filepath.Join(chart.Name, "Chart.yaml")
-		if _, err := os.Stat(chartPath); err != nil {
-			return fmt.Errorf("test '%s' env chart '%s': missing Chart.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
+		if chart.Path != "" {
+			if chart.RepoURL != "" {
+				return ErrMultipleChartSources
+			}
+			chartDir := filepath.Clean(filepath.Join(rootDir, chart.Path))
+			chartPath := filepath.Join(chartDir, "Chart.yaml")
+			if _, err := os.Stat(chartPath); err != nil {
+				return fmt.Errorf("missing Chart.yaml at %s", chartPath)
+			}
+			valuesPath := filepath.Join(chartDir, "values.yaml")
+			if _, err := os.Stat(valuesPath); err != nil {
+				return fmt.Errorf("missing values.yaml at %s", valuesPath)
+			}
+		} else if chart.RepoURL != "" {
+			return fmt.Errorf("unimplemented")
+		} else {
+			return ErrMissingChartSource
 		}
-		valuesPath := filepath.Join(chart.Name, "values.yaml")
-		if _, err := os.Stat(valuesPath); err != nil {
-			return fmt.Errorf("test '%s' env chart '%s': missing values.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
-		}
+	}
+	return nil
+}
+
+func (k *KubernetesEnvSpec) Verify(manifestPath string) error {
+	rootDir := filepath.Dir(manifestPath)
+	if err := k.verifyResources(rootDir); err != nil {
+		return err
+	}
+	if err := k.verifyCharts(rootDir); err != nil {
+		return err
 	}
 	return nil
 }

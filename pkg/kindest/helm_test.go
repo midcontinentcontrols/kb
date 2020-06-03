@@ -11,6 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestHelmErrMissingChartYaml(t *testing.T) {
+}
+
+func TestHelmErrMultipleChartSources(t *testing.T) {
+}
+
 func TestHelmLocalChart(t *testing.T) {
 	transient := os.Getenv("KINDEST_PERSISTENT") != "1"
 	var kind string
