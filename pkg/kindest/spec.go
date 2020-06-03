@@ -53,6 +53,7 @@ type EnvSpec struct {
 
 type ChartSpec struct {
 	ReleaseName string                 `json:"releaseName"`
+	Namespace   string                 `json:"Namespace,omitempty"`
 	Name        string                 `json:"Name"`
 	Values      map[string]interface{} `json:"values,omitempty"`
 }

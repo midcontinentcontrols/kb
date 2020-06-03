@@ -518,10 +518,10 @@ func isChartInstallable(ch *chart.Chart) (bool, error) {
 }
 
 func (t *TestSpec) installChart(
-	clusterName string,
+	chart *ChartSpec,
+	client client.Client,
 	rootPath string,
 	options *TestOptions,
-	chart *ChartSpec,
 ) error {
 	log.Info("Installing chart", zap.String("name", chart.Name))
 	/*
@@ -578,17 +578,16 @@ func (t *TestSpec) installChart(
 }
 
 func (t *TestSpec) installCharts(
-	name string,
+	client client.Client,
 	rootPath string,
 	options *TestOptions,
-	cli client.APIClient,
 ) error {
 	for _, chart := range t.Env.Kubernetes.Charts {
 		if err := t.installChart(
-			name,
+			chart,
+			client,
 			rootPath,
 			options,
-			chart,
 		); err != nil {
 			return err
 		}
@@ -792,15 +791,13 @@ func (t *TestSpec) runKubernetes(
 		return err
 	}
 
-	// TODO: implement helm charts
-	//if err := t.installCharts(
-	//	name,
-	//	rootPath,
-	//	options,
-	//	cli,
-	//); err != nil {
-	//	return err
-	//}
+	if err := t.installCharts(
+		nil,
+		rootPath,
+		options,
+	); err != nil {
+		return err
+	}
 
 	namespace := "default"
 	pods := client.CoreV1().Pods(namespace)
