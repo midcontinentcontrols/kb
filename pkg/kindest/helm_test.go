@@ -76,7 +76,7 @@ test:
         charts:
           - releaseName: foo
             namespace: bar
-            path: chart/
+            name: chart/
             values:
               foo: bologna
     build:
@@ -172,7 +172,7 @@ test:
         charts:
           - releaseName: foo
             namespace: bar
-            path: chart/
+            name: chart/
             values:
               foo: bologna
     build:
@@ -299,11 +299,11 @@ test:
     env:
       kubernetes:
         charts:
-          - releaseName: foo
-            namespace: bar
-            path: chart/
+          - namespace: bar
+            releaseName: foo
+            name: chart/
             values:
-              foo: bologna
+              foo: bal
     build:
       name: test/%s-test
       dockerfile: Dockerfile

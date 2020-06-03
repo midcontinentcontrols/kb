@@ -52,18 +52,18 @@ import (
 )
 
 type TestOptions struct {
-	File        string `json:"file,omitempty"`
-	Concurrency int    `json:"concurrency,omitempty"`
-	Transient   bool   `json:"transient,omitempty"`
-	Context     string `json:"context,omitempty"`
-	Kind        string `json:"kind,omitempty"`
-	NoRegistry  bool   `json:"noRegistry,omitempty"`
+	File        string `json:"file,omitempty" yaml:"file,omitempty"`
+	Concurrency int    `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
+	Transient   bool   `json:"transient,omitempty" yaml:"transient,omitempty"`
+	Context     string `json:"context,omitempty" yaml:"context,omitempty"`
+	Kind        string `json:"kind,omitempty" yaml:"kind,omitempty"`
+	NoRegistry  bool   `json:"noRegistry,omitempty" yaml:"noRegistry,omitempty"`
 }
 
 type TestSpec struct {
 	Name  string    `json:"name"`
 	Build BuildSpec `json:"build"`
-	Env   EnvSpec   `json:"env,omitempty"`
+	Env   EnvSpec   `json:"env,omitempty" yaml:"env,omitempty"`
 }
 
 var ErrMultipleTestEnv = fmt.Errorf("multiple test environments defined")
@@ -517,83 +517,6 @@ func isChartInstallable(ch *chart.Chart) (bool, error) {
 		return true, nil
 	}
 	return false, fmt.Errorf("%s charts are not installable", ch.Metadata.Type)
-}
-
-func (t *TestSpec) installChart(
-	chart *ChartSpec,
-	rootPath string,
-	options *TestOptions,
-) error {
-	log.Info("Installing chart", zap.String("releaseName", chart.ReleaseName))
-	if chart.RepoURL != "" {
-	}
-	/*
-		env := helmcli.New()
-		cfg := &action.Configuration{}
-		client := action.NewInstall(cfg)
-		cp, err := client.ChartPathOptions.LocateChart(chart, env)
-		if err != nil {
-			return err
-		}
-		chartRequested, err := loader.Load(cp)
-		if err != nil {
-			return err
-		}
-		valueOpts := &values.Options{}
-		validInstallableChart, err := isChartInstallable(chartRequested)
-		if !validInstallableChart {
-			return nil, err
-		}
-		if chartRequested.Metadata.Deprecated {
-			log.Warn("Chart is deprecated", zap.String("name", chart))
-		}
-		if req := chartRequested.Metadata.Dependencies; req != nil {
-			// If CheckDependencies returns an error, we have unfulfilled dependencies.
-			// As of Helm 2.4.0, this is treated as a stopping condition:
-			// https://github.com/helm/helm/issues/2209
-			if err := action.CheckDependencies(chartRequested, req); err != nil {
-				if client.DependencyUpdate {
-					man := &downloader.Manager{
-						Out:              out,
-						ChartPath:        cp,
-						Keyring:          client.ChartPathOptions.Keyring,
-						SkipUpdate:       false,
-						Getters:          p,
-						RepositoryConfig: settings.RepositoryConfig,
-						RepositoryCache:  settings.RepositoryCache,
-						Debug:            settings.Debug,
-					}
-					if err := man.Update(); err != nil {
-						return nil, err
-					}
-					// Reload the chart with the updated Chart.lock file.
-					if chartRequested, err = loader.Load(cp); err != nil {
-						return nil, errors.Wrap(err, "failed reloading chart after repo update")
-					}
-				} else {
-					return nil, err
-				}
-			}
-		}
-		return client.Run(chartRequested, valueOpts)
-	*/
-	return nil
-}
-
-func (t *TestSpec) installCharts(
-	rootPath string,
-	options *TestOptions,
-) error {
-	for _, chart := range t.Env.Kubernetes.Charts {
-		if err := t.installChart(
-			chart,
-			rootPath,
-			options,
-		); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 var ErrUnknownCluster = fmt.Errorf("unknown cluster")

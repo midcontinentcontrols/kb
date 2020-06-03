@@ -33,11 +33,11 @@ type DockerBuildArg struct {
 
 type BuildSpec struct {
 	Name       string            `json:"name"`
-	Dockerfile string            `json:"dockerfile,omitempty"`
-	Context    string            `json:"context,omitempty"`
-	BuildArgs  []*DockerBuildArg `json:"buildArgs,omitempty"`
-	Target     string            `json:"target,omitempty"`
-	Command    []string          `json:"command,omitempty"`
+	Dockerfile string            `json:"dockerfile,omitempty" yaml:"dockerfile,omitempty"`
+	Context    string            `json:"context,omitempty" yaml:"context,omitempty"`
+	BuildArgs  []*DockerBuildArg `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
+	Target     string            `json:"target,omitempty" yaml:"target,omitempty"`
+	Command    []string          `json:"command,omitempty" yaml:"command,omitempty"`
 }
 
 func (b *BuildSpec) verifyDocker(manifestPath string) error {
@@ -286,12 +286,12 @@ func (b *BuildSpec) Build(
 }
 
 type BuildOptions struct {
-	File        string `json:"file,omitempty"`
-	NoCache     bool   `json:"nocache,omitempty"`
-	Squash      bool   `json:"squash,omitempty"`
-	Tag         string `json:"tag,omitempty"`
-	Concurrency int    `json:"concurrency,omitempty"`
-	Push        bool   `json:"push,omitempty"`
+	File        string `json:"file,omitempty" yaml:"file,omitempty"`
+	NoCache     bool   `json:"nocache,omitempty" yaml:"nocache,omitempty"`
+	Squash      bool   `json:"squash,omitempty" yaml:"squash,omitempty"`
+	Tag         string `json:"tag,omitempty" yaml:"tag,omitempty"`
+	Concurrency int    `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
+	Push        bool   `json:"push,omitempty" yaml:"push,omitempty"`
 }
 
 func buildDependencies(

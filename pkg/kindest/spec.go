@@ -12,13 +12,15 @@ type EnvVariable struct {
 }
 
 type KubernetesEnvSpec struct {
-	Resources []string     `json:"resources,omitempty"`
-	Charts    []*ChartSpec `json:"charts,omitempty"`
+	Resources []string     `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Charts    []*ChartSpec `json:"charts,omitempty" yaml:"charts,omitempty"`
 }
 
 var ErrMultipleChartSources = fmt.Errorf("multiple chart sources not allowed")
 
 var ErrMissingChartSource = fmt.Errorf("missing chart source")
+
+var ErrMissingReleaseName = fmt.Errorf("missing release name")
 
 func (k *KubernetesEnvSpec) verifyResources(rootDir string) error {
 	for _, resource := range k.Resources {
@@ -32,20 +34,21 @@ func (k *KubernetesEnvSpec) verifyResources(rootDir string) error {
 
 func (k *KubernetesEnvSpec) verifyCharts(rootDir string) error {
 	for _, chart := range k.Charts {
-		if chart.RepoURL != "" {
-			return fmt.Errorf("chart.repoURL is not implemented")
-		} else if chart.Path != "" {
-			chartDir := filepath.Clean(filepath.Join(rootDir, chart.Path))
-			chartPath := filepath.Join(chartDir, "Chart.yaml")
-			if _, err := os.Stat(chartPath); err != nil {
-				return fmt.Errorf("missing Chart.yaml at %s", chartPath)
-			}
-			valuesPath := filepath.Join(chartDir, "values.yaml")
-			if _, err := os.Stat(valuesPath); err != nil {
-				return fmt.Errorf("missing values.yaml at %s", valuesPath)
-			}
-		} else {
+		if chart.Name == "" {
 			return ErrMissingChartSource
+		}
+		if chart.ReleaseName == "" {
+			log.Info(fmt.Sprintf("%#v", chart))
+			return ErrMissingReleaseName
+		}
+		chartDir := filepath.Clean(filepath.Join(rootDir, chart.Name))
+		chartPath := filepath.Join(chartDir, "Chart.yaml")
+		if _, err := os.Stat(chartPath); err != nil {
+			return fmt.Errorf("missing Chart.yaml at %s", chartPath)
+		}
+		valuesPath := filepath.Join(chartDir, "values.yaml")
+		if _, err := os.Stat(valuesPath); err != nil {
+			return fmt.Errorf("missing values.yaml at %s", valuesPath)
 		}
 	}
 	return nil
@@ -70,25 +73,25 @@ func (d *DockerEnvSpec) Verify(manifestPath string) error {
 }
 
 type EnvSpec struct {
-	Kubernetes *KubernetesEnvSpec `json:"kubernetes,omitempty"`
-	Docker     *DockerEnvSpec     `json:"docker,omitempty"`
-	Variables  []*EnvVariable     `json:"variables,omitempty"`
+	Kubernetes *KubernetesEnvSpec `json:"kubernetes,omitempty" yaml:"kubernetes,omitempty"`
+	Docker     *DockerEnvSpec     `json:"docker,omitempty" yaml:"docker,omitempty"`
+	Variables  []*EnvVariable     `json:"variables,omitempty" yaml:"variables,omitempty"`
 }
 
 type ChartSpec struct {
-	ReleaseName    string                 `json:"releaseName"`
-	Namespace      string                 `json:"namespace,omitempty"`
-	Path           string                 `json:"path,omitempty"`
-	RepoURL        string                 `json:"repoURL,omitempty"`
-	TargetRevision string                 `json:"targetRevision,omitempty"`
-	Values         map[string]interface{} `json:"values,omitempty"`
-	ValuesFiles    []string               `json:"valuesFiles,omitempty"`
+	ReleaseName    string                 `json:"releaseName" yaml:"releaseName"`
+	Namespace      string                 `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Name           string                 `json:"name,omitempty" yaml:"name,omitempty"`
+	RepoURL        string                 `json:"repoURL,omitempty" yaml:"repoURL,omitempty"`
+	TargetRevision string                 `json:"targetRevision,omitempty" yaml:"targetRevision,omitempty"`
+	Values         map[string]interface{} `json:"values,omitempty" yaml:"values,omitempty"`
+	ValuesFiles    []string               `json:"valuesFiles,omitempty" yaml:"valuesFiles,omitempty"`
 }
 
 type KindestSpec struct {
-	Dependencies []string    `json:"dependencies,omitempty"`
-	Build        *BuildSpec  `json:"build"`
-	Test         []*TestSpec `json:"test,omitempty"`
+	Dependencies []string    `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
+	Build        *BuildSpec  `json:"build" yaml:"build"`
+	Test         []*TestSpec `json:"test,omitempty" yaml:"test,omitempty"`
 }
 
 func (s *KindestSpec) Validate(manifestPath string) error {
