@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	kubefake "helm.sh/helm/v3/pkg/kube/fake"
 
@@ -41,7 +42,7 @@ func debug(format string, v ...interface{}) {
 
 // This function loads releases into the memory storage if the
 // environment variable is properly set.
-func loadReleasesInMemory(actionConfig *action.Configuration, env *cli.EnvSettings) error {
+func loadReleasesInMemory(actionConfig *action.Configuration, env *cli.EnvSettings, namespace string) error {
 	filePaths := strings.Split(os.Getenv("HELM_MEMORY_DRIVER_DATA"), ":")
 	if len(filePaths) == 0 {
 		return nil
@@ -75,9 +76,21 @@ func loadReleasesInMemory(actionConfig *action.Configuration, env *cli.EnvSettin
 	}
 
 	// Must reset namespace to the proper one
-	mem.SetNamespace(env.Namespace())
+	mem.SetNamespace(namespace)
 
 	return nil
+}
+
+var helmL sync.Mutex
+
+func createHelmEnv(namespace string) *cli.EnvSettings {
+	helmL.Lock()
+	defer helmL.Unlock()
+	cv := os.Getenv("HELM_NAMESPACE")
+	os.Setenv("HELM_NAMESPACE", namespace)
+	env := cli.New()
+	os.Setenv("HELM_NAMESPACE", cv)
+	return env
 }
 
 func (t *TestSpec) installChart(
@@ -93,19 +106,19 @@ func (t *TestSpec) installChart(
 		zap.String("path", chartPath),
 	)
 	log.Info("Installing chart")
-	env := cli.New()
+	env := createHelmEnv(chart.Namespace)
 	cfg := new(action.Configuration)
 	helmDriver := os.Getenv("HELM_DRIVER")
 	if err := cfg.Init(
 		env.RESTClientGetter(),
-		env.Namespace(),
+		chart.Namespace,
 		helmDriver,
 		debug,
 	); err != nil {
 		return err
 	}
 	if helmDriver == "memory" {
-		loadReleasesInMemory(cfg, env)
+		loadReleasesInMemory(cfg, env, chart.Namespace)
 	}
 	client := action.NewInstall(cfg)
 	cp, err := client.ChartPathOptions.LocateChart(chartPath, env)
