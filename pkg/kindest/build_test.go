@@ -157,7 +157,7 @@ func TestBuildErrMissingDockerfile(t *testing.T) {
 	require.Contains(t, err.Error(), "missing Dockerfile")
 }
 
-func TestBuildCustomDockerfilePath(t *testing.T) {
+func TestBuildDockerfile(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -184,6 +184,59 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, Build(
 		&BuildOptions{File: specPath},
 		newCLI(t),
+	))
+}
+
+func TestBuildTarget(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
+	subdir := filepath.Join(rootPath, "subdir")
+	require.NoError(t, os.MkdirAll(subdir, 0766))
+	dockerfile := `FROM alpine:3.11.6 AS builder
+RUN apk add --no-cache bash
+RUN echo "foobarbaz" >> /foobarbaz
+FROM alpine:3.11.6
+COPY --from=builder /foobarbaz /bal
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(subdir, "Dockerfile"),
+		[]byte(dockerfile),
+		0644,
+	))
+	specPath := filepath.Join(rootPath, "kindest.yaml")
+	spec := fmt.Sprintf(`build:
+  name: test/%s
+  dockerfile: subdir/Dockerfile
+test:
+  - name: "basic"
+    env:
+      docker: {}
+    command:
+      - bash
+      - -c
+      - if [ -z "$(ls / | grep foobarbaz)" ]; then
+          exit 3;
+        fi;
+        if [ -n "$(ls / | grep bal)" ]; then
+          exit 3;
+        fi
+    build:
+      name: test/%s-builder
+      dockerfile: subdir/Dockerfile
+      target: builder
+`, name, name)
+	require.NoError(t, ioutil.WriteFile(
+		specPath,
+		[]byte(spec),
+		0644,
+	))
+	require.NoError(t, Test(
+		&TestOptions{
+			File:       specPath,
+			NoRegistry: true,
+		},
 	))
 }
 

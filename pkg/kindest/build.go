@@ -37,6 +37,7 @@ type BuildSpec struct {
 	Context    string            `json:"context,omitempty"`
 	BuildArgs  []*DockerBuildArg `json:"buildArgs,omitempty"`
 	Target     string            `json:"target,omitempty"`
+	Command    []string          `json:"command,omitempty"`
 }
 
 func (b *BuildSpec) verifyDocker(manifestPath string) error {

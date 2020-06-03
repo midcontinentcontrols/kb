@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/api/types/strslice"
+
 	networktypes "github.com/docker/docker/api/types/network"
 
 	"github.com/midcontinentcontrols/kindest/pkg/kubeconfig"
@@ -96,6 +98,7 @@ func (t *TestSpec) runDocker(
 		&containertypes.Config{
 			Image: t.Build.Name + ":latest",
 			Env:   env,
+			Cmd:   strslice.StrSlice(t.Build.Command),
 		},
 		&containertypes.HostConfig{
 			//AutoRemove: true,
