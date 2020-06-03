@@ -24,17 +24,16 @@ func (k *KubernetesEnvSpec) Verify(manifestPath string) error {
 			return fmt.Errorf("resource '%s' not found", resourcePath)
 		}
 	}
-	// TODO: validate helm charts
-	//for _, chart := range kind.Charts {
-	//	chartPath := filepath.Join(chart.Name, "Chart.yaml")
-	//	if _, err := os.Stat(chartPath); err != nil {
-	//		return fmt.Errorf("test '%s' env chart '%s': missing Chart.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
-	//	}
-	//	valuesPath := filepath.Join(chart.Name, "values.yaml")
-	//	if _, err := os.Stat(valuesPath); err != nil {
-	//		return fmt.Errorf("test '%s' env chart '%s': missing values.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
-	//	}
-	//}
+	for _, chart := range k.Charts {
+		chartPath := filepath.Join(chart.Name, "Chart.yaml")
+		if _, err := os.Stat(chartPath); err != nil {
+			return fmt.Errorf("test '%s' env chart '%s': missing Chart.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
+		}
+		valuesPath := filepath.Join(chart.Name, "values.yaml")
+		if _, err := os.Stat(valuesPath); err != nil {
+			return fmt.Errorf("test '%s' env chart '%s': missing values.yaml at '%s'", t.Name, chart.ReleaseName, chartPath)
+		}
+	}
 	return nil
 }
 
@@ -52,10 +51,13 @@ type EnvSpec struct {
 }
 
 type ChartSpec struct {
-	ReleaseName string                 `json:"releaseName"`
-	Namespace   string                 `json:"Namespace,omitempty"`
-	Name        string                 `json:"Name"`
-	Values      map[string]interface{} `json:"values,omitempty"`
+	ReleaseName    string                 `json:"releaseName"`
+	Namespace      string                 `json:"namespace,omitempty"`
+	Path           string                 `json:"path,omitempty"`
+	RepoURL        string                 `json:"repoURL,omitempty"`
+	TargetRevision string                 `json:"targetRevision,omitempty"`
+	Values         map[string]interface{} `json:"values,omitempty"`
+	ValuesFiles    []string               `json:"valuesFiles,omitempty"`
 }
 
 type KindestSpec struct {
