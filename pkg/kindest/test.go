@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	"github.com/docker/docker/api/types/strslice"
 
 	networktypes "github.com/docker/docker/api/types/network"
@@ -23,6 +25,7 @@ import (
 	kinderrors "sigs.k8s.io/kind/pkg/errors"
 	kindexec "sigs.k8s.io/kind/pkg/exec"
 
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 
@@ -30,7 +33,6 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/docker/docker/api/types"
@@ -799,49 +801,53 @@ func (t *TestSpec) runKubernetes(
 
 	namespace := "default"
 	pods := client.CoreV1().Pods(namespace)
-	podName := "test-" + t.Name
-	podLog := log.With(
-		zap.String("name", podName),
+	jobs := client.BatchV1().Jobs(namespace)
+	jobName := "test-" + t.Name
+	log := log.With(
+		zap.String("jobName", jobName),
 		zap.String("namespace", namespace),
 		zap.String("image", image),
 	)
-	podLog.Debug("Creating pod")
-
-	// TODO: use job spec
-	if err := pods.Delete(
+	log.Debug("Creating test job")
+	if err := jobs.Delete(
 		context.TODO(),
-		podName,
+		jobName,
 		metav1.DeleteOptions{},
 	); err != nil && !errors.IsNotFound(err) {
 		return err
 	}
-
-	if _, err := pods.Create(
+	backoffLimit := int32(0)
+	if _, err := jobs.Create(
 		context.TODO(),
-		&corev1.Pod{
+		&batchv1.Job{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      podName,
+				Name:      jobName,
 				Namespace: namespace,
 			},
-			Spec: corev1.PodSpec{
-				ServiceAccountName: "test",
-				RestartPolicy:      corev1.RestartPolicyNever,
-				Containers: []corev1.Container{{
-					Name:            t.Name,
-					Image:           image,
-					ImagePullPolicy: imagePullPolicy,
-					Command:         t.Build.Command,
-				}},
+			Spec: batchv1.JobSpec{
+				BackoffLimit: &backoffLimit,
+				Template: corev1.PodTemplateSpec{
+					Spec: corev1.PodSpec{
+						ServiceAccountName: "test",
+						RestartPolicy:      corev1.RestartPolicyNever,
+						Containers: []corev1.Container{{
+							Name:            t.Name,
+							Image:           image,
+							ImagePullPolicy: imagePullPolicy,
+							Command:         t.Build.Command,
+						}},
+					},
+				},
 			},
 		},
 		metav1.CreateOptions{},
 	); err != nil {
 		return err
 	}
-	podLog.Debug("Created pod")
+	log.Debug("Created pod")
 	if !options.Transient {
 		defer func() {
-			podLog.Warn("TODO: clean up pod")
+			log.Warn("TODO: clean up pod")
 		}()
 	}
 	timeout := 90 * time.Second
@@ -849,14 +855,42 @@ func (t *TestSpec) runKubernetes(
 	start = time.Now()
 	scheduled := false
 	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); {
-		pod, err := pods.Get(
+		job, err := jobs.Get(
 			context.TODO(),
-			podName,
+			jobName,
 			metav1.GetOptions{},
 		)
 		if err != nil {
 			return err
 		}
+		if job.Spec.Selector == nil {
+			log.Info("Still waiting on pod",
+				zap.String("elapsed", time.Now().Sub(start).String()),
+				zap.String("timeout", timeout.String()))
+			time.Sleep(delay)
+			continue
+		}
+		set := labels.Set(job.Spec.Selector.MatchLabels)
+		listOptions := metav1.ListOptions{LabelSelector: set.AsSelector().String()}
+		jobPods, err := pods.List(context.TODO(), listOptions)
+		if err != nil {
+			return err
+		}
+		if len(jobPods.Items) > 1 {
+			log.Info("Waiting for only one test pod to exist",
+				zap.Int("numPods", len(jobPods.Items)),
+				zap.String("elapsed", time.Now().Sub(start).String()),
+				zap.String("timeout", timeout.String()))
+			time.Sleep(delay)
+			continue
+		} else if len(jobPods.Items) == 0 {
+			log.Info("Waiting for test pod to exist",
+				zap.String("elapsed", time.Now().Sub(start).String()),
+				zap.String("timeout", timeout.String()))
+			time.Sleep(delay)
+			continue
+		}
+		pod := &jobPods.Items[0]
 		switch pod.Status.Phase {
 		case corev1.PodPending:
 			if !scheduled {
@@ -880,7 +914,7 @@ func (t *TestSpec) runKubernetes(
 					}
 				}
 			}
-			podLog.Info("Still waiting on pod",
+			log.Info("Still waiting on pod",
 				zap.String("phase", string(pod.Status.Phase)),
 				zap.Bool("scheduled", scheduled),
 				zap.String("elapsed", time.Now().Sub(start).String()),
@@ -899,7 +933,7 @@ func (t *TestSpec) runKubernetes(
 					}
 				}
 			}
-			req := pods.GetLogs(podName, &corev1.PodLogOptions{
+			req := pods.GetLogs(pod.Name, &corev1.PodLogOptions{
 				Follow: true,
 			})
 			r, err := req.Stream(context.TODO())
@@ -922,7 +956,7 @@ func (t *TestSpec) runKubernetes(
 		}
 		if pod, err = pods.Get(
 			context.TODO(),
-			podName,
+			pod.Name,
 			metav1.GetOptions{},
 		); err != nil {
 			return err
