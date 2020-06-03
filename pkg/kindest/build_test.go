@@ -39,7 +39,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   name: test/%s
-  docker: {}
 `, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
@@ -52,12 +51,10 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 func TestBuildBasic(t *testing.T) {
 	specPath := createBasicTestProject(t, "tmp")
 	defer os.RemoveAll(filepath.Dir(specPath))
-	require.NoError(t, Build(
-		&BuildOptions{
-			File:    specPath,
-			Builder: "docker",
-		},
-	))
+	require.NoError(t, Build(&BuildOptions{
+		File:    specPath,
+		Builder: "docker",
+	}))
 }
 
 func TestBuildErrDependencyBuildFailure(t *testing.T) {
@@ -75,8 +72,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`dependencies: ["dep"]
 build:
-  name: test/%s
-  docker: {}`, name)
+  name: test/%s`, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),
@@ -86,8 +82,7 @@ build:
 	require.NoError(t, os.MkdirAll(depPath, 0766))
 	depSpec := fmt.Sprintf(`
 build:
-  name: test/%s-dep
-  docker: {}`, name)
+  name: test/%s-dep`, name)
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(depPath, "kindest.yaml"),
 		[]byte(depSpec),
@@ -100,11 +95,9 @@ RUN exit 1`
 		[]byte(depDockerfile),
 		0644,
 	))
-	err := Build(
-		&BuildOptions{
-			File: specPath,
-		},
-	)
+	err := Build(&BuildOptions{
+		File: specPath,
+	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "dependency 'dep': The command '/bin/sh -c exit 1' returned a non-zero code: 1")
 }
@@ -124,18 +117,15 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`dependencies: ["dep"]
 build:
-  name: test/%s
-  docker: {}`, name)
+  name: test/%s`, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),
 		0644,
 	))
-	err := Build(
-		&BuildOptions{
-			File: specPath,
-		},
-	)
+	err := Build(&BuildOptions{
+		File: specPath,
+	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "dependency 0: missing kindest.yaml")
 }
@@ -145,11 +135,9 @@ func TestBuildErrMissingDockerfile(t *testing.T) {
 	rootPath := filepath.Dir(specPath)
 	defer os.RemoveAll(rootPath)
 	require.NoError(t, os.Remove(filepath.Join(rootPath, "Dockerfile")))
-	err := Build(
-		&BuildOptions{
-			File: specPath,
-		},
-	)
+	err := Build(&BuildOptions{
+		File: specPath,
+	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing Dockerfile")
 }
@@ -178,9 +166,9 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		[]byte(spec),
 		0644,
 	))
-	require.NoError(t, Build(
-		&BuildOptions{File: specPath},
-	))
+	require.NoError(t, Build(&BuildOptions{
+		File: specPath,
+	}))
 }
 
 func TestBuildTarget(t *testing.T) {
@@ -229,12 +217,10 @@ test:
 		[]byte(spec),
 		0644,
 	))
-	require.NoError(t, Test(
-		&TestOptions{
-			File:       specPath,
-			NoRegistry: true,
-		},
-	))
+	require.NoError(t, Test(&TestOptions{
+		File:       specPath,
+		NoRegistry: true,
+	}))
 }
 
 func TestBuildErrMissingName(t *testing.T) {
@@ -254,9 +240,9 @@ func TestBuildErrMissingName(t *testing.T) {
 		[]byte(spec),
 		0644,
 	))
-	require.Equal(t, ErrMissingImageName, Build(
-		&BuildOptions{File: specPath},
-	))
+	require.Equal(t, ErrMissingImageName, Build(&BuildOptions{
+		File: specPath,
+	}))
 }
 
 func TestBuildErrMissingBuildArg(t *testing.T) {
@@ -274,17 +260,13 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
 	))
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
-  name: test/%s
-  docker: {}
-`, name)
+  name: test/%s`, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),
 		0644,
 	))
-	require.Error(t, Build(
-		&BuildOptions{File: specPath},
-	))
+	require.Error(t, Build(&BuildOptions{File: specPath}))
 }
 
 func TestBuildArg(t *testing.T) {
@@ -302,20 +284,17 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
 	))
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
-  docker:
-    name: test/%s
-	buildArgs:
-	  - name: HAS_BUILD_ARG
-	    value: "1"
+  name: test/%s
+  buildArgs:
+    - name: HAS_BUILD_ARG
+      value: "1"
 `, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),
 		0644,
 	))
-	require.Error(t, Build(
-		&BuildOptions{File: specPath},
-	))
+	require.Error(t, Build(&BuildOptions{File: specPath}))
 }
 
 func TestBuildContextPath(t *testing.T) {
@@ -336,18 +315,15 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	specPath := filepath.Join(otherdir, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
   name: test/%s
-  docker:
-    dockerfile: "../other/Dockerfile"
-    context: ".."
+  dockerfile: "../other/Dockerfile"
+  context: ".."
 `, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),
 		0644,
 	))
-	require.NoError(t, Build(
-		&BuildOptions{File: specPath},
-	))
+	require.NoError(t, Build(&BuildOptions{File: specPath}))
 }
 
 func TestBuildDependency(t *testing.T) {
@@ -367,9 +343,7 @@ CMD ["sh", "-c", "echo \"Hello again, world\""]`, depName)
 	spec := fmt.Sprintf(`dependencies:
   - dep
 build:
-  name: test/%s
-  docker: {}
-`, name)
+  name: test/%s`, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),
@@ -386,18 +360,13 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	))
 	depSpec := fmt.Sprintf(`build:
   name: test/%s
-  docker: {}
 `, depName)
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(depPath, "kindest.yaml"),
 		[]byte(depSpec),
 		0644,
 	))
-	require.NoError(t, Build(
-		&BuildOptions{
-			File: specPath,
-		},
-	))
+	require.NoError(t, Build(&BuildOptions{File: specPath}))
 }
 
 func TestBuildDependencyModule(t *testing.T) {
@@ -429,19 +398,15 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		0644,
 	))
 	depSpec := fmt.Sprintf(`build:
-  name: test/%s
-  docker: {}
-`, depName)
+  name: test/%s`, depName)
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(depPath, "kindest.yaml"),
 		[]byte(depSpec),
 		0644,
 	))
-	require.NoError(t, Build(
-		&BuildOptions{
-			File: specPath,
-		},
-	))
+	require.NoError(t, Build(&BuildOptions{
+		File: specPath,
+	}))
 }
 
 func TestBuildDependencyDockerfile(t *testing.T) {
@@ -498,11 +463,9 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		[]byte(depSpec),
 		0644,
 	))
-	require.NoError(t, Build(
-		&BuildOptions{
-			File: specPath,
-		},
-	))
+	require.NoError(t, Build(&BuildOptions{
+		File: specPath,
+	}))
 }
 
 func TestBuildDockerignore(t *testing.T) {
@@ -553,11 +516,9 @@ build:
 			[]byte(spec),
 			0644,
 		))
-		err := Build(
-			&BuildOptions{
-				File: specPath,
-			},
-		)
+		err := Build(&BuildOptions{
+			File: specPath,
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bar.txt: no such file or directory")
 	})
@@ -640,11 +601,9 @@ build:
 			[]byte(spec),
 			0644,
 		))
-		err := Build(
-			&BuildOptions{
-				File: specPath,
-			},
-		)
+		err := Build(&BuildOptions{
+			File: specPath,
+		})
 		require.NoError(t, err)
 	})
 }
@@ -699,11 +658,9 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		[]byte(depSpec),
 		0644,
 	))
-	require.NoError(t, Build(
-		&BuildOptions{
-			File: specPath,
-		},
-	))
+	require.NoError(t, Build(&BuildOptions{
+		File: specPath,
+	}))
 }
 
 func TestBuildCache(t *testing.T) {
@@ -721,9 +678,7 @@ CMD ["cat", "/message"]`
 	))
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
-  name: test/%s
-  docker: {}
-`, name)
+  name: test/%s`, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),
