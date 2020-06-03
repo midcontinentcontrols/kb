@@ -384,8 +384,8 @@ spec:
           imagePullPolicy: Never
           image: test/%s:latest
           env:
-            - name: FOO
-              value: BAR`, name)
+            - name: FOOBAR
+              value: SOME_VALUE`, name)
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(templatesPath, "deployment.yaml"),
 		[]byte(deploymentYaml),
@@ -397,6 +397,10 @@ kubectl get deployment -n bar
 if [ -z "$(kubectl get deployment -n bar | grep foo-deployment)" ]; then
 	echo "foo-deployment not found"
 	exit 2
+fi
+if [ -z "$(kubectl get deployment -n bar foo-deployment -o yaml | grep FOOBAR)" ]; then
+	echo "Original env not found"
+	exit 3
 fi
 echo "Chart was installed correctly!"`
 	require.NoError(t, ioutil.WriteFile(
@@ -458,6 +462,18 @@ test:
 			Kind:       kind,
 		},
 	))
+	script = `#!/bin/bash
+set -euo pipefail
+if [ -z "$(kubectl get deployment -n bar foo-deployment -o yaml | grep BAZBAL)" ]; then
+	echo "Modified env not found"
+	exit 3
+fi
+echo "Chart was updated correctly!"`
+	require.NoError(t, ioutil.WriteFile(
+		filepath.Join(rootPath, "script"),
+		[]byte(script),
+		0644,
+	))
 	deploymentYaml = fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -478,8 +494,8 @@ spec:
           imagePullPolicy: Never
           image: test/%s:latest
           env:
-            - name: FOO
-              value: BAZ`, name)
+            - name: BAZBAL
+              value: SOME_VALUE`, name)
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(templatesPath, "deployment.yaml"),
 		[]byte(deploymentYaml),
