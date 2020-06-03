@@ -271,18 +271,31 @@ func (b *BuildSpec) buildDocker(
 	}
 	return nil
 }
+
 func (b *BuildSpec) Build(
 	manifestPath string,
 	options *BuildOptions,
 	cli client.APIClient,
 	respHandler func(io.ReadCloser) error,
 ) error {
-	return b.buildDocker(
-		manifestPath,
-		options,
-		cli,
-		respHandler,
-	)
+	switch options.Builder {
+	case "kaniko":
+		return b.buildKaniko(
+			manifestPath,
+			options,
+		)
+	case "":
+		fallthrough
+	case "docker":
+		return b.buildDocker(
+			manifestPath,
+			options,
+			cli,
+			respHandler,
+		)
+	default:
+		return fmt.Errorf("unknown builder '%s'", options.Builder)
+	}
 }
 
 type BuildOptions struct {
@@ -292,6 +305,8 @@ type BuildOptions struct {
 	Tag         string `json:"tag,omitempty" yaml:"tag,omitempty"`
 	Concurrency int    `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
 	Push        bool   `json:"push,omitempty" yaml:"push,omitempty"`
+	Context     string `json:"context,omitempty" yaml:"context,omitempty"`
+	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
 }
 
 func buildDependencies(

@@ -54,7 +54,8 @@ func TestBuildBasic(t *testing.T) {
 	defer os.RemoveAll(filepath.Dir(specPath))
 	require.NoError(t, Build(
 		&BuildOptions{
-			File: specPath,
+			File:    specPath,
+			Builder: "docker",
 		},
 		newCLI(t),
 	))
