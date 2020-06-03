@@ -40,7 +40,7 @@ func (t *TestSpec) installChart(
 	cfg := &action.Configuration{}
 	client := action.NewInstall(cfg)
 	env := cli.New()
-	_, err := client.ChartPathOptions.LocateChart(chart.Name, env)
+	_, err := client.ChartPathOptions.LocateChart(chartPath, env)
 	if err != nil {
 		return err
 	}
