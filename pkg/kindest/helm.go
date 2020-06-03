@@ -1,6 +1,8 @@
 package kindest
 
 import (
+	"path/filepath"
+
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
@@ -27,10 +29,12 @@ func (t *TestSpec) installChart(
 	rootPath string,
 	options *TestOptions,
 ) error {
+	chartPath := filepath.Clean(filepath.Join(rootPath, chart.Name))
 	log := log.With(
 		zap.String("releaseName", chart.ReleaseName),
 		zap.String("name", chart.Name),
 		zap.String("namespace", chart.Namespace),
+		zap.String("path", chartPath),
 	)
 	log.Info("Installing chart")
 	cfg := &action.Configuration{}

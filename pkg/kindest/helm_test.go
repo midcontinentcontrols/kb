@@ -217,7 +217,7 @@ baz: bal`
 		0644,
 	))
 	chartYaml := `apiVersion: v1
-description: helm test for kindest
+description: "helm test for kindest"
 name: kindest-helm-test
 version: 0.0.1
 maintainers:
