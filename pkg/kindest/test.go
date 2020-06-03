@@ -100,9 +100,7 @@ func (t *TestSpec) runDocker(
 			Env:   env,
 			Cmd:   strslice.StrSlice(t.Build.Command),
 		},
-		&containertypes.HostConfig{
-			//AutoRemove: true,
-		},
+		&containertypes.HostConfig{},
 		nil,
 		"",
 	)

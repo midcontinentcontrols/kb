@@ -213,19 +213,20 @@ test:
   - name: "basic"
     env:
       docker: {}
-    command:
-      - bash
-      - -c
-      - if [ -z "$(ls / | grep foobarbaz)" ]; then
-          exit 3;
-        fi;
-        if [ -n "$(ls / | grep bal)" ]; then
-          exit 3;
-        fi
     build:
       name: test/%s-builder
       dockerfile: subdir/Dockerfile
       target: builder
+      command:
+        - bash
+        - -c
+        - if [ -z "$(ls / | grep foobarbaz)" ]; then
+            exit 3;
+          fi;
+          if [ -n "$(ls / | grep bal)" ]; then
+            exit 3;
+          fi;
+          echo "This script is executing in the correct layer."
 `, name, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
