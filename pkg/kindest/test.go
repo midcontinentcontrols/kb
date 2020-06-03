@@ -807,6 +807,7 @@ func (t *TestSpec) runKubernetes(
 	)
 	podLog.Debug("Creating pod")
 
+	// TODO: use job spec
 	if err := pods.Delete(
 		context.TODO(),
 		podName,
@@ -829,6 +830,7 @@ func (t *TestSpec) runKubernetes(
 					Name:            t.Name,
 					Image:           image,
 					ImagePullPolicy: imagePullPolicy,
+					Command:         t.Build.Command,
 				}},
 			},
 		},

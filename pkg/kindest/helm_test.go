@@ -197,7 +197,6 @@ test:
 	require.Contains(t, err.Error(), "missing values.yaml at ")
 }
 
-/*
 func TestHelmLocalChart(t *testing.T) {
 	transient := os.Getenv("KINDEST_PERSISTENT") != "1"
 	var kind string
@@ -298,7 +297,7 @@ metadata:
 test:
   - name: basic
     env:
-	  kubernetes:
+      kubernetes:
         charts:
           - releaseName: foo
             namespace: bar
@@ -324,4 +323,3 @@ test:
 		},
 	))
 }
-*/
