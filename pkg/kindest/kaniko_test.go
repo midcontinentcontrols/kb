@@ -13,6 +13,6 @@ func TestBuildKanikoLocal(t *testing.T) {
 	defer os.RemoveAll(filepath.Dir(specPath))
 	require.NoError(t, Build(&BuildOptions{
 		File:    specPath,
-		Builder: "kaniko",
+		Builder: "docker",
 	}))
 }
