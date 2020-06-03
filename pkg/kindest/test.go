@@ -450,10 +450,12 @@ func loadImagesOnCluster(imageNames []string, name string, provider *cluster.Pro
 	log := log.With(zap.String("cluster", name))
 	log.Info("Copying images onto cluster",
 		zap.Int("numImages", len(imageNames)),
-		zap.Int("concurrency", concurrency))
+		zap.Int("concurrency", concurrency),
+		zap.String("imageNames", fmt.Sprintf("%#v", imageNames)))
 	pool := tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
 		imageName := payload.(string)
 		log := log.With(zap.String("image", imageName))
+		log.Info("Copying image onto cluster")
 		start := time.Now()
 		stop := make(chan int, 1)
 		defer func() {
@@ -496,7 +498,7 @@ func loadImagesOnCluster(imageNames []string, name string, provider *cluster.Pro
 			multi = multierror.Append(multi, fmt.Errorf("%s: %v", imageNames[i], err))
 		}
 	}
-	return nil
+	return multi
 }
 
 func loadImageOnCluster(imageName, name string, provider *cluster.Provider) error {
@@ -1038,6 +1040,13 @@ type testRun struct {
 func Test(options *TestOptions) error {
 	cli, err := client.NewEnvClient()
 	if err != nil {
+		return err
+	}
+	if err := Build(&BuildOptions{
+		File:        options.File,
+		Concurrency: options.Concurrency,
+		Push:        false,
+	}, cli); err != nil {
 		return err
 	}
 	var pool *tunny.Pool
