@@ -113,7 +113,7 @@ func TestHelmErrMissingValuesYaml(t *testing.T) {
 	defer os.RemoveAll(rootPath)
 	chartPath := filepath.Join(rootPath, "chart")
 	require.NoError(t, os.MkdirAll(chartPath, 0766))
-	chartYaml := `apiVersion: v1
+	chartYaml := `apiVersion: v2
 description: helm test for kindest
 name: kindest-helm-test
 version: 0.0.1
@@ -216,14 +216,14 @@ baz: bal`
 		[]byte(valuesYaml),
 		0644,
 	))
-	chartYaml := `apiVersion: v1
+	chartYaml := `apiVersion: v2
 description: "helm test for kindest"
 name: kindest-helm-test
 version: 0.0.1
 maintainers:
-- name: Tom Havlik
-  email: thavlik@midcontinentcontrols.com
-  url: https://midcontinentcontrols.com`
+  - name: Tom Havlik
+    email: thavlik@midcontinentcontrols.com
+    url: https://midcontinentcontrols.com`
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(chartPath, "Chart.yaml"),
 		[]byte(chartYaml),
