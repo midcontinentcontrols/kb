@@ -392,9 +392,6 @@ if [ -z "$(kubectl get deployment -n bar | grep foo-deployment)" ]; then
 	echo "foo-deployment not found"
 	exit 2
 fi
-if [ "$FOO" -ne "BAR" ]; then
-	exit 3
-fi
 echo "Chart was installed correctly!"`
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(rootPath, "script"),
@@ -455,14 +452,6 @@ test:
 			Kind:       kind,
 		},
 	))
-	require.NoError(t, Test(
-		&TestOptions{
-			File:       specPath,
-			NoRegistry: true,
-			Transient:  false,
-			Kind:       kind,
-		},
-	))
 	deploymentYaml = fmt.Sprintf(`apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -482,7 +471,7 @@ spec:
         - name: foo
           imagePullPolicy: Never
           image: test/%s:latest
-		  env:
+          env:
             - name: FOO
               value: BAZ`, name)
 	require.NoError(t, ioutil.WriteFile(
@@ -490,14 +479,12 @@ spec:
 		[]byte(deploymentYaml),
 		0644,
 	))
-	err := Test(
+	require.NoError(t, Test(
 		&TestOptions{
 			File:       specPath,
 			NoRegistry: true,
 			Transient:  false,
 			Kind:       kind,
 		},
-	)
-	require.NoError(t, err)
-	//require.Contains(t, err.Error())
+	))
 }
