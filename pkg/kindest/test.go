@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/docker/docker/api/types/strslice"
+	corev1types "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	networktypes "github.com/docker/docker/api/types/network"
 
@@ -25,7 +26,6 @@ import (
 	kinderrors "sigs.k8s.io/kind/pkg/errors"
 	kindexec "sigs.k8s.io/kind/pkg/exec"
 
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 
@@ -615,6 +615,46 @@ containerdConfigPatches:
 //  - containerPath: /var/lib/etcd
 //    hostPath: /tmp/etcd`
 
+func deleteOldPods(pods corev1types.PodInterface, envName string) error {
+	stop := make(chan int)
+	defer func() {
+		stop <- 0
+		close(stop)
+	}()
+	go func() {
+		start := time.Now()
+		for {
+			select {
+			case <-time.After(5 * time.Second):
+				log.Info("Still deleting old test pods", zap.String("elapsed", time.Now().Sub(start).String()))
+			case <-stop:
+				return
+			}
+		}
+	}()
+	set := labels.Set(map[string]string{
+		"kindest": envName,
+	})
+	listOptions := metav1.ListOptions{LabelSelector: set.AsSelector().String()}
+	oldPods, err := pods.List(
+		context.TODO(),
+		listOptions,
+	)
+	if err != nil {
+		return err
+	}
+	for _, pod := range oldPods.Items {
+		if err := pods.Delete(
+			context.TODO(),
+			pod.Name,
+			metav1.DeleteOptions{},
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (t *TestSpec) runKubernetes(
 	rootPath string,
 	options *TestOptions,
@@ -791,55 +831,47 @@ func (t *TestSpec) runKubernetes(
 	); err != nil {
 		return err
 	}
-
 	if err := t.installCharts(
 		rootPath,
 		options,
 	); err != nil {
 		return err
 	}
-
 	namespace := "default"
 	pods := client.CoreV1().Pods(namespace)
-	jobs := client.BatchV1().Jobs(namespace)
-	jobName := "test-" + t.Name
 	log := log.With(
-		zap.String("jobName", jobName),
+		zap.String("t.Name", t.Name),
 		zap.String("namespace", namespace),
 		zap.String("image", image),
 	)
-	log.Debug("Creating test job")
-	if err := jobs.Delete(
-		context.TODO(),
-		jobName,
-		metav1.DeleteOptions{},
-	); err != nil && !errors.IsNotFound(err) {
+	log.Debug("Creating test pod")
+	if err := deleteOldPods(pods, t.Name); err != nil {
 		return err
 	}
-	backoffLimit := int32(0)
-	if _, err := jobs.Create(
-		context.TODO(),
-		&batchv1.Job{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      jobName,
-				Namespace: namespace,
-			},
-			Spec: batchv1.JobSpec{
-				BackoffLimit: &backoffLimit,
-				Template: corev1.PodTemplateSpec{
-					Spec: corev1.PodSpec{
-						ServiceAccountName: "test",
-						RestartPolicy:      corev1.RestartPolicyNever,
-						Containers: []corev1.Container{{
-							Name:            t.Name,
-							Image:           image,
-							ImagePullPolicy: imagePullPolicy,
-							Command:         t.Build.Command,
-						}},
-					},
-				},
+	podName := t.Name + "-" + uuid.New().String()[:8]
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"kindest": t.Name,
 			},
 		},
+		Spec: corev1.PodSpec{
+			ServiceAccountName: "test",
+			RestartPolicy:      corev1.RestartPolicyNever,
+			Containers: []corev1.Container{{
+				Name:            t.Name,
+				Image:           image,
+				ImagePullPolicy: imagePullPolicy,
+				Command:         t.Build.Command,
+			}},
+		},
+	}
+	var err error
+	if pod, err = pods.Create(
+		context.TODO(),
+		pod,
 		metav1.CreateOptions{},
 	); err != nil {
 		return err
@@ -855,42 +887,14 @@ func (t *TestSpec) runKubernetes(
 	start = time.Now()
 	scheduled := false
 	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); {
-		job, err := jobs.Get(
+		pod, err = pods.Get(
 			context.TODO(),
-			jobName,
+			podName,
 			metav1.GetOptions{},
 		)
 		if err != nil {
 			return err
 		}
-		if job.Spec.Selector == nil {
-			log.Info("Still waiting on pod",
-				zap.String("elapsed", time.Now().Sub(start).String()),
-				zap.String("timeout", timeout.String()))
-			time.Sleep(delay)
-			continue
-		}
-		set := labels.Set(job.Spec.Selector.MatchLabels)
-		listOptions := metav1.ListOptions{LabelSelector: set.AsSelector().String()}
-		jobPods, err := pods.List(context.TODO(), listOptions)
-		if err != nil {
-			return err
-		}
-		if len(jobPods.Items) > 1 {
-			log.Info("Waiting for only one test pod to exist",
-				zap.Int("numPods", len(jobPods.Items)),
-				zap.String("elapsed", time.Now().Sub(start).String()),
-				zap.String("timeout", timeout.String()))
-			time.Sleep(delay)
-			continue
-		} else if len(jobPods.Items) == 0 {
-			log.Info("Waiting for test pod to exist",
-				zap.String("elapsed", time.Now().Sub(start).String()),
-				zap.String("timeout", timeout.String()))
-			time.Sleep(delay)
-			continue
-		}
-		pod := &jobPods.Items[0]
 		switch pod.Status.Phase {
 		case corev1.PodPending:
 			if !scheduled {
@@ -963,6 +967,7 @@ func (t *TestSpec) runKubernetes(
 		}
 		if pod.Status.Phase == corev1.PodRunning {
 			time.Sleep(delay)
+			log.Warn("Log stream terminated prematurely. Retailing logs...")
 			continue
 		} else if pod.Status.Phase == corev1.PodSucceeded {
 			return nil
