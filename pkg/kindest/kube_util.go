@@ -5,17 +5,12 @@ import (
 	"io"
 	"net/url"
 	"sync"
-	"time"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/remotecommand")
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 // containerToAttach returns a reference to the container to attach to, given
@@ -38,28 +33,33 @@ func containerToAttachTo(container string, pod *v1.Pod) (*v1.Container, error) {
 }
 
 // attach attaches to a given pod, outputting to stdout and stderr
-func attach(clientset *kubernetes.Clientset, kubeconfig string, pod *v1.Pod, attachOptions *v1.PodAttachOptions, stdin io.Reader, stdout, stderr io.Writer) error {
-	container, err := containerToAttachTo("", pod)
+func attach(
+	client *kubernetes.Clientset,
+	config *restclient.Config,
+	pod *v1.Pod,
+	options *v1.PodExecOptions,
+	stdin io.Reader,
+	stdout,
+	stderr io.Writer,
+) error {
+	req := client.CoreV1().RESTClient().Post().Resource("pods").Name(pod.Name).
+		Namespace("default").SubResource("exec")
+	req.VersionedParams(
+		options,
+		scheme.ParameterCodec,
+	)
+	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
-		return fmt.Errorf("cannot get container to attach to: %v", err)
+		return err
 	}
-
-	req := clientset.CoreV1().RESTClient().Post().
-		Resource("pods").
-		Name(pod.Name).
-		Namespace(pod.Namespace).
-		SubResource("attach")
-
-	attachOptions.Container = container.Name
-	req.VersionedParams(attachOptions, scheme.ParameterCodec)
-
-	streamOptions := getStreamOptions(attachOptions, stdin, stdout, stderr)
-
-	err = startStream("POST", req.URL(), config, streamOptions)
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdin:  stdin,
+		Stdout: stdout,
+		Stderr: stderr,
+	})
 	if err != nil {
-		return fmt.Errorf("error executing: %v", err)
+		return err
 	}
-
 	return nil
 }
 

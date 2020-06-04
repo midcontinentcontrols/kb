@@ -20,6 +20,7 @@ import (
 
 	"github.com/docker/docker/api/types/strslice"
 	corev1types "k8s.io/client-go/kubernetes/typed/core/v1"
+	restclient "k8s.io/client-go/rest"
 
 	networktypes "github.com/docker/docker/api/types/network"
 
@@ -214,18 +215,18 @@ func homeDir() string {
 	return os.Getenv("USERPROFILE") // windows
 }
 
-func clientForContext(context string) (*kubernetes.Clientset, error) {
+func clientForContext(context string) (*kubernetes.Clientset, *restclient.Config, error) {
 	// TODO: in-cluster config
 	kubeConfigPath := filepath.Join(homeDir(), ".kube", "config")
 	config, err := buildConfigFromFlags(context, kubeConfigPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return client, nil
+	return client, config, nil
 }
 
 func clientForKindCluster(name string, provider *cluster.Provider) (*kubernetes.Clientset, string, error) {
@@ -831,7 +832,7 @@ func (t *TestSpec) runKubernetes(
 		// Use existing kubernetes context from ~/.kube/config
 		var err error
 		kubeContext = options.Context
-		client, err = clientForContext(options.Context)
+		client, _, err = clientForContext(options.Context)
 		if err != nil {
 			return err
 		}

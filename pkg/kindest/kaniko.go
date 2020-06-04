@@ -1,6 +1,8 @@
 package kindest
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -155,7 +157,11 @@ func kanikoPod(b *BuildSpec) *corev1.Pod {
 				Name:            "kaniko",
 				Image:           "gcr.io/kaniko-project/executor:debug",
 				ImagePullPolicy: corev1.PullIfNotPresent,
-				Command:         []string{"tail", "-f", "/dev/null"},
+				Command: []string{
+					"/busybox/sh",
+					"-c",
+					`echo "Tailing null..."; tail -f /dev/null`,
+				},
 			}},
 		},
 	}
@@ -190,8 +196,8 @@ func waitForPod(name, namespace string, client *kubernetes.Clientset) error {
 func (b *BuildSpec) buildKaniko(
 	manifestPath string,
 	options *BuildOptions,
-) error {
-	client, err := clientForContext(options.Context)
+) (err error) {
+	client, config, err := clientForContext(options.Context)
 	if err != nil {
 		return err
 	}
@@ -204,18 +210,76 @@ func (b *BuildSpec) buildKaniko(
 	); err != nil {
 		return err
 	}
+	//defer func() {
+	//	if err2 := pods.Delete(
+	//		context.TODO(),
+	//		pod.Name,
+	//		metav1.DeleteOptions{},
+	//	); err2 != nil {
+	//		if err == nil {
+	//			err = err2
+	//		} else {
+	//			log.Error("failed to delete pod", zap.String("err", err2.Error()))
+	//		}
+	//	}
+	//}()
+	resolvedDockerfile, err := resolveDockerfile(
+		manifestPath,
+		b.Dockerfile,
+		b.Context,
+	)
+	if err != nil {
+		return err
+	}
 	tarPath, err := b.tarBuildContext(manifestPath, options)
 	if err != nil {
 		return err
 	}
+	defer os.Remove(tarPath)
 	if err := waitForPod(pod.Name, pod.Namespace, client); err != nil {
 		return err
 	}
-	if err := execCommand(
-		"kubectl cp --context %s %s %s:/context.tar",
-		options.Context,
-		tarPath,
-		pod.Name,
+	//if err := execCommand(
+	//	"kubectl cp --context %s %s %s:/context.tar",
+	//	options.Context,
+	//	tarPath,
+	//	pod.Name,
+	//); err != nil {
+	//	return err
+	//}
+	tarData, err := ioutil.ReadFile(tarPath)
+	if err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	if n, err := zw.Write(tarData); err != nil {
+		return err
+	} else if n != len(tarData) {
+		return fmt.Errorf("wrong num bytes")
+	}
+	if err := zw.Close(); err != nil {
+		return err
+	}
+	if err := attach(
+		client,
+		config,
+		pod,
+		&corev1.PodExecOptions{
+			Command: []string{
+				"/kaniko/executor",
+				"--dockerfile=" + resolvedDockerfile,
+				"--context=tar://stdin",
+				"--no-push",
+			},
+			Stdin:  true,
+			Stdout: true,
+			Stderr: true,
+			TTY:    false,
+		},
+		bytes.NewReader(buf.Bytes()),
+		os.Stdout,
+		os.Stderr,
 	); err != nil {
 		return err
 	}
