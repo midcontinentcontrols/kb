@@ -114,37 +114,6 @@ func TestBuildErrMissingName(t *testing.T) {
 	}))
 }
 
-func TestBuildArg(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
-	defer os.RemoveAll(rootPath)
-	dockerfile := `FROM alpine:3.11.6
-ARG HAS_BUILD_ARG
-RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "Dockerfile"),
-		[]byte(dockerfile),
-		0644,
-	))
-	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`build:
-  name: test/%s
-  buildArgs:
-    - name: HAS_BUILD_ARG
-      value: "1"
-`, name)
-	require.NoError(t, ioutil.WriteFile(
-		specPath,
-		[]byte(spec),
-		0644,
-	))
-	require.Error(t, Build(&BuildOptions{
-		File:   specPath,
-		NoPush: true,
-	}))
-}
-
 func TestBuildContextPath(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -648,7 +617,7 @@ RUN exit 1`
 		case "docker":
 			require.Contains(t, err.Error(), "dependency 'dep': The command '/bin/sh -c exit 1' returned a non-zero code: 1")
 		case "kaniko":
-			require.Contains(t, err.Error(), "dependency 'dep': command terminated with exit code 1")
+			require.Contains(t, err.Error(), "failed to execute command: waiting for process to exit: exit status 1")
 		default:
 			panic("unreachable branch detected")
 		}
@@ -723,6 +692,37 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 3; fi`
 		default:
 			panic("unreachable")
 		}
+	})
+
+	t.Run("build arg", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0766))
+		defer os.RemoveAll(rootPath)
+		dockerfile := `FROM alpine:3.11.6
+	ARG HAS_BUILD_ARG
+	RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "Dockerfile"),
+			[]byte(dockerfile),
+			0644,
+		))
+		specPath := filepath.Join(rootPath, "kindest.yaml")
+		spec := fmt.Sprintf(`build:
+  name: test/%s
+  buildArgs:
+  - name: HAS_BUILD_ARG
+    value: "1"`, name)
+		require.NoError(t, ioutil.WriteFile(
+			specPath,
+			[]byte(spec),
+			0644,
+		))
+		require.NoError(t, Build(&BuildOptions{
+			File:    specPath,
+			NoPush:  true,
+			Builder: builder,
+		}))
 	})
 }
 
