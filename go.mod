@@ -68,6 +68,7 @@ require (
 	k8s.io/api v0.18.3
 	k8s.io/apimachinery v0.18.3
 	k8s.io/client-go v0.18.0
+	k8s.io/kubernetes v1.13.0
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451 // indirect
 	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/kind v0.8.2-0.20200531182706-f4df803a1b7a
