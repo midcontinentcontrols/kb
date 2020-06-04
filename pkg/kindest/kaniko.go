@@ -210,19 +210,19 @@ func (b *BuildSpec) buildKaniko(
 	); err != nil {
 		return err
 	}
-	//defer func() {
-	//	if err2 := pods.Delete(
-	//		context.TODO(),
-	//		pod.Name,
-	//		metav1.DeleteOptions{},
-	//	); err2 != nil {
-	//		if err == nil {
-	//			err = err2
-	//		} else {
-	//			log.Error("failed to delete pod", zap.String("err", err2.Error()))
-	//		}
-	//	}
-	//}()
+	defer func() {
+		if err2 := pods.Delete(
+			context.TODO(),
+			pod.Name,
+			metav1.DeleteOptions{},
+		); err2 != nil {
+			if err == nil {
+				err = err2
+			} else {
+				log.Error("failed to delete pod", zap.String("err", err2.Error()))
+			}
+		}
+	}()
 	resolvedDockerfile, err := resolveDockerfile(
 		manifestPath,
 		b.Dockerfile,
@@ -239,14 +239,6 @@ func (b *BuildSpec) buildKaniko(
 	if err := waitForPod(pod.Name, pod.Namespace, client); err != nil {
 		return err
 	}
-	//if err := execCommand(
-	//	"kubectl cp --context %s %s %s:/context.tar",
-	//	options.Context,
-	//	tarPath,
-	//	pod.Name,
-	//); err != nil {
-	//	return err
-	//}
 	tarData, err := ioutil.ReadFile(tarPath)
 	if err != nil {
 		return err
