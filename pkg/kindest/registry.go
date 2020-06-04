@@ -164,10 +164,7 @@ func registryDeployment() *appsv1.Deployment {
 	}
 }
 
-func ensureDeployment(
-	desired *appsv1.Deployment,
-	cl *kubernetes.Clientset,
-) error {
+func ensureDeployment(desired *appsv1.Deployment, cl *kubernetes.Clientset) error {
 	log := log.With(
 		zap.String("name", desired.Name),
 		zap.String("namespace", desired.Namespace),
@@ -214,10 +211,7 @@ func ensureDeployment(
 	)
 }
 
-func ensureService(
-	desired *corev1.Service,
-	cl *kubernetes.Clientset,
-) error {
+func ensureService(desired *corev1.Service, cl *kubernetes.Clientset) error {
 	log := log.With(
 		zap.String("name", desired.Name),
 		zap.String("namespace", desired.Namespace),
@@ -246,10 +240,7 @@ func ensureService(
 	return nil
 }
 
-func ensureNamespace(
-	namespace string,
-	cl *kubernetes.Clientset,
-) error {
+func ensureNamespace(namespace string, cl *kubernetes.Clientset) error {
 	if _, err := cl.CoreV1().Namespaces().Create(
 		context.TODO(),
 		&corev1.Namespace{
