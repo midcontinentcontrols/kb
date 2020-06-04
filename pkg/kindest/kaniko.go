@@ -325,7 +325,8 @@ func (b *BuildSpec) buildKaniko(
 		zap.String("resolvedDockerfile", resolvedDockerfile),
 		zap.String("pod", pod.Name),
 		zap.Bool("noCache", options.NoCache))
-	if err := execInPod(
+	logBuf := bytes.NewBuffer(nil)
+	err = execInPod(
 		client,
 		config,
 		pod,
@@ -337,9 +338,18 @@ func (b *BuildSpec) buildKaniko(
 			TTY:     false,
 		},
 		bytes.NewReader(buf.Bytes()),
+		logBuf,
 		os.Stdout,
-		os.Stderr,
-	); err != nil {
+	)
+	errMsg, _ := ioutil.ReadAll(logBuf)
+	if len(errMsg) > 0 {
+		os.Stderr.Write(errMsg)
+	}
+	if err != nil {
+		if strings.Contains(err.Error(), "command terminated with exit code 1") {
+			// Retrieve the error message
+			return fmt.Errorf("build container failed: %s", string(errMsg))
+		}
 		return err
 	}
 	return nil

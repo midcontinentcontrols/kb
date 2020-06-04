@@ -695,7 +695,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		defer os.RemoveAll(rootPath)
 		dockerfile := `FROM alpine:3.11.6
 ARG HAS_BUILD_ARG
-RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
+RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 3; fi`
 		require.NoError(t, ioutil.WriteFile(
 			filepath.Join(rootPath, "Dockerfile"),
 			[]byte(dockerfile),
@@ -709,11 +709,20 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
 			[]byte(spec),
 			0644,
 		))
-		require.Error(t, Build(&BuildOptions{
+		err := Build(&BuildOptions{
 			File:    specPath,
 			NoPush:  true,
 			Builder: builder,
-		}))
+		})
+		require.Error(t, err)
+		switch builder {
+		case "docker":
+			require.Contains(t, err.Error(), " returned a non-zero code: 3")
+		case "kaniko":
+			require.Contains(t, err.Error(), "failed to execute command: waiting for process to exit: exit status 3")
+		default:
+			panic("unreachable")
+		}
 	})
 }
 
