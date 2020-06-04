@@ -12,8 +12,10 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/Jeffail/tunny"
+	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -266,7 +268,7 @@ func (b *BuildSpec) buildDocker(
 	if !options.NoPush {
 		log := log.With(zap.String("tag", tag))
 		log.Info("Pushing image")
-		authConfig, err := RegistryAuthFromEnv()
+		authConfig, err := RegistryAuthFromEnv(b.Name)
 		if err != nil {
 			return err
 		}
@@ -431,18 +433,38 @@ func Build(options *BuildOptions) error {
 	return BuildEx(options, pool, nil)
 }
 
-func RegistryAuthFromEnv() (*types.AuthConfig, error) {
-	username, ok := os.LookupEnv("DOCKER_USERNAME")
-	if !ok {
-		return nil, fmt.Errorf("missing DOCKER_USERNAME")
+func RegistryAuthFromEnv(imageName string) (*types.AuthConfig, error) {
+	parts := strings.Split(imageName, "/")
+	numParts := len(parts)
+	var registryHostname string
+	switch numParts {
+	case 1:
+		registryHostname = "docker.io"
+	case 2:
+		registryHostname = parts[0]
+	default:
+		return nil, fmt.Errorf("malformed image name '%s'", imageName)
 	}
-	password, ok := os.LookupEnv("DOCKER_PASSWORD")
-	if !ok {
-		return nil, fmt.Errorf("missing DOCKER_PASSWORD")
+	cf := configfile.New("")
+	u, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(filepath.Join(u.HomeDir, ".docker", "config.json"))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	if err := cf.LoadFromReader(f); err != nil {
+		return nil, err
+	}
+	config, err := cf.GetAuthConfig(registryHostname)
+	if err != nil {
+		return nil, err
 	}
 	return &types.AuthConfig{
-		Username: string(username),
-		Password: string(password),
+		Username: config.Username,
+		Password: config.Password,
 	}, nil
 }
 
