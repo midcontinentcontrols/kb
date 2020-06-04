@@ -750,6 +750,57 @@ func testBuilder(t *testing.T, builder string, mutatetOpts func(options *BuildOp
 		}
 		require.NoError(t, Build(options))
 	})
+
+	t.Run("dependency failure", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0766))
+		defer os.RemoveAll(rootPath)
+		dockerfile := `FROM alpine:3.11.6
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "Dockerfile"),
+			[]byte(dockerfile),
+			0644,
+		))
+		specPath := filepath.Join(rootPath, "kindest.yaml")
+		spec := fmt.Sprintf(`dependencies: ["dep"]
+build:
+  name: test/%s`, name)
+		require.NoError(t, ioutil.WriteFile(
+			specPath,
+			[]byte(spec),
+			0644,
+		))
+		depPath := filepath.Join(rootPath, "dep")
+		require.NoError(t, os.MkdirAll(depPath, 0766))
+		depSpec := fmt.Sprintf(`
+build:
+  name: test/%s-dep`, name)
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(depPath, "kindest.yaml"),
+			[]byte(depSpec),
+			0644,
+		))
+		depDockerfile := `FROM alpine:3.11.6
+RUN exit 1`
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(depPath, "Dockerfile"),
+			[]byte(depDockerfile),
+			0644,
+		))
+		options := &BuildOptions{
+			File:    specPath,
+			Builder: builder,
+			NoPush:  true,
+		}
+		if mutatetOpts != nil {
+			mutatetOpts(options)
+		}
+		err := Build(options)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "dependency 'dep': The command '/bin/sh -c exit 1' returned a non-zero code: 1")
+	})
 }
 
 func TestBuildDocker(t *testing.T) {
