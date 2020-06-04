@@ -242,7 +242,7 @@ func (b *BuildSpec) buildKaniko(
 	options *BuildOptions,
 ) (err error) {
 	if options.Kind != "" {
-		return fmt.Errorf("options --kind cannot be used with --builder=kaniko. Omit --kind and use --context to build with kaniko")
+		return fmt.Errorf("options --kind cannot be used with --builder=kaniko. Omit --kind and use --context to build with kaniko with a kind cluster")
 	}
 	client, config, err := clientForContext(options.Context)
 	if err != nil {
