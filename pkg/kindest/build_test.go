@@ -233,66 +233,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	}))
 }
 
-func TestBuildDependencyDockerfile(t *testing.T) {
-	depName := "test-" + uuid.New().String()[:8]
-	name := "test-" + uuid.New().String()[:8]
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
-	defer os.Remove(rootPath)
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "foo.txt"),
-		[]byte("Hello, world!"),
-		0644,
-	))
-	fooPath := filepath.Join(rootPath, "foo")
-	require.NoError(t, os.MkdirAll(fooPath, 0766))
-	// Use the dependency as a base image
-	dockerfile := fmt.Sprintf(`FROM test/%s:latest
-CMD ["sh", "-c", "echo \"Hello again, world\""]`, depName)
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(fooPath, "Dockerfile"),
-		[]byte(dockerfile),
-		0644,
-	))
-	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`dependencies:
-  - dep
-build:
-  name: test/%s
-  dockerfile: foo/Dockerfile
-`, name)
-	require.NoError(t, ioutil.WriteFile(
-		specPath,
-		[]byte(spec),
-		0644,
-	))
-	depDockerfile := `FROM alpine:3.11.6
-COPY foo.txt .
-CMD ["sh", "-c", "echo \"Hello, world\""]`
-	depPath := filepath.Join(rootPath, "dep")
-	subdir := filepath.Join(depPath, "subdir")
-	require.NoError(t, os.MkdirAll(subdir, 0766))
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(subdir, "Dockerfile"),
-		[]byte(depDockerfile),
-		0644,
-	))
-	depSpec := fmt.Sprintf(`build:
-  name: test/%s
-  dockerfile: subdir/Dockerfile
-  context: ..
-`, depName)
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(depPath, "kindest.yaml"),
-		[]byte(depSpec),
-		0644,
-	))
-	require.NoError(t, Build(&BuildOptions{
-		File:   specPath,
-		NoPush: true,
-	}))
-}
-
 func TestBuildDockerignore(t *testing.T) {
 	t.Run("file", func(t *testing.T) {
 		name := "test-" + uuid.New().String()[:8]
@@ -433,62 +373,6 @@ build:
 		})
 		require.NoError(t, err)
 	})
-}
-
-func TestBuildDependencyContext(t *testing.T) {
-	depName := "test-" + uuid.New().String()[:8]
-	name := "test-" + uuid.New().String()[:8]
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
-	// Use the dependency as a base image
-	dockerfile := fmt.Sprintf(`FROM test/%s:latest
-CMD ["sh", "-c", "echo \"Hello again, world\""]`, depName)
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "Dockerfile"),
-		[]byte(dockerfile),
-		0644,
-	))
-	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`dependencies:
-  - dep
-build:
-  name: test/%s
-`, name)
-	require.NoError(t, ioutil.WriteFile(
-		specPath,
-		[]byte(spec),
-		0644,
-	))
-	depPath := filepath.Join(rootPath, "dep")
-	subdir := filepath.Join(depPath, "subdir")
-	require.NoError(t, os.MkdirAll(subdir, 0766))
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(depPath, "foo.txt"),
-		[]byte("Hello, world!"),
-		0644,
-	))
-	depDockerfile := `FROM alpine:3.11.6
-COPY dep/foo.txt .
-CMD ["sh", "-c", "echo \"Hello, world\""]`
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(subdir, "Dockerfile"),
-		[]byte(depDockerfile),
-		0644,
-	))
-	depSpec := fmt.Sprintf(`build:
-  name: test/%s
-  dockerfile: subdir/Dockerfile
-  context: .. # rootPath
-`, depName)
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(depPath, "kindest.yaml"),
-		[]byte(depSpec),
-		0644,
-	))
-	require.NoError(t, Build(&BuildOptions{
-		File:   specPath,
-		NoPush: true,
-	}))
 }
 
 func TestBuildCache(t *testing.T) {
@@ -678,11 +562,15 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 3; fi`
 			[]byte(spec),
 			0644,
 		))
-		err := Build(&BuildOptions{
+		options := &BuildOptions{
 			File:    specPath,
 			NoPush:  true,
 			Builder: builder,
-		})
+		}
+		if mutatetOpts != nil {
+			mutatetOpts(options)
+		}
+		err := Build(options)
 		require.Error(t, err)
 		switch builder {
 		case "docker":
@@ -718,11 +606,78 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 3; fi`
 			[]byte(spec),
 			0644,
 		))
-		require.NoError(t, Build(&BuildOptions{
+		options := &BuildOptions{
 			File:    specPath,
 			NoPush:  true,
 			Builder: builder,
-		}))
+		}
+		if mutatetOpts != nil {
+			mutatetOpts(options)
+		}
+		require.NoError(t, Build(options))
+	})
+
+	t.Run("dependency base image", func(t *testing.T) {
+		depName := "test-" + uuid.New().String()[:8]
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0766))
+		defer os.Remove(rootPath)
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "foo.txt"),
+			[]byte("Hello, world!"),
+			0644,
+		))
+		fooPath := filepath.Join(rootPath, "foo")
+		require.NoError(t, os.MkdirAll(fooPath, 0766))
+		// Use the dependency as a base image
+		dockerfile := fmt.Sprintf(`FROM test/%s:latest
+CMD ["sh", "-c", "echo \"Hello again, world\""]`, depName)
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(fooPath, "Dockerfile"),
+			[]byte(dockerfile),
+			0644,
+		))
+		specPath := filepath.Join(rootPath, "kindest.yaml")
+		spec := fmt.Sprintf(`dependencies:
+- dep
+build:
+  name: test/%s
+  dockerfile: foo/Dockerfile`, name)
+		require.NoError(t, ioutil.WriteFile(
+			specPath,
+			[]byte(spec),
+			0644,
+		))
+		depDockerfile := `FROM alpine:3.11.6
+COPY foo.txt .
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+		depPath := filepath.Join(rootPath, "dep")
+		subdir := filepath.Join(depPath, "subdir")
+		require.NoError(t, os.MkdirAll(subdir, 0766))
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(subdir, "Dockerfile"),
+			[]byte(depDockerfile),
+			0644,
+		))
+		depSpec := fmt.Sprintf(`build:
+  name: test/%s
+  dockerfile: subdir/Dockerfile
+  context: ..`, depName)
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(depPath, "kindest.yaml"),
+			[]byte(depSpec),
+			0644,
+		))
+		options := &BuildOptions{
+			File:    specPath,
+			NoPush:  true,
+			Builder: builder,
+		}
+		if mutatetOpts != nil {
+			mutatetOpts(options)
+		}
+		require.NoError(t, Build(options))
 	})
 }
 
@@ -782,6 +737,59 @@ test:
 		require.NoError(t, Test(options))
 	})
 
+	t.Run("dependency context", func(t *testing.T) {
+		depName := "test-" + uuid.New().String()[:8]
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0766))
+		// Use the dependency as a base image
+		dockerfile := fmt.Sprintf(`FROM test/%s:latest
+CMD ["sh", "-c", "echo \"Hello again, world\""]`, depName)
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "Dockerfile"),
+			[]byte(dockerfile),
+			0644,
+		))
+		specPath := filepath.Join(rootPath, "kindest.yaml")
+		spec := fmt.Sprintf(`dependencies:
+- dep
+build:
+  name: test/%s`, name)
+		require.NoError(t, ioutil.WriteFile(
+			specPath,
+			[]byte(spec),
+			0644,
+		))
+		depPath := filepath.Join(rootPath, "dep")
+		subdir := filepath.Join(depPath, "subdir")
+		require.NoError(t, os.MkdirAll(subdir, 0766))
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(depPath, "foo.txt"),
+			[]byte("Hello, world!"),
+			0644,
+		))
+		depDockerfile := `FROM alpine:3.11.6
+COPY dep/foo.txt .
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(subdir, "Dockerfile"),
+			[]byte(depDockerfile),
+			0644,
+		))
+		depSpec := fmt.Sprintf(`build:
+  name: test/%s
+  dockerfile: subdir/Dockerfile
+  context: .. # rootPath`, depName)
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(depPath, "kindest.yaml"),
+			[]byte(depSpec),
+			0644,
+		))
+		require.NoError(t, Build(&BuildOptions{
+			File:   specPath,
+			NoPush: true,
+		}))
+	})
 }
 
 func TestBuildKaniko(t *testing.T) {
