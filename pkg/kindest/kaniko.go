@@ -202,6 +202,8 @@ func (b *BuildSpec) buildKaniko(
 		return err
 	}
 	pods := client.CoreV1().Pods("default")
+	// TODO: configure push secret
+	// /kaniko/.docker/config.json
 	pod := kanikoPod(b)
 	if pod, err = pods.Create(
 		context.TODO(),
