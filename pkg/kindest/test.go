@@ -566,8 +566,10 @@ func waitForCluster(client *kubernetes.Clientset) error {
 	delay := time.Second
 	start := time.Now()
 	good := false
-	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); {
-		pods, err := client.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{})
+	deadline := time.Now().Add(timeout)
+	p := client.CoreV1().Pods("kube-system")
+	for time.Now().Before(deadline) {
+		pods, err := p.List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}
@@ -596,6 +598,29 @@ func waitForCluster(client *kubernetes.Clientset) error {
 	}
 	if !good {
 		return fmt.Errorf("pods in kube-system failed to be Ready within %s", timeout.String())
+	}
+	good = false
+	sa := client.CoreV1().ServiceAccounts("default")
+	for time.Now().Before(deadline) {
+		if _, err := sa.Get(
+			context.TODO(),
+			"default",
+			metav1.GetOptions{},
+		); err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Waiting on default serviceaccount",
+					zap.String("elapsed", time.Now().Sub(start).String()),
+					zap.String("timeout", timeout.String()))
+				time.Sleep(delay)
+				continue
+			}
+			return err
+		}
+		good = true
+		break
+	}
+	if !good {
+		return fmt.Errorf("default serviceaccount failed to appear within %v", timeout.String())
 	}
 	log.Info("Cluster is running", zap.String("elapsed", time.Now().Sub(start).String()))
 	return nil

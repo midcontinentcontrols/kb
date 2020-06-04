@@ -263,7 +263,7 @@ func (b *BuildSpec) buildDocker(
 			return err
 		}
 	}
-	if options.Push {
+	if !options.NoPush {
 		log := log.With(zap.String("tag", tag))
 		log.Info("Pushing image")
 		authConfig, err := RegistryAuthFromEnv()
@@ -332,7 +332,6 @@ type BuildOptions struct {
 	Squash      bool   `json:"squash,omitempty" yaml:"squash,omitempty"`
 	Tag         string `json:"tag,omitempty" yaml:"tag,omitempty"`
 	Concurrency int    `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
-	Push        bool   `json:"push,omitempty" yaml:"push,omitempty"`
 	Context     string `json:"context,omitempty" yaml:"context,omitempty"`
 	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
 	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`

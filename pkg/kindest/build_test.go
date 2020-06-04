@@ -88,7 +88,8 @@ RUN exit 1`
 		0644,
 	))
 	err := Build(&BuildOptions{
-		File: specPath,
+		File:   specPath,
+		NoPush: true,
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "dependency 'dep': The command '/bin/sh -c exit 1' returned a non-zero code: 1")
@@ -116,7 +117,8 @@ build:
 		0644,
 	))
 	err := Build(&BuildOptions{
-		File: specPath,
+		File:   specPath,
+		NoPush: true,
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "dependency 0: missing kindest.yaml")
@@ -128,7 +130,8 @@ func TestBuildErrMissingDockerfile(t *testing.T) {
 	defer os.RemoveAll(rootPath)
 	require.NoError(t, os.Remove(filepath.Join(rootPath, "Dockerfile")))
 	err := Build(&BuildOptions{
-		File: specPath,
+		File:   specPath,
+		NoPush: true,
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing Dockerfile")
@@ -159,7 +162,8 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		0644,
 	))
 	require.NoError(t, Build(&BuildOptions{
-		File: specPath,
+		File:   specPath,
+		NoPush: true,
 	}))
 }
 
@@ -233,7 +237,8 @@ func TestBuildErrMissingName(t *testing.T) {
 		0644,
 	))
 	require.Equal(t, ErrMissingImageName, Build(&BuildOptions{
-		File: specPath,
+		File:   specPath,
+		NoPush: true,
 	}))
 }
 
@@ -258,7 +263,10 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
 		[]byte(spec),
 		0644,
 	))
-	require.Error(t, Build(&BuildOptions{File: specPath}))
+	require.Error(t, Build(&BuildOptions{
+		File:   specPath,
+		NoPush: true,
+	}))
 }
 
 func TestBuildArg(t *testing.T) {
@@ -286,7 +294,10 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
 		[]byte(spec),
 		0644,
 	))
-	require.Error(t, Build(&BuildOptions{File: specPath}))
+	require.Error(t, Build(&BuildOptions{
+		File:   specPath,
+		NoPush: true,
+	}))
 }
 
 func TestBuildContextPath(t *testing.T) {
@@ -315,7 +326,10 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		[]byte(spec),
 		0644,
 	))
-	require.NoError(t, Build(&BuildOptions{File: specPath}))
+	require.NoError(t, Build(&BuildOptions{
+		File:   specPath,
+		NoPush: true,
+	}))
 }
 
 func TestBuildDependency(t *testing.T) {
@@ -358,7 +372,10 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		[]byte(depSpec),
 		0644,
 	))
-	require.NoError(t, Build(&BuildOptions{File: specPath}))
+	require.NoError(t, Build(&BuildOptions{
+		File:   specPath,
+		NoPush: true,
+	}))
 }
 
 func TestBuildDependencyModule(t *testing.T) {
@@ -397,7 +414,8 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		0644,
 	))
 	require.NoError(t, Build(&BuildOptions{
-		File: specPath,
+		File:   specPath,
+		NoPush: true,
 	}))
 }
 
@@ -456,7 +474,8 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		0644,
 	))
 	require.NoError(t, Build(&BuildOptions{
-		File: specPath,
+		File:   specPath,
+		NoPush: true,
 	}))
 }
 
@@ -509,7 +528,8 @@ build:
 			0644,
 		))
 		err := Build(&BuildOptions{
-			File: specPath,
+			File:   specPath,
+			NoPush: true,
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bar.txt: no such file or directory")
@@ -594,7 +614,8 @@ build:
 			0644,
 		))
 		err := Build(&BuildOptions{
-			File: specPath,
+			File:   specPath,
+			NoPush: true,
 		})
 		require.NoError(t, err)
 	})
@@ -651,7 +672,8 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		0644,
 	))
 	require.NoError(t, Build(&BuildOptions{
-		File: specPath,
+		File:   specPath,
+		NoPush: true,
 	}))
 }
 
@@ -701,9 +723,15 @@ CMD ["cat", "/message"]`
 		})
 	})
 	defer pool.Close()
-	err, _ := pool.Process(&BuildOptions{File: specPath}).(error)
+	err, _ := pool.Process(&BuildOptions{
+		File:   specPath,
+		NoPush: true,
+	}).(error)
 	require.NoError(t, err)
-	err, _ = pool.Process(&BuildOptions{File: specPath}).(error)
+	err, _ = pool.Process(&BuildOptions{
+		File:   specPath,
+		NoPush: true,
+	}).(error)
 	require.NoError(t, err)
 	require.Equal(t, int32(1), atomic.LoadInt32(&isUsingCache))
 }
