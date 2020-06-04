@@ -670,6 +670,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			0644,
 		))
 		// TODO: replace FROM $image with FROM $repo/$image
+		// in dockerfiles where appropriate
 		options := &BuildOptions{
 			File:    specPath,
 			NoPush:  true,
