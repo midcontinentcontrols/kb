@@ -203,7 +203,7 @@ func (b *BuildSpec) buildKaniko(
 	}
 	pods := client.CoreV1().Pods("default")
 	// TODO: configure push secret
-	// /kaniko/.docker/config.json
+	// mount $HOME/.docker/config into /kaniko/.docker/config.json
 	pod := kanikoPod(b)
 	if pod, err = pods.Create(
 		context.TODO(),
