@@ -1,19 +1,11 @@
 build:
   name: midcontinentcontrols/kindest
-  docker: {}
-#test:
-  #charts:
-  
-  #build:
-  #  docker:
-  #    dockerfile: test/Dockerfile
 test:
-  - name: e2e
-    build:
-      docker:
-        dockerfile: test/Dockerfile
-        #context: "."
-    env:
+- name: e2e
+  build:
+    dockerfile: test/Dockerfile
+  env:
+    kubernetes:
       charts:
         - path: chart/
           values: {}

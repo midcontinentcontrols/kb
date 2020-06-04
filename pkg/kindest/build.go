@@ -198,7 +198,6 @@ func (b *BuildSpec) buildDocker(
 	if err := os.MkdirAll(tmpDir, 0766); err != nil {
 		return err
 	}
-
 	resolvedDockerfile, err := resolveDockerfile(
 		manifestPath,
 		b.Dockerfile,
