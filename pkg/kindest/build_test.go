@@ -91,88 +91,6 @@ func TestBuildErrMissingDockerfile(t *testing.T) {
 	require.Contains(t, err.Error(), "missing Dockerfile")
 }
 
-func TestBuildDockerfile(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
-	defer os.RemoveAll(rootPath)
-	subdir := filepath.Join(rootPath, "subdir")
-	require.NoError(t, os.MkdirAll(subdir, 0766))
-	dockerfile := `FROM alpine:3.11.6
-CMD ["sh", "-c", "echo \"Hello, world\""]`
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(subdir, "Dockerfile"),
-		[]byte(dockerfile),
-		0644,
-	))
-	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`build:
-  name: test/%s
-  dockerfile: subdir/Dockerfile
-`, name)
-	require.NoError(t, ioutil.WriteFile(
-		specPath,
-		[]byte(spec),
-		0644,
-	))
-	require.NoError(t, Build(&BuildOptions{
-		File:   specPath,
-		NoPush: true,
-	}))
-}
-
-func TestBuildTarget(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
-	defer os.RemoveAll(rootPath)
-	subdir := filepath.Join(rootPath, "subdir")
-	require.NoError(t, os.MkdirAll(subdir, 0766))
-	dockerfile := `FROM alpine:3.11.6 AS builder
-RUN apk add --no-cache bash
-RUN echo "foobarbaz" >> /foobarbaz
-FROM alpine:3.11.6
-COPY --from=builder /foobarbaz /bal
-CMD ["sh", "-c", "echo \"Hello, world\""]`
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(subdir, "Dockerfile"),
-		[]byte(dockerfile),
-		0644,
-	))
-	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`build:
-  name: test/%s
-  dockerfile: subdir/Dockerfile
-test:
-  - name: "basic"
-    env:
-      docker: {}
-    build:
-      name: test/%s-builder
-      dockerfile: subdir/Dockerfile
-      target: builder
-      command:
-        - bash
-        - -c
-        - if [ -z "$(ls / | grep foobarbaz)" ]; then
-            exit 3;
-          fi;
-          if [ -n "$(ls / | grep bal)" ]; then
-            exit 3;
-          fi;
-          echo "This script is executing in the correct layer."
-`, name, name)
-	require.NoError(t, ioutil.WriteFile(
-		specPath,
-		[]byte(spec),
-		0644,
-	))
-	require.NoError(t, Test(&TestOptions{
-		File:       specPath,
-		NoRegistry: true,
-	}))
-}
-
 func TestBuildErrMissingName(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -796,6 +714,58 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		}
 		require.NoError(t, Build(options))
 	})
+
+	t.Run("target", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0766))
+		defer os.RemoveAll(rootPath)
+		subdir := filepath.Join(rootPath, "subdir")
+		require.NoError(t, os.MkdirAll(subdir, 0766))
+		dockerfile := `FROM alpine:3.11.6 AS builder
+RUN apk add --no-cache bash
+RUN echo "foobarbaz" >> /foobarbaz
+FROM alpine:3.11.6
+COPY --from=builder /foobarbaz /bal
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(subdir, "Dockerfile"),
+			[]byte(dockerfile),
+			0644,
+		))
+		specPath := filepath.Join(rootPath, "kindest.yaml")
+		spec := fmt.Sprintf(`build:
+name: localhost:5000/%s
+dockerfile: subdir/Dockerfile
+test:
+- name: "basic"
+  env:
+    docker: {}
+  build:
+    name: localhost:5000/%s-builder
+    dockerfile: subdir/Dockerfile
+    target: builder
+    command:
+    - bash
+    - -c
+    - if [ -z "$(ls / | grep foobarbaz)" ]; then
+        exit 3;
+      fi;
+      if [ -n "$(ls / | grep bal)" ]; then
+        exit 3;
+      fi;
+      echo "This script is executing in the correct layer."`, name, name)
+		require.NoError(t, ioutil.WriteFile(
+			specPath,
+			[]byte(spec),
+			0644,
+		))
+		require.NoError(t, Test(&TestOptions{
+			File:       specPath,
+			NoRegistry: true,
+			Builder:    builder,
+		}))
+	})
 }
 
 func TestBuildDocker(t *testing.T) {
@@ -827,6 +797,7 @@ func TestBuildKaniko(t *testing.T) {
 			require.NoError(t, provider.Delete(kind, ""))
 		}()
 	}
+	require.NoError(t, EnsureRegistryRunning(newCLI(t)))
 	client, kubeContext, err := clientForKindCluster(kind, provider)
 	require.NoError(t, err)
 	require.NoError(t, waitForCluster(client))

@@ -63,6 +63,7 @@ type TestOptions struct {
 	Context     string `json:"context,omitempty" yaml:"context,omitempty"`
 	Kind        string `json:"kind,omitempty" yaml:"kind,omitempty"`
 	NoRegistry  bool   `json:"noRegistry,omitempty" yaml:"noRegistry,omitempty"`
+	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
 }
 
 type TestSpec struct {
@@ -1078,6 +1079,8 @@ func Test(options *TestOptions) error {
 	if err := Build(&BuildOptions{
 		File:        options.File,
 		Concurrency: options.Concurrency,
+		NoPush:      false,
+		Builder:     options.Builder,
 	}); err != nil {
 		return err
 	}
