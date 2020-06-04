@@ -167,33 +167,35 @@ func registryDeployment() *appsv1.Deployment {
 func ensureDeployment(
 	desired *appsv1.Deployment,
 	cl *kubernetes.Clientset,
-) error {
+) (*appsv1.Deployment, error) {
 	log := log.With(
 		zap.String("name", desired.Name),
 		zap.String("namespace", desired.Namespace),
 	)
 	deployments := cl.AppsV1().Deployments(desired.Namespace)
-	if _, err := deployments.Get(
+	existing, err := deployments.Get(
 		context.TODO(),
 		desired.Name,
 		metav1.GetOptions{},
-	); err != nil {
+	)
+	if err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Creating deployment")
-			if _, err := deployments.Create(
+			existing, err := deployments.Create(
 				context.TODO(),
 				desired,
 				metav1.CreateOptions{},
-			); err != nil {
-				return err
+			)
+			if err != nil {
+				return nil, err
 			}
 			log.Info("Deployment created")
-			return nil
+			return existing, nil
 		}
-		return err
+		return nil, err
 	}
 	log.Info("Deployment already exists")
-	return nil
+	return existing, nil
 }
 
 func ensureService(
@@ -228,11 +230,65 @@ func ensureService(
 	return nil
 }
 
+func WaitForDeployment(
+	cl *kubernetes.Clientset,
+	name string,
+	namespace string,
+	retryInterval time.Duration,
+	timeout time.Duration,
+) error {
+	deployments := cl.AppsV1().Deployments(namespace)
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		deployment, err := deployments.Get(
+			context.TODO(),
+			name,
+			metav1.GetOptions{},
+		)
+		if err == nil {
+			var replicas int32 = 1
+			if deployment.Spec.Replicas != nil {
+				replicas = *deployment.Spec.Replicas
+			}
+			if deployment.Status.AvailableReplicas >= replicas {
+				// All replicas are available
+				return nil
+			}
+		} else if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+		<-time.After(retryInterval)
+	}
+	return nil
+}
+
 func EnsureInClusterRegistryRunning(cl *kubernetes.Clientset) error {
 	deploymentDone := make(chan error, 1)
 	serviceDone := make(chan error, 1)
 	go func() {
-		deploymentDone <- ensureDeployment(registryDeployment(), cl)
+		deploymentDone <- func() error {
+			existing, err := ensureDeployment(registryDeployment(), cl)
+			if err != nil {
+				return err
+			}
+			var replicas int32 = 1
+			if existing.Spec.Replicas != nil {
+				replicas = *existing.Spec.Replicas
+			}
+			if existing.Status.AvailableReplicas >= replicas {
+				// All replicas are available
+				return nil
+			}
+			retryInterval := time.Second * 3
+			time.Sleep(retryInterval)
+			return WaitForDeployment(
+				cl,
+				existing.Name,
+				existing.Namespace,
+				retryInterval,
+				60*time.Second,
+			)
+		}()
 		close(deploymentDone)
 	}()
 	go func() {
