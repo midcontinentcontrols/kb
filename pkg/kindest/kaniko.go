@@ -293,6 +293,11 @@ func (b *BuildSpec) buildKaniko(
 	for _, buildArg := range b.BuildArgs {
 		command = append(command, fmt.Sprintf("--build-arg=%s=%s", buildArg.Name, buildArg.Value))
 	}
+	log.Info("Building",
+		zap.String("builder", "kaniko"),
+		zap.String("resolvedDockerfile", resolvedDockerfile),
+		zap.String("pod", pod.Name),
+		zap.Bool("noCache", options.NoCache))
 	if err := execInPod(
 		client,
 		config,

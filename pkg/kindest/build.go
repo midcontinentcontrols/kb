@@ -217,6 +217,7 @@ func (b *BuildSpec) buildDocker(
 	}
 	tag = fmt.Sprintf("%s:%s", b.Name, tag)
 	log.Info("Building",
+		zap.String("builder", "docker"),
 		zap.String("resolvedDockerfile", resolvedDockerfile),
 		zap.String("tag", tag),
 		zap.Bool("noCache", options.NoCache))

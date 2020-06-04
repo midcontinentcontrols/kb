@@ -608,7 +608,7 @@ CMD ["cat", "/message"]`
 	require.Equal(t, int32(1), atomic.LoadInt32(&isUsingCache))
 }
 
-func testBuilder(t *testing.T, builder string, mutatetOpts func(options *BuildOptions)) {
+func testBuilder(t *testing.T, builder string, mutatetOpts func(options interface{})) {
 	t.Run("basic", func(t *testing.T) {
 		specPath := createBasicTestProject(t, "tmp")
 		defer os.RemoveAll(filepath.Dir(specPath))
@@ -760,11 +760,14 @@ test:
 			[]byte(spec),
 			0644,
 		))
-		require.NoError(t, Test(&TestOptions{
-			File:       specPath,
-			NoRegistry: true,
-			Builder:    builder,
-		}))
+		options := &TestOptions{
+			File:    specPath,
+			Builder: builder,
+		}
+		if mutatetOpts != nil {
+			mutatetOpts(options)
+		}
+		require.NoError(t, Test(options))
 	})
 }
 
@@ -801,7 +804,12 @@ func TestBuildKaniko(t *testing.T) {
 	client, kubeContext, err := clientForKindCluster(kind, provider)
 	require.NoError(t, err)
 	require.NoError(t, waitForCluster(client))
-	testBuilder(t, "kaniko", func(options *BuildOptions) {
-		options.Context = kubeContext
+	testBuilder(t, "kaniko", func(options interface{}) {
+		if buildOptions, ok := options.(*BuildOptions); ok {
+			buildOptions.Context = kubeContext
+		}
+		if testOptions, ok := options.(*TestOptions); ok {
+			testOptions.Context = kubeContext
+		}
 	})
 }
