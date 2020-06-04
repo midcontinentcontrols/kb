@@ -165,6 +165,7 @@ func kanikoPod(b *BuildSpec, includeDockerconfigjson bool) (*corev1.Pod, error) 
 			Value: string(dockerconfigjson),
 		})
 	}
+	// TODO: make dockerconfigjson a secret
 	command += ` echo "Tailing null..."; tail -f /dev/null`
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
