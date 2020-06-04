@@ -63,7 +63,7 @@ var rootCmd = &cobra.Command{
 				cmdErr: cmdErr,
 			},
 		}
-		if err := opts.Complete(f, cmd, args, cmdOut, cmdErr); err != nil {
+		if err := opts.Complete(cmd, args, cmdOut, cmdErr); err != nil {
 			return err
 		}
 		if err := opts.Validate(); err != nil {
