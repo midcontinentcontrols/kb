@@ -100,7 +100,7 @@ func registryService() *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kindest-registry",
-			Namespace: "default",
+			Namespace: "kindest",
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
@@ -124,7 +124,7 @@ func registryDeployment() *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kindest-registry",
-			Namespace: "default",
+			Namespace: "kindest",
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -230,6 +230,24 @@ func ensureService(
 	return nil
 }
 
+func ensureNamespace(
+	namespace string,
+	cl *kubernetes.Clientset,
+) error {
+	if _, err := cl.CoreV1().Namespaces().Create(
+		context.TODO(),
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		},
+		metav1.CreateOptions{},
+	); err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+	return nil
+}
+
 func WaitForDeployment(
 	cl *kubernetes.Clientset,
 	name string,
@@ -263,6 +281,9 @@ func WaitForDeployment(
 }
 
 func EnsureInClusterRegistryRunning(cl *kubernetes.Clientset) error {
+	if err := ensureNamespace("kindest", cl); err != nil {
+		return err
+	}
 	deploymentDone := make(chan error, 1)
 	serviceDone := make(chan error, 1)
 	go func() {
