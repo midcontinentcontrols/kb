@@ -114,33 +114,6 @@ func TestBuildErrMissingName(t *testing.T) {
 	}))
 }
 
-func TestBuildErrMissingBuildArg(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
-	defer os.RemoveAll(rootPath)
-	dockerfile := `FROM alpine:3.11.6
-ARG HAS_BUILD_ARG
-RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "Dockerfile"),
-		[]byte(dockerfile),
-		0644,
-	))
-	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`build:
-  name: test/%s`, name)
-	require.NoError(t, ioutil.WriteFile(
-		specPath,
-		[]byte(spec),
-		0644,
-	))
-	require.Error(t, Build(&BuildOptions{
-		File:   specPath,
-		NoPush: true,
-	}))
-}
-
 func TestBuildArg(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -714,6 +687,34 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		}
 		require.NoError(t, Build(options))
 	})
+
+	t.Run("missing build arg", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0766))
+		defer os.RemoveAll(rootPath)
+		dockerfile := `FROM alpine:3.11.6
+ARG HAS_BUILD_ARG
+RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 1; fi`
+		require.NoError(t, ioutil.WriteFile(
+			filepath.Join(rootPath, "Dockerfile"),
+			[]byte(dockerfile),
+			0644,
+		))
+		specPath := filepath.Join(rootPath, "kindest.yaml")
+		spec := fmt.Sprintf(`build:
+  name: test/%s`, name)
+		require.NoError(t, ioutil.WriteFile(
+			specPath,
+			[]byte(spec),
+			0644,
+		))
+		require.Error(t, Build(&BuildOptions{
+			File:    specPath,
+			NoPush:  true,
+			Builder: builder,
+		}))
+	})
 }
 
 func TestBuildDocker(t *testing.T) {
@@ -771,6 +772,7 @@ test:
 		}
 		require.NoError(t, Test(options))
 	})
+
 }
 
 func TestBuildKaniko(t *testing.T) {
