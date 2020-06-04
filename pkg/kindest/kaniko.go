@@ -287,6 +287,9 @@ func (b *BuildSpec) buildKaniko(
 	} else {
 		command = append(command, "--destination="+b.Name)
 	}
+	if b.Target != "" {
+		command = append(command, "--target="+b.Target)
+	}
 	for _, buildArg := range b.BuildArgs {
 		command = append(command, fmt.Sprintf("--build-arg=%s=%s", buildArg.Name, buildArg.Value))
 	}
