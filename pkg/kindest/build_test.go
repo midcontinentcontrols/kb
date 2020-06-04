@@ -714,8 +714,13 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		}
 		require.NoError(t, Build(options))
 	})
+}
+
+func TestBuildDocker(t *testing.T) {
+	testBuilder(t, "docker", nil)
 
 	t.Run("target", func(t *testing.T) {
+		require.NoError(t, EnsureLocalRegistryRunning(newCLI(t)))
 		name := "test-" + uuid.New().String()[:8]
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -742,7 +747,7 @@ test:
   env:
     docker: {}
   build:
-    name: test/%s-builder
+    name: localhost:5000/%s-builder
     dockerfile: subdir/Dockerfile
     target: builder
     command:
@@ -762,17 +767,10 @@ test:
 		))
 		options := &TestOptions{
 			File:    specPath,
-			Builder: builder,
-		}
-		if mutatetOpts != nil {
-			mutatetOpts(options)
+			Builder: "docker",
 		}
 		require.NoError(t, Test(options))
 	})
-}
-
-func TestBuildDocker(t *testing.T) {
-	testBuilder(t, "docker", nil)
 }
 
 func TestBuildKaniko(t *testing.T) {
