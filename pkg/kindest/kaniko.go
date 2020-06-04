@@ -139,7 +139,6 @@ func (b *BuildSpec) buildKanikoRemote(
 }
 
 func kanikoPod(b *BuildSpec) *corev1.Pod {
-	// TODO
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kaniko-" + uuid.New().String()[:8],
@@ -149,13 +148,9 @@ func kanikoPod(b *BuildSpec) *corev1.Pod {
 			RestartPolicy: corev1.RestartPolicyNever,
 			Containers: []corev1.Container{{
 				Name:            "kaniko",
-				Image:           "gcr.io/kaniko-project/executor:latest",
+				Image:           "gcr.io/kaniko-project/executor:debug",
 				ImagePullPolicy: corev1.PullIfNotPresent,
-				Args: []string{
-					"--dockerfile=Dockerfile",
-					"--context=tar://stdin",
-					"--destination=gcr.io/my-repo/my-image",
-				},
+				Command:         []string{"tail", "-f", "/dev/null"},
 			}},
 		},
 	}

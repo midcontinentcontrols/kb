@@ -16,7 +16,7 @@ func TestHelmErrMissingChartYaml(t *testing.T) {
 	transient := os.Getenv("KINDEST_PERSISTENT") != "1"
 	var kind string
 	if !transient {
-		kind = "kindest-helm"
+		kind = "kindest"
 	}
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)

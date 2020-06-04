@@ -3,11 +3,8 @@ module github.com/midcontinentcontrols/kindest
 go 1.14
 
 require (
-	cloud.google.com/go v0.51.0 // indirect
-	github.com/Azure/go-autorest/autorest v0.9.6 // indirect
 	github.com/Jeffail/tunny v0.0.0-20190930221602-f13eb662a36a
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
-	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/squirrel v1.4.0 // indirect
 	github.com/Microsoft/hcsshim v0.8.9 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
@@ -55,12 +52,12 @@ require (
 	go.opencensus.io v0.22.3 // indirect
 	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200602180216-279210d13fed // indirect
+	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
 	golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980 // indirect
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
-	gonum.org/v1/netlib v0.0.0-20190331212654-76723241ea4e // indirect
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200603110839-e855014d5736 // indirect
 	google.golang.org/grpc v1.29.1 // indirect
@@ -70,14 +67,13 @@ require (
 	k8s.io/api v0.18.3
 	k8s.io/apimachinery v0.18.3
 	k8s.io/client-go v0.18.0
-	k8s.io/code-generator v0.18.3 // indirect
-	k8s.io/gengo v0.0.0-20200413195148-3a45101e95ac // indirect
-	k8s.io/helm v2.16.7+incompatible
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451 // indirect
 	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/kind v0.8.2-0.20200531182706-f4df803a1b7a
-	sigs.k8s.io/structured-merge-diff v0.0.0-20190525122527-15d366b2352e // indirect
 	sigs.k8s.io/yaml v1.2.0
 )
 
-replace github.com/docker/docker => github.com/docker/engine v17.12.0-ce-rc1.0.20190717161051-705d9623b7c1+incompatible
+replace (
+	github.com/docker/docker => github.com/docker/engine v17.12.0-ce-rc1.0.20190717161051-705d9623b7c1+incompatible
+	github.com/renstrom/dedent => github.com/lithammer/dedent v1.1.1-0.20200414195415-793783774541
+)

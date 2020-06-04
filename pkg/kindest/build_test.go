@@ -17,6 +17,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/kind/pkg/cluster"
 )
 
 func newCLI(t *testing.T) client.APIClient {
@@ -723,5 +724,32 @@ func TestBuildDocker(t *testing.T) {
 }
 
 func TestBuildKaniko(t *testing.T) {
+	transient := os.Getenv("KINDEST_PERSISTENT") != "1"
+	kind := "kindest"
+	provider := cluster.NewProvider()
+	exists := false
+	if !transient {
+		clusters, err := provider.List()
+		require.NoError(t, err)
+		for _, cluster := range clusters {
+			if cluster == kind {
+				exists = true
+				break
+			}
+		}
+	} else {
+		kind += "-" + uuid.New().String()[:8]
+	}
+	if !exists {
+		require.NoError(t, provider.Create(kind))
+	}
+	if transient {
+		defer func() {
+			require.NoError(t, provider.Delete(kind, ""))
+		}()
+	}
+	client, _, err := clientForKindCluster(kind, provider)
+	require.NoError(t, err)
+	require.NoError(t, waitForCluster(client))
 	testBuilder(t, "kaniko")
 }
