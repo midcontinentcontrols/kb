@@ -244,7 +244,7 @@ func clientForKindCluster(name string, provider *cluster.Provider) (*kubernetes.
 	if err != nil {
 		return nil, "", err
 	}
-	return client, "", nil
+	return client, "kind-" + name, nil
 }
 
 func createTestRole(client *kubernetes.Clientset) error {

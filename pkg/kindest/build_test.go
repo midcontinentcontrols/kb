@@ -708,19 +708,23 @@ CMD ["cat", "/message"]`
 	require.Equal(t, int32(1), atomic.LoadInt32(&isUsingCache))
 }
 
-func testBuilder(t *testing.T, builder string) {
+func testBuilder(t *testing.T, builder string, mutatetOpts func(options *BuildOptions)) {
 	t.Run("basic", func(t *testing.T) {
 		specPath := createBasicTestProject(t, "tmp")
 		defer os.RemoveAll(filepath.Dir(specPath))
-		require.NoError(t, Build(&BuildOptions{
+		options := &BuildOptions{
 			File:    specPath,
 			Builder: builder,
-		}))
+		}
+		if mutatetOpts != nil {
+			mutatetOpts(options)
+		}
+		require.NoError(t, Build(options))
 	})
 }
 
 func TestBuildDocker(t *testing.T) {
-	testBuilder(t, "docker")
+	testBuilder(t, "docker", nil)
 }
 
 func TestBuildKaniko(t *testing.T) {
@@ -748,8 +752,10 @@ func TestBuildKaniko(t *testing.T) {
 			require.NoError(t, provider.Delete(kind, ""))
 		}()
 	}
-	client, _, err := clientForKindCluster(kind, provider)
+	client, kubeContext, err := clientForKindCluster(kind, provider)
 	require.NoError(t, err)
 	require.NoError(t, waitForCluster(client))
-	testBuilder(t, "kaniko")
+	testBuilder(t, "kaniko", func(options *BuildOptions) {
+		options.Context = kubeContext
+	})
 }
