@@ -147,26 +147,34 @@ func (b *BuildSpec) buildKanikoRemote(
 	return fmt.Errorf("unimplemented")
 }
 
-func kanikoPod(b *BuildSpec, includeDockerconfigjson bool) (*corev1.Pod, error) {
+func kanikoPod(
+	b *BuildSpec,
+	includeDockerconfigjson bool,
+	portForwardRegistry bool,
+) (*corev1.Pod, error) {
 	u, err := user.Current()
 	if err != nil {
 		return nil, err
 	}
-	command := "set -e; "
 	var env []corev1.EnvVar
-	if includeDockerconfigjson {
-		dockerconfigjson, err := ioutil.ReadFile(filepath.Join(u.HomeDir, ".docker", "config.json"))
-		if err != nil {
-			return nil, err
+	command := "set -e; "
+	if portForwardRegistry {
+		command += `kubectl port-forward -n kindest svc/kindest-registry 5000:5000`
+	} else {
+		if includeDockerconfigjson {
+			dockerconfigjson, err := ioutil.ReadFile(filepath.Join(u.HomeDir, ".docker", "config.json"))
+			if err != nil {
+				return nil, err
+			}
+			command += `echo "$dockerconfigjson" > /kaniko/.docker/config.json;`
+			env = append(env, corev1.EnvVar{
+				Name:  "dockerconfigjson",
+				Value: string(dockerconfigjson),
+			})
 		}
-		command += `echo "$dockerconfigjson" > /kaniko/.docker/config.json;`
-		env = append(env, corev1.EnvVar{
-			Name:  "dockerconfigjson",
-			Value: string(dockerconfigjson),
-		})
+		// TODO: make dockerconfigjson a secret
+		command += ` echo "Tailing null..."; tail -f /dev/null`
 	}
-	// TODO: make dockerconfigjson a secret
-	command += ` echo "Tailing null..."; tail -f /dev/null`
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kaniko-" + uuid.New().String()[:8],
@@ -179,7 +187,7 @@ func kanikoPod(b *BuildSpec, includeDockerconfigjson bool) (*corev1.Pod, error) 
 				Image:           "gcr.io/kaniko-project/executor:debug",
 				ImagePullPolicy: corev1.PullIfNotPresent,
 				Command: []string{
-					"/busybox/sh",
+					"sh",
 					"-c",
 					command,
 				},
@@ -238,7 +246,7 @@ func (b *BuildSpec) buildKaniko(
 		return err
 	}
 	pods := client.CoreV1().Pods("default")
-	pod, err := kanikoPod(b, !options.NoPush)
+	pod, err := kanikoPod(b, !options.NoPush, false)
 	if err != nil {
 		return err
 	}
