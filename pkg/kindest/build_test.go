@@ -800,7 +800,7 @@ func TestBuildKaniko(t *testing.T) {
 			require.NoError(t, provider.Delete(kind, ""))
 		}()
 	}
-	require.NoError(t, EnsureRegistryRunning(newCLI(t)))
+	require.NoError(t, EnsureLocalRegistryRunning(newCLI(t)))
 	client, kubeContext, err := clientForKindCluster(kind, provider)
 	require.NoError(t, err)
 	require.NoError(t, waitForCluster(client))

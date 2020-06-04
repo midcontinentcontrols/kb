@@ -370,7 +370,3 @@ func execCommand(command string, args ...interface{}) error {
 	}
 	return nil
 }
-
-func ensureK8sRegistryRunning(cl *kubernetes.Clientset) error {
-	return nil
-}

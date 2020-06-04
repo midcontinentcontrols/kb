@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"k8s.io/client-go/kubernetes"
 
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -76,7 +77,7 @@ func DeleteRegistry(cli client.APIClient) error {
 
 // EnsureRegistryRunning ensures a local docker registry is running,
 // as per https://kind.sigs.k8s.io/docs/user/local-registry/
-func EnsureRegistryRunning(cli client.APIClient) error {
+func EnsureLocalRegistryRunning(cli client.APIClient) error {
 	regName := "kind-registry"
 	regPort := 5000
 	if err := waitForContainer(regName, cli); err != nil {
@@ -85,5 +86,9 @@ func EnsureRegistryRunning(cli client.APIClient) error {
 		}
 		return err
 	}
+	return nil
+}
+
+func EnsureInClusterRegistryRunning(cl *kubernetes.Clientset) error {
 	return nil
 }

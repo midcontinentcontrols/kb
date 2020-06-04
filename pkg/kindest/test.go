@@ -801,7 +801,7 @@ func (t *TestSpec) runKubernetes(
 				return err
 			}
 		} else {
-			if err := EnsureRegistryRunning(cli); err != nil {
+			if err := EnsureLocalRegistryRunning(cli); err != nil {
 				return err
 			}
 			parts := strings.Split(image, "/")
