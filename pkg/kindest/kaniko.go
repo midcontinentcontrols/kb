@@ -249,7 +249,8 @@ func (b *BuildSpec) buildKaniko(
 		return err
 	}
 	pods := client.CoreV1().Pods("default")
-	pod, err := kanikoPod(b, !options.NoPush, false)
+	portforwardRegistry := false
+	pod, err := kanikoPod(b, !options.NoPush, portforwardRegistry)
 	if err != nil {
 		return err
 	}
