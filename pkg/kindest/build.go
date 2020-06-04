@@ -26,6 +26,7 @@ import (
 	"github.com/monochromegane/go-gitignore"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/kind/pkg/cluster"
 )
 
 type BuildArg struct {
@@ -293,6 +294,16 @@ func (b *BuildSpec) buildDocker(
 		}
 		log.Info("Pushed image")
 	}
+	if options.Kind != "" {
+		log.Info("Copying image to kind cluster", zap.String("name", options.Kind))
+		if err := loadImageOnCluster(
+			dest,
+			options.Kind,
+			cluster.NewProvider(),
+		); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -330,6 +341,7 @@ type BuildOptions struct {
 	Repository  string `json:"repository,omitempty" yaml:"repository,omitempty"`
 	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
 	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
+	Kind        string `json:"kind,omitempty" yaml:"kind,omitempty"`
 }
 
 func buildDependencies(

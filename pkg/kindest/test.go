@@ -706,11 +706,12 @@ func (t *TestSpec) runKubernetes(
 	options *TestOptions,
 	spec *KindestSpec,
 ) error {
+	isKind := options.Kind != "" || options.Transient
 	var client *kubernetes.Clientset
 	var kubeContext string
 	image := t.Build.Name + ":latest"
 	imagePullPolicy := corev1.PullAlways
-	if options.Transient || options.Kind != "" {
+	if isKind {
 		cli, err := dockerclient.NewEnvClient()
 		if err != nil {
 			return err
@@ -1086,16 +1087,73 @@ func Test(options *TestOptions) error {
 		Builder:     options.Builder,
 		Context:     options.Context,
 	}
-	if options.Kind != "" && !options.NoRegistry {
-		cli, err := client.NewEnvClient()
-		if err != nil {
-			return err
+	isKind := options.Kind != "" || options.Transient
+	if isKind {
+		provider := cluster.NewProvider()
+		kind := options.Kind
+		exists := false
+		if kind != "" {
+			clusters, err := provider.List()
+			if err != nil {
+				return err
+			}
+			for _, cluster := range clusters {
+				if cluster == options.Kind {
+					exists = true
+					break
+				}
+			}
+		} else {
+			kind = "test-" + uuid.New().String()[:8]
 		}
-		if err := EnsureLocalRegistryRunning(cli); err != nil {
-			return err
+		if !exists {
+			log := log.With(
+				zap.String("name", kind),
+				zap.Bool("transient", options.Transient),
+			)
+			log.Info("Creating cluster")
+			ready := make(chan int, 1)
+			go func() {
+				start := time.Now()
+				for {
+					select {
+					case <-time.After(5 * time.Second):
+						log.Info("Still creating cluster", zap.String("elapsed", time.Now().Sub(start).String()))
+					case <-ready:
+						return
+					}
+				}
+			}()
+			kindConfig := generateKindConfig("kind-registry", 5000)
+			err := provider.Create(kind, cluster.CreateWithRawConfig([]byte(kindConfig)))
+			ready <- 0
+			if err != nil {
+				return err
+			}
+			if options.Transient {
+				defer func() {
+					log.Info("Deleting transient cluster")
+					if err := provider.Delete(kind, ""); err != nil {
+						log.Error("Error cleaning up transient cluster", zap.String("message", err.Error()))
+					} else {
+						log.Info("Deleted transient cluster")
+					}
+				}()
+			}
 		}
-		// TODO: modify BuildOptions to use localhost:5000 for repository
-		buildOpts.Repository = "localhost:5000"
+		if options.NoRegistry {
+			buildOpts.Kind = kind
+			buildOpts.NoPush = true
+		} else {
+			cli, err := client.NewEnvClient()
+			if err != nil {
+				return err
+			}
+			if err := EnsureLocalRegistryRunning(cli); err != nil {
+				return err
+			}
+			buildOpts.Repository = "localhost:5000"
+		}
 	} else if options.Context != "" {
 		client, _, err := clientForContext(options.Context)
 		if err != nil {
@@ -1104,7 +1162,6 @@ func Test(options *TestOptions) error {
 		if err := EnsureInClusterRegistryRunning(client); err != nil {
 			return err
 		}
-		// TODO: open port-forward to in-cluster registry
 		buildOpts.Repository = "localhost:5000"
 	}
 	if err := Build(buildOpts); err != nil {
