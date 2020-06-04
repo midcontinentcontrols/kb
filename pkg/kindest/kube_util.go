@@ -32,8 +32,8 @@ func containerToAttachTo(container string, pod *v1.Pod) (*v1.Container, error) {
 	return &pod.Spec.Containers[0], nil
 }
 
-// attach attaches to a given pod, outputting to stdout and stderr
-func attach(
+// execInPod executes the command in the pod
+func execInPod(
 	client *kubernetes.Clientset,
 	config *restclient.Config,
 	pod *v1.Pod,

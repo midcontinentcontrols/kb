@@ -253,7 +253,7 @@ func (b *BuildSpec) buildKaniko(
 	if err := zw.Close(); err != nil {
 		return err
 	}
-	if err := attach(
+	if err := execInPod(
 		client,
 		config,
 		pod,
@@ -262,7 +262,8 @@ func (b *BuildSpec) buildKaniko(
 				"/kaniko/executor",
 				"--dockerfile=" + resolvedDockerfile,
 				"--context=tar://stdin",
-				"--no-push",
+				"--destination=" + b.Name,
+				//"--no-push",
 			},
 			Stdin:  true,
 			Stdout: true,
