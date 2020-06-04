@@ -799,7 +799,14 @@ RUN exit 1`
 		}
 		err := Build(options)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "dependency 'dep': The command '/bin/sh -c exit 1' returned a non-zero code: 1")
+		switch builder {
+		case "docker":
+			require.Contains(t, err.Error(), "dependency 'dep': The command '/bin/sh -c exit 1' returned a non-zero code: 1")
+		case "kaniko":
+			require.Contains(t, err.Error(), "dependency 'dep': command terminated with exit code 1")
+		default:
+			panic("unreachable branch detected")
+		}
 	})
 }
 
