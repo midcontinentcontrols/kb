@@ -9,6 +9,8 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/user"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -145,7 +147,15 @@ func (b *BuildSpec) buildKanikoRemote(
 	return fmt.Errorf("unimplemented")
 }
 
-func kanikoPod(b *BuildSpec) *corev1.Pod {
+func kanikoPod(b *BuildSpec) (*corev1.Pod, error) {
+	u, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+	dockerconfigjson, err := ioutil.ReadFile(filepath.Join(u.HomeDir, ".docker", "config.json"))
+	if err != nil {
+		return nil, err
+	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kaniko-" + uuid.New().String()[:8],
@@ -160,11 +170,18 @@ func kanikoPod(b *BuildSpec) *corev1.Pod {
 				Command: []string{
 					"/busybox/sh",
 					"-c",
-					`echo "Tailing null..."; tail -f /dev/null`,
+					`set -e;
+					echo "$dockerconfigjson" > /kaniko/.docker/config.json;
+					echo "Tailing null...";
+					tail -f /dev/null`,
 				},
+				Env: []corev1.EnvVar{{
+					Name:  "dockerconfigjson",
+					Value: string(dockerconfigjson),
+				}},
 			}},
 		},
-	}
+	}, nil
 }
 
 func waitForPod(name, namespace string, client *kubernetes.Clientset) error {
@@ -203,8 +220,11 @@ func (b *BuildSpec) buildKaniko(
 	}
 	pods := client.CoreV1().Pods("default")
 	// TODO: configure push secret
-	// mount $HOME/.docker/config into /kaniko/.docker/config.json
-	pod := kanikoPod(b)
+	// mount $HOME/.docker/config.json into /kaniko/.docker/config.json
+	pod, err := kanikoPod(b)
+	if err != nil {
+		return err
+	}
 	if pod, err = pods.Create(
 		context.TODO(),
 		pod,
@@ -255,22 +275,26 @@ func (b *BuildSpec) buildKaniko(
 	if err := zw.Close(); err != nil {
 		return err
 	}
+	command := []string{
+		"/kaniko/executor",
+		"--dockerfile=" + resolvedDockerfile,
+		"--context=tar://stdin",
+	}
+	if options.NoPush {
+		command = append(command, "--no-push")
+	} else {
+		command = append(command, "--destination="+b.Name)
+	}
 	if err := execInPod(
 		client,
 		config,
 		pod,
 		&corev1.PodExecOptions{
-			Command: []string{
-				"/kaniko/executor",
-				"--dockerfile=" + resolvedDockerfile,
-				"--context=tar://stdin",
-				"--destination=" + b.Name,
-				//"--no-push",
-			},
-			Stdin:  true,
-			Stdout: true,
-			Stderr: true,
-			TTY:    false,
+			Command: command,
+			Stdin:   true,
+			Stdout:  true,
+			Stderr:  true,
+			TTY:     false,
 		},
 		bytes.NewReader(buf.Bytes()),
 		os.Stdout,

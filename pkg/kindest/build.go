@@ -335,6 +335,7 @@ type BuildOptions struct {
 	Push        bool   `json:"push,omitempty" yaml:"push,omitempty"`
 	Context     string `json:"context,omitempty" yaml:"context,omitempty"`
 	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
+	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
 }
 
 func buildDependencies(

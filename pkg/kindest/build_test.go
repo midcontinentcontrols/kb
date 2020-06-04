@@ -715,6 +715,7 @@ func testBuilder(t *testing.T, builder string, mutatetOpts func(options *BuildOp
 		options := &BuildOptions{
 			File:    specPath,
 			Builder: builder,
+			NoPush:  true,
 		}
 		if mutatetOpts != nil {
 			mutatetOpts(options)
