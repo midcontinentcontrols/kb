@@ -107,7 +107,6 @@ func TestInClusterRegistryCreateDelete(t *testing.T) {
 	require.NoError(t, EnsureInClusterRegistryRunning(client))
 	require.NoError(t, EnsureInClusterRegistryRunning(client))
 	require.NoError(t, EnsureInClusterRegistryRunning(client))
-	_, err = ensureDeployment(registryDeployment(), client)
-	require.NoError(t, err)
+	require.NoError(t, ensureDeployment(registryDeployment(), client))
 	require.NoError(t, ensureService(registryService(), client))
 }

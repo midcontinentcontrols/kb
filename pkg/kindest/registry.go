@@ -167,7 +167,7 @@ func registryDeployment() *appsv1.Deployment {
 func ensureDeployment(
 	desired *appsv1.Deployment,
 	cl *kubernetes.Clientset,
-) (*appsv1.Deployment, error) {
+) error {
 	log := log.With(
 		zap.String("name", desired.Name),
 		zap.String("namespace", desired.Namespace),
@@ -181,21 +181,37 @@ func ensureDeployment(
 	if err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Creating deployment")
-			existing, err := deployments.Create(
+			if existing, err = deployments.Create(
 				context.TODO(),
 				desired,
 				metav1.CreateOptions{},
-			)
-			if err != nil {
-				return nil, err
+			); err != nil {
+				return err
 			}
 			log.Info("Deployment created")
-			return existing, nil
+		} else {
+			return err
 		}
-		return nil, err
+	} else {
+		log.Info("Deployment already exists")
 	}
-	log.Info("Deployment already exists")
-	return existing, nil
+	var replicas int32 = 1
+	if existing.Spec.Replicas != nil {
+		replicas = *existing.Spec.Replicas
+	}
+	if existing.Status.AvailableReplicas >= replicas {
+		// All replicas are available
+		return nil
+	}
+	retryInterval := time.Second * 3
+	time.Sleep(retryInterval)
+	return WaitForDeployment(
+		cl,
+		existing.Name,
+		existing.Namespace,
+		retryInterval,
+		60*time.Second,
+	)
 }
 
 func ensureService(
@@ -287,29 +303,7 @@ func EnsureInClusterRegistryRunning(cl *kubernetes.Clientset) error {
 	deploymentDone := make(chan error, 1)
 	serviceDone := make(chan error, 1)
 	go func() {
-		deploymentDone <- func() error {
-			existing, err := ensureDeployment(registryDeployment(), cl)
-			if err != nil {
-				return err
-			}
-			var replicas int32 = 1
-			if existing.Spec.Replicas != nil {
-				replicas = *existing.Spec.Replicas
-			}
-			if existing.Status.AvailableReplicas >= replicas {
-				// All replicas are available
-				return nil
-			}
-			retryInterval := time.Second * 3
-			time.Sleep(retryInterval)
-			return WaitForDeployment(
-				cl,
-				existing.Name,
-				existing.Namespace,
-				retryInterval,
-				60*time.Second,
-			)
-		}()
+		deploymentDone <- ensureDeployment(registryDeployment(), cl)
 		close(deploymentDone)
 	}()
 	go func() {
