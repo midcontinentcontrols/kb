@@ -261,7 +261,7 @@ func (b *BuildSpec) buildDocker(
 	if !options.NoPush {
 		log := log.With(zap.String("dest", dest))
 		log.Info("Pushing image")
-		authConfig, err := RegistryAuthFromEnv(b.Name)
+		authConfig, err := RegistryAuthFromEnv(dest)
 		if err != nil {
 			return err
 		}
