@@ -1079,13 +1079,35 @@ type testRun struct {
 }
 
 func Test(options *TestOptions) error {
-	if err := Build(&BuildOptions{
+	buildOpts := &BuildOptions{
 		File:        options.File,
 		Concurrency: options.Concurrency,
 		NoPush:      false,
 		Builder:     options.Builder,
 		Context:     options.Context,
-	}); err != nil {
+	}
+	if options.Kind != "" && !options.NoRegistry {
+		cli, err := client.NewEnvClient()
+		if err != nil {
+			return err
+		}
+		if err := EnsureLocalRegistryRunning(cli); err != nil {
+			return err
+		}
+		// TODO: modify BuildOptions to use localhost:5000 for repository
+		buildOpts.Repository = "localhost:5000"
+	} else if options.Context != "" {
+		client, _, err := clientForContext(options.Context)
+		if err != nil {
+			return err
+		}
+		if err := EnsureInClusterRegistryRunning(client); err != nil {
+			return err
+		}
+		// TODO: open port-forward to in-cluster registry
+		buildOpts.Repository = "localhost:5000"
+	}
+	if err := Build(buildOpts); err != nil {
 		return err
 	}
 	var pool *tunny.Pool

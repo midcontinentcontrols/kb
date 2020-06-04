@@ -215,6 +215,20 @@ func waitForPod(name, namespace string, client *kubernetes.Clientset) error {
 	return fmt.Errorf("pod failed to be Ready within %s", timeout.String())
 }
 
+func sanitizeImageName(host, image, tag string) string {
+	if tag == "" {
+		tag = "latest"
+	}
+	n := len(host)
+	if n == 0 {
+		return fmt.Sprintf("%s:%s", image, tag)
+	}
+	if host[n-1] == '/' {
+		host = host[:n-1]
+	}
+	return fmt.Sprintf("%s/%s:%s", host, image, tag)
+}
+
 func (b *BuildSpec) buildKaniko(
 	manifestPath string,
 	options *BuildOptions,
@@ -286,7 +300,8 @@ func (b *BuildSpec) buildKaniko(
 	if options.NoPush {
 		command = append(command, "--no-push")
 	} else {
-		command = append(command, "--destination="+b.Name)
+		dest := sanitizeImageName(options.Repository, b.Name, options.Tag)
+		command = append(command, "--destination="+dest)
 	}
 	if b.Target != "" {
 		command = append(command, "--target="+b.Target)

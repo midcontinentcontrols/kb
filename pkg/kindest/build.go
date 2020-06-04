@@ -142,10 +142,6 @@ func (b *BuildSpec) tarBuildContext(manifestPath string, options *BuildOptions) 
 		return "", err
 	}
 	tarPath := filepath.Join(tmpDir, fmt.Sprintf("build-context-%s.tar", uuid.New().String()))
-	tag := options.Tag
-	if tag == "" {
-		tag = "latest"
-	}
 	resolvedDockerfile, err := resolveDockerfile(
 		manifestPath,
 		b.Dockerfile,
@@ -154,7 +150,6 @@ func (b *BuildSpec) tarBuildContext(manifestPath string, options *BuildOptions) 
 	if err != nil {
 		return "", err
 	}
-	tag = fmt.Sprintf("%s:%s", b.Name, tag)
 	archive := new(archivex.TarFile)
 	archive.Create(tarPath)
 	dockerignorePath := filepath.Join(contextPath, ".dockerignore")
@@ -203,10 +198,7 @@ func (b *BuildSpec) buildDocker(
 	if err := os.MkdirAll(tmpDir, 0766); err != nil {
 		return err
 	}
-	tag := options.Tag
-	if tag == "" {
-		tag = "latest"
-	}
+
 	resolvedDockerfile, err := resolveDockerfile(
 		manifestPath,
 		b.Dockerfile,
@@ -215,11 +207,11 @@ func (b *BuildSpec) buildDocker(
 	if err != nil {
 		return err
 	}
-	tag = fmt.Sprintf("%s:%s", b.Name, tag)
+	dest := sanitizeImageName(options.Repository, b.Name, options.Tag)
 	log.Info("Building",
 		zap.String("builder", "docker"),
 		zap.String("resolvedDockerfile", resolvedDockerfile),
-		zap.String("tag", tag),
+		zap.String("dest", dest),
 		zap.Bool("noCache", options.NoCache))
 	tarPath, err := b.tarBuildContext(manifestPath, options)
 	if err != nil {
@@ -243,7 +235,7 @@ func (b *BuildSpec) buildDocker(
 			Dockerfile: resolvedDockerfile,
 			BuildArgs:  buildArgs,
 			Squash:     options.Squash,
-			Tags:       []string{tag},
+			Tags:       []string{dest},
 			Target:     b.Target,
 		},
 	)
@@ -267,7 +259,7 @@ func (b *BuildSpec) buildDocker(
 		}
 	}
 	if !options.NoPush {
-		log := log.With(zap.String("tag", tag))
+		log := log.With(zap.String("dest", dest))
 		log.Info("Pushing image")
 		authConfig, err := RegistryAuthFromEnv(b.Name)
 		if err != nil {
@@ -281,7 +273,7 @@ func (b *BuildSpec) buildDocker(
 		registryAuth := base64.URLEncoding.EncodeToString(authBytes)
 		resp, err := cli.ImagePush(
 			context.TODO(),
-			tag,
+			dest,
 			types.ImagePushOptions{
 				All:          false,
 				RegistryAuth: registryAuth,
@@ -336,6 +328,7 @@ type BuildOptions struct {
 	Tag         string `json:"tag,omitempty" yaml:"tag,omitempty"`
 	Concurrency int    `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
 	Context     string `json:"context,omitempty" yaml:"context,omitempty"`
+	Repository  string `json:"repository,omitempty" yaml:"repository,omitempty"`
 	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
 	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
 }
@@ -478,10 +471,7 @@ func BuildEx(
 	if err != nil {
 		return err
 	}
-	log.Info("Loaded spec",
-		zap.String("path", manifestPath),
-		zap.String("builder", options.Builder),
-	)
+	log.Info("Loaded spec", zap.String("path", manifestPath))
 	if err := buildDependencies(
 		spec,
 		manifestPath,

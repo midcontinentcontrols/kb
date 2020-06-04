@@ -735,14 +735,14 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		))
 		specPath := filepath.Join(rootPath, "kindest.yaml")
 		spec := fmt.Sprintf(`build:
-name: localhost:5000/%s
+name: test/%s
 dockerfile: subdir/Dockerfile
 test:
 - name: "basic"
   env:
     docker: {}
   build:
-    name: localhost:5000/%s-builder
+    name: test/%s-builder
     dockerfile: subdir/Dockerfile
     target: builder
     command:
