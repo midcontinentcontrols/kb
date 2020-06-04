@@ -669,6 +669,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			[]byte(depSpec),
 			0644,
 		))
+		// TODO: replace FROM $image with FROM $repo/$image
 		options := &BuildOptions{
 			File:    specPath,
 			NoPush:  true,
