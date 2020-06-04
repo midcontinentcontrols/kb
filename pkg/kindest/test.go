@@ -1051,7 +1051,10 @@ func (t *TestSpec) Run(
 	if err := t.Build.Build(
 		manifestPath,
 		&BuildOptions{
-			Concurrency: 1,
+			Concurrency: options.Concurrency,
+			NoPush:      false,
+			Builder:     options.Builder,
+			Context:     options.Context,
 		},
 		nil,
 	); err != nil {
@@ -1081,6 +1084,7 @@ func Test(options *TestOptions) error {
 		Concurrency: options.Concurrency,
 		NoPush:      false,
 		Builder:     options.Builder,
+		Context:     options.Context,
 	}); err != nil {
 		return err
 	}

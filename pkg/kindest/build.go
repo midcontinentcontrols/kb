@@ -478,7 +478,10 @@ func BuildEx(
 	if err != nil {
 		return err
 	}
-	log.Info("Loaded spec", zap.String("path", manifestPath))
+	log.Info("Loaded spec",
+		zap.String("path", manifestPath),
+		zap.String("builder", options.Builder),
+	)
 	if err := buildDependencies(
 		spec,
 		manifestPath,
