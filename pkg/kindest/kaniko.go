@@ -147,15 +147,25 @@ func (b *BuildSpec) buildKanikoRemote(
 	return fmt.Errorf("unimplemented")
 }
 
-func kanikoPod(b *BuildSpec) (*corev1.Pod, error) {
+func kanikoPod(b *BuildSpec, includeDockerconfigjson bool) (*corev1.Pod, error) {
 	u, err := user.Current()
 	if err != nil {
 		return nil, err
 	}
-	dockerconfigjson, err := ioutil.ReadFile(filepath.Join(u.HomeDir, ".docker", "config.json"))
-	if err != nil {
-		return nil, err
+	command := "set -e; "
+	var env []corev1.EnvVar
+	if includeDockerconfigjson {
+		dockerconfigjson, err := ioutil.ReadFile(filepath.Join(u.HomeDir, ".docker", "config.json"))
+		if err != nil {
+			return nil, err
+		}
+		command += `echo "$dockerconfigjson" > /kaniko/.docker/config.json;`
+		env = append(env, corev1.EnvVar{
+			Name:  "dockerconfigjson",
+			Value: string(dockerconfigjson),
+		})
 	}
+	command += ` echo "Tailing null..."; tail -f /dev/null`
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kaniko-" + uuid.New().String()[:8],
@@ -170,15 +180,9 @@ func kanikoPod(b *BuildSpec) (*corev1.Pod, error) {
 				Command: []string{
 					"/busybox/sh",
 					"-c",
-					`set -e;
-					echo "$dockerconfigjson" > /kaniko/.docker/config.json;
-					echo "Tailing null...";
-					tail -f /dev/null`,
+					command,
 				},
-				Env: []corev1.EnvVar{{
-					Name:  "dockerconfigjson",
-					Value: string(dockerconfigjson),
-				}},
+				Env: env,
 			}},
 		},
 	}, nil
@@ -219,9 +223,7 @@ func (b *BuildSpec) buildKaniko(
 		return err
 	}
 	pods := client.CoreV1().Pods("default")
-	// TODO: configure push secret
-	// mount $HOME/.docker/config.json into /kaniko/.docker/config.json
-	pod, err := kanikoPod(b)
+	pod, err := kanikoPod(b, !options.NoPush)
 	if err != nil {
 		return err
 	}
@@ -284,6 +286,9 @@ func (b *BuildSpec) buildKaniko(
 		command = append(command, "--no-push")
 	} else {
 		command = append(command, "--destination="+b.Name)
+	}
+	for _, buildArg := range b.BuildArgs {
+		command = append(command, fmt.Sprintf("--build-arg=%s=%s", buildArg.Name, buildArg.Value))
 	}
 	if err := execInPod(
 		client,
