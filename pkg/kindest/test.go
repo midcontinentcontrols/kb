@@ -1128,7 +1128,7 @@ func Test(options *TestOptions) error {
 			err := provider.Create(kind, cluster.CreateWithRawConfig([]byte(kindConfig)))
 			ready <- 0
 			if err != nil {
-				return err
+				return fmt.Errorf("create cluster: %v", err)
 			}
 			if options.Transient {
 				defer func() {
