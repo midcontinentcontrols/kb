@@ -758,7 +758,7 @@ func (t *TestSpec) runKubernetes(
 			err := provider.Create(name, cluster.CreateWithRawConfig([]byte(kindConfig)))
 			ready <- 0
 			if err != nil {
-				return err
+				return fmt.Errorf("create cluster: %v", err)
 			}
 			if options.Transient {
 				defer func() {
