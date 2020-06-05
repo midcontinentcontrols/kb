@@ -447,7 +447,7 @@ func getAuthConfig(domain string, configs map[string]types.AuthConfig) (*types.A
 			return &config, nil
 		}
 	}
-	return nil, fmt.Errorf("domain not '%s' found", domain)
+	return &types.AuthConfig{}, nil
 }
 
 func RegistryAuthFromEnv(imageName string) (*types.AuthConfig, error) {

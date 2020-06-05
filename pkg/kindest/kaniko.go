@@ -167,12 +167,12 @@ func kanikoPod(
 	//}
 	var env []corev1.EnvVar
 	command := "set -e; "
-	if portForwardRegistry {
-		command += `kubectl port-forward -n kindest svc/kindest-registry 5000:5000`
-	} else {
-		// TODO: make dockerconfigjson a secret
-		command += ` echo "Tailing null..."; tail -f /dev/null`
-	}
+	//if portForwardRegistry {
+	//	command += `kubectl port-forward -n kindest svc/kindest-registry 5000:5000`
+	//} else {
+	//	// TODO: make dockerconfigjson a secret
+	command += ` echo "Tailing null..."; tail -f /dev/null`
+	//}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kaniko-" + uuid.New().String()[:8],
