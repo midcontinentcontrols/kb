@@ -16,7 +16,9 @@ import (
 
 	"github.com/Jeffail/tunny"
 	"github.com/docker/cli/cli/config/configfile"
-	"github.com/docker/docker/api/types"
+	"github.com/docker/cli/cli/config/types"
+	"github.com/docker/distribution/reference"
+	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/term"
@@ -230,7 +232,7 @@ func (b *BuildSpec) buildDocker(
 	resp, err := cli.ImageBuild(
 		context.TODO(),
 		dockerBuildContext,
-		types.ImageBuildOptions{
+		dockertypes.ImageBuildOptions{
 			NoCache:    options.NoCache,
 			Dockerfile: resolvedDockerfile,
 			BuildArgs:  buildArgs,
@@ -265,7 +267,8 @@ func (b *BuildSpec) buildDocker(
 		if err != nil {
 			return err
 		}
-		log.Info("Using docker credentials from env", zap.String("username", string(authConfig.Username)))
+		log.Info("Using docker credentials from env",
+			zap.String("username", string(authConfig.Username)))
 		authBytes, err := json.Marshal(authConfig)
 		if err != nil {
 			return err
@@ -274,7 +277,7 @@ func (b *BuildSpec) buildDocker(
 		resp, err := cli.ImagePush(
 			context.TODO(),
 			dest,
-			types.ImagePushOptions{
+			dockertypes.ImagePushOptions{
 				All:          false,
 				RegistryAuth: registryAuth,
 			},
@@ -438,18 +441,21 @@ func Build(options *BuildOptions) error {
 	return BuildEx(options, pool, nil)
 }
 
-func RegistryAuthFromEnv(imageName string) (*types.AuthConfig, error) {
-	parts := strings.Split(imageName, "/")
-	numParts := len(parts)
-	var registryHostname string
-	switch numParts {
-	case 1:
-		registryHostname = "docker.io"
-	case 2:
-		registryHostname = parts[0]
-	default:
-		return nil, fmt.Errorf("malformed image name '%s'", imageName)
+func getAuthConfig(domain string, configs map[string]types.AuthConfig) (*types.AuthConfig, error) {
+	for name, config := range configs {
+		if strings.Contains(name, domain) {
+			return &config, nil
+		}
 	}
+	return nil, fmt.Errorf("domain not '%s' found", domain)
+}
+
+func RegistryAuthFromEnv(imageName string) (*types.AuthConfig, error) {
+	named, err := reference.ParseNormalizedNamed(imageName)
+	if err != nil {
+		return nil, err
+	}
+	domain := reference.Domain(named)
 	cf := configfile.New("")
 	u, err := user.Current()
 	if err != nil {
@@ -463,14 +469,7 @@ func RegistryAuthFromEnv(imageName string) (*types.AuthConfig, error) {
 	if err := cf.LoadFromReader(f); err != nil {
 		return nil, err
 	}
-	config, err := cf.GetAuthConfig(registryHostname)
-	if err != nil {
-		return nil, err
-	}
-	return &types.AuthConfig{
-		Username: config.Username,
-		Password: config.Password,
-	}, nil
+	return getAuthConfig(domain, cf.GetAuthConfigs())
 }
 
 func BuildEx(

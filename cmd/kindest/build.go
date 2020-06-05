@@ -23,7 +23,7 @@ var buildCmd = &cobra.Command{
 			)
 		})
 		defer pool.Close()
-		err, _ = pool.Process(&buildArgs).(error)
+		err, _ := pool.Process(&buildArgs).(error)
 		return err
 	},
 }
@@ -34,6 +34,6 @@ func init() {
 	buildCmd.PersistentFlags().StringVarP(&buildArgs.Tag, "tag", "t", "latest", "docker image tag")
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.NoCache, "no-cache", false, "build images from scratch")
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.Squash, "squash", false, "squashes newly built layers into a single new layer (docker experimental feature)")
-	buildCmd.PersistentFlags().BoolVarP(&buildArgs.Push, "push", "p", false, "push all built images")
+	//buildCmd.PersistentFlags().BoolVarP(&buildArgs.Push, "push", "p", false, "push all built images")
 	buildCmd.PersistentFlags().IntVarP(&buildArgs.Concurrency, "concurrency", "c", runtime.NumCPU(), "number of parallel build jobs (defaults to num cpus)")
 }

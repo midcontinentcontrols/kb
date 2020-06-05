@@ -9,8 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"os/user"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -147,31 +145,31 @@ func (b *BuildSpec) buildKanikoRemote(
 	return fmt.Errorf("unimplemented")
 }
 
+//if includeDockerconfigjson {
+//	dockerconfigjson, err := ioutil.ReadFile(filepath.Join(u.HomeDir, ".docker", "config.json"))
+//	if err != nil {
+//		return nil, err
+//	}
+//	command += `echo "$dockerconfigjson" > /kaniko/.docker/config.json;`
+//	env = append(env, corev1.EnvVar{
+//		Name:  "dockerconfigjson",
+//		Value: string(dockerconfigjson),
+//	})
+//}
+
 func kanikoPod(
 	b *BuildSpec,
-	includeDockerconfigjson bool,
 	portForwardRegistry bool,
 ) (*corev1.Pod, error) {
-	u, err := user.Current()
-	if err != nil {
-		return nil, err
-	}
+	//u, err := user.Current()
+	//if err != nil {
+	//	return nil, err
+	//}
 	var env []corev1.EnvVar
 	command := "set -e; "
 	if portForwardRegistry {
 		command += `kubectl port-forward -n kindest svc/kindest-registry 5000:5000`
 	} else {
-		if includeDockerconfigjson {
-			dockerconfigjson, err := ioutil.ReadFile(filepath.Join(u.HomeDir, ".docker", "config.json"))
-			if err != nil {
-				return nil, err
-			}
-			command += `echo "$dockerconfigjson" > /kaniko/.docker/config.json;`
-			env = append(env, corev1.EnvVar{
-				Name:  "dockerconfigjson",
-				Value: string(dockerconfigjson),
-			})
-		}
 		// TODO: make dockerconfigjson a secret
 		command += ` echo "Tailing null..."; tail -f /dev/null`
 	}
@@ -249,8 +247,8 @@ func (b *BuildSpec) buildKaniko(
 		return err
 	}
 	pods := client.CoreV1().Pods("default")
-	portforwardRegistry := false
-	pod, err := kanikoPod(b, !options.NoPush, portforwardRegistry)
+	useInClusterRegistry := true
+	pod, err := kanikoPod(b, useInClusterRegistry)
 	if err != nil {
 		return err
 	}
@@ -274,6 +272,9 @@ func (b *BuildSpec) buildKaniko(
 			}
 		}
 	}()
+	// Do we have to recurse and determine all images?
+	// the FROM name needs replaced if using in-cluster registry
+	// TODO: modify dockerfile with in-cluster image tags
 	resolvedDockerfile, err := resolveDockerfile(
 		manifestPath,
 		b.Dockerfile,
