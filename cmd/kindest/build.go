@@ -2,10 +2,12 @@ package main
 
 import (
 	"runtime"
+	"time"
 
 	"github.com/Jeffail/tunny"
 	"github.com/midcontinentcontrols/kindest/pkg/kindest"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 var buildArgs kindest.BuildOptions
@@ -14,6 +16,7 @@ var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		start := time.Now()
 		var pool *tunny.Pool
 		pool = tunny.NewFunc(buildArgs.Concurrency, func(payload interface{}) interface{} {
 			return kindest.BuildEx(
@@ -24,7 +27,11 @@ var buildCmd = &cobra.Command{
 		})
 		defer pool.Close()
 		err, _ := pool.Process(&buildArgs).(error)
-		return err
+		if err != nil {
+			return err
+		}
+		log.Info("Build successful", zap.String("elapsed", time.Now().Sub(start).String()))
+		return nil
 	},
 }
 
