@@ -10,15 +10,14 @@ import (
 	"go.uber.org/zap"
 )
 
-var buildArgs kindest.BuildOptions
+var buildOptions kindest.BuildOptions
 
 var buildCmd = &cobra.Command{
-	Use:   "build",
-	Short: "",
+	Use: "build",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		start := time.Now()
 		var pool *tunny.Pool
-		pool = tunny.NewFunc(buildArgs.Concurrency, func(payload interface{}) interface{} {
+		pool = tunny.NewFunc(buildOptions.Concurrency, func(payload interface{}) interface{} {
 			return kindest.BuildEx(
 				payload.(*kindest.BuildOptions),
 				pool,
@@ -26,7 +25,7 @@ var buildCmd = &cobra.Command{
 			)
 		})
 		defer pool.Close()
-		err, _ := pool.Process(&buildArgs).(error)
+		err, _ := pool.Process(&buildOptions).(error)
 		if err != nil {
 			return err
 		}
@@ -37,10 +36,13 @@ var buildCmd = &cobra.Command{
 
 func init() {
 	ConfigureCommand(buildCmd)
-	buildCmd.PersistentFlags().StringVarP(&buildArgs.File, "file", "f", "./kindest.yaml", "Path to kindest.yaml file")
-	buildCmd.PersistentFlags().StringVarP(&buildArgs.Tag, "tag", "t", "latest", "docker image tag")
-	buildCmd.PersistentFlags().BoolVar(&buildArgs.NoCache, "no-cache", false, "build images from scratch")
-	buildCmd.PersistentFlags().BoolVar(&buildArgs.Squash, "squash", false, "squashes newly built layers into a single new layer (docker experimental feature)")
-	//buildCmd.PersistentFlags().BoolVarP(&buildArgs.Push, "push", "p", false, "push all built images")
-	buildCmd.PersistentFlags().IntVarP(&buildArgs.Concurrency, "concurrency", "c", runtime.NumCPU(), "number of parallel build jobs (defaults to num cpus)")
+	buildCmd.PersistentFlags().StringVarP(&buildOptions.File, "file", "f", "./kindest.yaml", "Path to kindest.yaml file")
+	buildCmd.PersistentFlags().BoolVar(&buildOptions.NoCache, "no-cache", false, "build images from scratch")
+	buildCmd.PersistentFlags().StringVarP(&buildOptions.Tag, "tag", "t", "latest", "docker image tag")
+	buildCmd.PersistentFlags().BoolVar(&buildOptions.Squash, "squash", false, "squashes newly built layers into a single new layer (docker experimental feature)")
+	buildCmd.PersistentFlags().IntVarP(&buildOptions.Concurrency, "concurrency", "c", runtime.NumCPU(), "number of parallel build jobs (defaults to num cpus)")
+	buildCmd.PersistentFlags().StringVar(&buildOptions.Context, "context", "", "kubecontext (on-cluster build)")
+	buildCmd.PersistentFlags().StringVar(&buildOptions.Builder, "builder", "docker", "builder backend (docker or kaniko)")
+	buildCmd.PersistentFlags().BoolVar(&buildOptions.NoPush, "no-push", false, "do not push built images")
+	buildCmd.PersistentFlags().StringVar(&buildOptions.Kind, "kind", "", "copy image to kind cluster instead of pushing")
 }
