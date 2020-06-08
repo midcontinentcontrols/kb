@@ -65,6 +65,7 @@ type TestOptions struct {
 	NoRegistry  bool   `json:"noRegistry,omitempty" yaml:"noRegistry,omitempty"`
 	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
 	SkipBuild   bool   `json:"skipBuild,omitempty" yaml:"skipBuild,omitempty"`
+	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
 	Repository  string `json:"repository,omitempty" yaml:"repository,omitempty"`
 }
 
@@ -1058,7 +1059,7 @@ func (t *TestSpec) Run(
 			manifestPath,
 			&BuildOptions{
 				Concurrency: options.Concurrency,
-				NoPush:      options.NoRegistry,
+				NoPush:      options.NoPush,
 				Builder:     options.Builder,
 				Context:     options.Context,
 				Repository:  options.Repository,
@@ -1091,7 +1092,7 @@ func Test(options *TestOptions) error {
 		buildOpts := &BuildOptions{
 			File:        options.File,
 			Concurrency: options.Concurrency,
-			NoPush:      false,
+			NoPush:      options.NoPush,
 			Builder:     options.Builder,
 			Context:     options.Context,
 		}

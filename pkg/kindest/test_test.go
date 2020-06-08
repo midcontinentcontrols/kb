@@ -164,8 +164,8 @@ test:
 	))
 	err := Test(
 		&TestOptions{
-			File:       specPath,
-			NoRegistry: true,
+			File:   specPath,
+			NoPush: true,
 		},
 	)
 	require.Error(t, err)
