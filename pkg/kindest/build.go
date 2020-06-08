@@ -214,6 +214,7 @@ func (b *BuildSpec) buildDocker(
 		zap.String("builder", "docker"),
 		zap.String("resolvedDockerfile", resolvedDockerfile),
 		zap.String("dest", dest),
+		zap.Bool("noPush", options.NoPush),
 		zap.Bool("noCache", options.NoCache))
 	tarPath, err := b.tarBuildContext(manifestPath, options)
 	if err != nil {

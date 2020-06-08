@@ -64,6 +64,7 @@ type TestOptions struct {
 	Kind        string `json:"kind,omitempty" yaml:"kind,omitempty"`
 	NoRegistry  bool   `json:"noRegistry,omitempty" yaml:"noRegistry,omitempty"`
 	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
+	SkipBuild   bool   `json:"skipBuild,omitempty" yaml:"skipBuild,omitempty"`
 }
 
 type TestSpec struct {
@@ -425,7 +426,7 @@ func getSpecImages(spec *KindestSpec, rootPath string) ([]string, error) {
 		if err := func() error {
 			depPath := filepath.Clean(filepath.Join(rootPath, dependency))
 			otherSpec := &KindestSpec{}
-			docBytes, err := ioutil.ReadFile(depPath)
+			docBytes, err := ioutil.ReadFile(filepath.Join(depPath, "kindest.yaml"))
 			if err != nil {
 				return err
 			}
@@ -1049,17 +1050,19 @@ func (t *TestSpec) Run(
 	options *TestOptions,
 	spec *KindestSpec,
 ) error {
-	if err := t.Build.Build(
-		manifestPath,
-		&BuildOptions{
-			Concurrency: options.Concurrency,
-			NoPush:      false,
-			Builder:     options.Builder,
-			Context:     options.Context,
-		},
-		nil,
-	); err != nil {
-		return err
+	if !options.SkipBuild {
+		if err := t.Build.Build(
+			manifestPath,
+			&BuildOptions{
+				Concurrency: options.Concurrency,
+				NoPush:      options.NoRegistry,
+				Builder:     options.Builder,
+				Context:     options.Context,
+			},
+			nil,
+		); err != nil {
+			return err
+		}
 	}
 	if t.Env.Docker != nil {
 		return t.runDocker(options)
