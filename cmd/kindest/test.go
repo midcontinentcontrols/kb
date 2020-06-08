@@ -26,4 +26,5 @@ func init() {
 	testCmd.PersistentFlags().BoolVar(&testOptions.NoRegistry, "no-registry", false, "disable local registry")
 	testCmd.PersistentFlags().BoolVar(&testOptions.SkipBuild, "skip-build", false, "skip pre-test building")
 	testCmd.PersistentFlags().StringVar(&testOptions.Builder, "builder", "docker", "builder backend (docker or kaniko)")
+	testCmd.PersistentFlags().StringVar(&testOptions.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
 }

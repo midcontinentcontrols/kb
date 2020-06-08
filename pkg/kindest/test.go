@@ -65,6 +65,7 @@ type TestOptions struct {
 	NoRegistry  bool   `json:"noRegistry,omitempty" yaml:"noRegistry,omitempty"`
 	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
 	SkipBuild   bool   `json:"skipBuild,omitempty" yaml:"skipBuild,omitempty"`
+	Repository  string `json:"repository,omitempty" yaml:"repository,omitempty"`
 }
 
 type TestSpec struct {
@@ -1060,6 +1061,7 @@ func (t *TestSpec) Run(
 				NoPush:      options.NoRegistry,
 				Builder:     options.Builder,
 				Context:     options.Context,
+				Repository:  options.Repository,
 			},
 			nil,
 		); err != nil {
