@@ -1087,92 +1087,103 @@ type testRun struct {
 }
 
 func Test(options *TestOptions) error {
-	buildOpts := &BuildOptions{
-		File:        options.File,
-		Concurrency: options.Concurrency,
-		NoPush:      false,
-		Builder:     options.Builder,
-		Context:     options.Context,
-	}
-	isKind := options.Kind != "" || options.Transient
-	if isKind {
-		provider := cluster.NewProvider()
-		kind := options.Kind
-		exists := false
-		if kind != "" {
-			clusters, err := provider.List()
-			if err != nil {
-				return err
-			}
-			for _, cluster := range clusters {
-				if cluster == options.Kind {
-					exists = true
-					break
-				}
-			}
-		} else {
-			kind = "test-" + uuid.New().String()[:8]
+	if !options.SkipBuild {
+		buildOpts := &BuildOptions{
+			File:        options.File,
+			Concurrency: options.Concurrency,
+			NoPush:      false,
+			Builder:     options.Builder,
+			Context:     options.Context,
 		}
-		if !exists {
-			log := log.With(
-				zap.String("name", kind),
-				zap.Bool("transient", options.Transient),
-			)
-			log.Info("Creating cluster")
-			ready := make(chan int, 1)
-			go func() {
-				start := time.Now()
-				for {
-					select {
-					case <-time.After(5 * time.Second):
-						log.Info("Still creating cluster", zap.String("elapsed", time.Now().Sub(start).String()))
-					case <-ready:
-						return
+		isKind := options.Kind != "" || options.Transient
+		if isKind {
+			provider := cluster.NewProvider()
+			kind := options.Kind
+			exists := false
+			if kind != "" {
+				clusters, err := provider.List()
+				if err != nil {
+					return err
+				}
+				for _, cluster := range clusters {
+					if cluster == options.Kind {
+						exists = true
+						break
 					}
 				}
-			}()
-			kindConfig := generateKindConfig("kind-registry", 5000)
-			err := provider.Create(kind, cluster.CreateWithRawConfig([]byte(kindConfig)))
-			ready <- 0
-			if err != nil {
-				return fmt.Errorf("create cluster: %v", err)
+			} else {
+				kind = "test-" + uuid.New().String()[:8]
 			}
-			if options.Transient {
-				defer func() {
-					log.Info("Deleting transient cluster")
-					if err := provider.Delete(kind, ""); err != nil {
-						log.Error("Error cleaning up transient cluster", zap.String("message", err.Error()))
-					} else {
-						log.Info("Deleted transient cluster")
+			if !exists {
+				log := log.With(
+					zap.String("name", kind),
+					zap.Bool("transient", options.Transient),
+				)
+				log.Info("Creating cluster")
+				ready := make(chan int, 1)
+				go func() {
+					start := time.Now()
+					for {
+						select {
+						case <-time.After(5 * time.Second):
+							log.Info("Still creating cluster", zap.String("elapsed", time.Now().Sub(start).String()))
+						case <-ready:
+							return
+						}
 					}
 				}()
+				kindConfig := generateKindConfig("kind-registry", 5000)
+				err := provider.Create(kind, cluster.CreateWithRawConfig([]byte(kindConfig)))
+				ready <- 0
+				if err != nil {
+					return fmt.Errorf("create cluster: %v", err)
+				}
+				if options.Transient {
+					defer func() {
+						log.Info("Deleting transient cluster")
+						if err := provider.Delete(kind, ""); err != nil {
+							log.Error("Error cleaning up transient cluster", zap.String("message", err.Error()))
+						} else {
+							log.Info("Deleted transient cluster")
+						}
+					}()
+				}
 			}
+			if options.NoRegistry {
+				buildOpts.Kind = kind
+				buildOpts.NoPush = true
+			} else {
+				cli, err := client.NewEnvClient()
+				if err != nil {
+					return err
+				}
+				if err := EnsureLocalRegistryRunning(cli); err != nil {
+					return err
+				}
+				buildOpts.Repository = "localhost:5000"
+				if err := cli.NetworkConnect(
+					context.TODO(),
+					"kind",
+					"kind-registry",
+					&networktypes.EndpointSettings{},
+				); err != nil && !strings.Contains(err.Error(), "Error response from daemon: endpoint with name kind-registry already exists in network kind") {
+					return err
+				}
+			}
+		} else if options.Context != "" {
+			return fmt.Errorf("unimplemented")
+			//client, _, err := clientForContext(options.Context)
+			//if err != nil {
+			//	return err
+			//}
+			//if err := EnsureInClusterRegistryRunning(client); err != nil {
+			//	return err
+			//}
+			//buildOpts.Repository = "localhost:5000"
 		}
-		if options.NoRegistry {
-			buildOpts.Kind = kind
-			buildOpts.NoPush = true
-		} else {
-			cli, err := client.NewEnvClient()
-			if err != nil {
-				return err
-			}
-			if err := EnsureLocalRegistryRunning(cli); err != nil {
-				return err
-			}
-			buildOpts.Repository = "localhost:5000"
-		}
-	} else if options.Context != "" {
-		client, _, err := clientForContext(options.Context)
-		if err != nil {
+		if err := Build(buildOpts); err != nil {
 			return err
 		}
-		if err := EnsureInClusterRegistryRunning(client); err != nil {
-			return err
-		}
-		buildOpts.Repository = "localhost:5000"
-	}
-	if err := Build(buildOpts); err != nil {
-		return err
 	}
 	var pool *tunny.Pool
 	concurrency := options.Concurrency
