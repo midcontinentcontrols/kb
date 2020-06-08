@@ -787,74 +787,76 @@ func (t *TestSpec) runKubernetes(
 		if err := waitForCluster(client); err != nil {
 			return err
 		}
-		if options.NoRegistry {
-			imagePullPolicy = corev1.PullNever
-			images, err := getSpecImages(spec, rootPath)
-			if err != nil {
-				return err
+		if !options.SkipBuild {
+			if options.NoRegistry {
+				imagePullPolicy = corev1.PullNever
+				images, err := getSpecImages(spec, rootPath)
+				if err != nil {
+					return err
+				}
+				images = append(images, image)
+				if err := loadImagesOnCluster(
+					images,
+					name,
+					provider,
+					options.Concurrency,
+				); err != nil {
+					return err
+				}
+			} else {
+				if err := EnsureLocalRegistryRunning(cli); err != nil {
+					return err
+				}
+				parts := strings.Split(image, "/")
+				numParts := len(parts)
+				oldImage := image
+				switch numParts {
+				case 1:
+					image = "localhost:5000/" + image
+				case 2:
+					image = "localhost:5000/" + parts[1]
+				default:
+					return fmt.Errorf("malformed image '%s'", image)
+				}
+				log := log.With(zap.String("image", image))
+				log.Info("Pushing image to local registry")
+				if err := cli.NetworkConnect(
+					context.TODO(),
+					"kind",
+					"kind-registry",
+					&networktypes.EndpointSettings{},
+				); err != nil && !strings.Contains(err.Error(), "Error response from daemon: endpoint with name kind-registry already exists in network kind") {
+					return err
+				}
+				if err := cli.ImageTag(
+					context.TODO(),
+					oldImage,
+					image,
+				); err != nil {
+					return err
+				}
+				resp, err := cli.ImagePush(
+					context.TODO(),
+					image,
+					types.ImagePushOptions{
+						RegistryAuth: "this_can_be_anything",
+					},
+				)
+				if err != nil {
+					return err
+				}
+				termFd, isTerm := term.GetFdInfo(os.Stderr)
+				if err := jsonmessage.DisplayJSONMessagesStream(
+					resp,
+					os.Stderr,
+					termFd,
+					isTerm,
+					nil,
+				); err != nil {
+					return err
+				}
+				log.Info("Pushed image", zap.String("image", image))
 			}
-			images = append(images, image)
-			if err := loadImagesOnCluster(
-				images,
-				name,
-				provider,
-				options.Concurrency,
-			); err != nil {
-				return err
-			}
-		} else {
-			if err := EnsureLocalRegistryRunning(cli); err != nil {
-				return err
-			}
-			parts := strings.Split(image, "/")
-			numParts := len(parts)
-			oldImage := image
-			switch numParts {
-			case 1:
-				image = "localhost:5000/" + image
-			case 2:
-				image = "localhost:5000/" + parts[1]
-			default:
-				return fmt.Errorf("malformed image '%s'", image)
-			}
-			log := log.With(zap.String("image", image))
-			log.Info("Pushing image to local registry")
-			if err := cli.NetworkConnect(
-				context.TODO(),
-				"kind",
-				"kind-registry",
-				&networktypes.EndpointSettings{},
-			); err != nil && !strings.Contains(err.Error(), "Error response from daemon: endpoint with name kind-registry already exists in network kind") {
-				return err
-			}
-			if err := cli.ImageTag(
-				context.TODO(),
-				oldImage,
-				image,
-			); err != nil {
-				return err
-			}
-			resp, err := cli.ImagePush(
-				context.TODO(),
-				image,
-				types.ImagePushOptions{
-					RegistryAuth: "this_can_be_anything",
-				},
-			)
-			if err != nil {
-				return err
-			}
-			termFd, isTerm := term.GetFdInfo(os.Stderr)
-			if err := jsonmessage.DisplayJSONMessagesStream(
-				resp,
-				os.Stderr,
-				termFd,
-				isTerm,
-				nil,
-			); err != nil {
-				return err
-			}
-			log.Info("Pushed image", zap.String("image", image))
 		}
 	} else if options.Context != "" {
 		// Use existing kubernetes context from ~/.kube/config

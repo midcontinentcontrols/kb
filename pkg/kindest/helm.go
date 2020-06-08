@@ -5,20 +5,43 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
-
-	kubefake "helm.sh/helm/v3/pkg/kube/fake"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/cli/values"
+	"helm.sh/helm/v3/pkg/getter"
+	kubefake "helm.sh/helm/v3/pkg/kube/fake"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
 
 	"helm.sh/helm/v3/pkg/cli"
 )
+
+func ensureMapKeysAreStrings(m map[interface{}]interface{}) (map[string]interface{}, error) {
+	r := map[string]interface{}{}
+	for k, v := range m {
+		typedKey, ok := k.(string)
+		if !ok {
+			return nil, fmt.Errorf("Unexpected type %s for key %s", reflect.TypeOf(k), k)
+		}
+		switch v.(type) {
+		case map[interface{}]interface{}:
+			nestedMapWithStringKeys, err := ensureMapKeysAreStrings(v.(map[interface{}]interface{}))
+			if err != nil {
+				return nil, err
+			}
+			r[typedKey] = nestedMapWithStringKeys
+		default:
+			r[typedKey] = v
+		}
+	}
+	return r, nil
+}
 
 func (t *TestSpec) installCharts(
 	rootPath string,
@@ -93,6 +116,25 @@ func createHelmEnv(namespace string) *cli.EnvSettings {
 	return env
 }
 
+func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(a))
+	for k, v := range a {
+		out[k] = v
+	}
+	for k, v := range b {
+		if v, ok := v.(map[string]interface{}); ok {
+			if bv, ok := out[k]; ok {
+				if bv, ok := bv.(map[string]interface{}); ok {
+					out[k] = mergeMaps(bv, v)
+					continue
+				}
+			}
+		}
+		out[k] = v
+	}
+	return out
+}
+
 func (t *TestSpec) installChart(
 	chart *ChartSpec,
 	rootPath string,
@@ -121,10 +163,18 @@ func (t *TestSpec) installChart(
 		loadReleasesInMemory(cfg, env, chart.Namespace)
 	}
 
-	values := chart.Values
-	if values == nil {
-		values = make(map[string]interface{})
+	valueOpts := &values.Options{
+		ValueFiles: chart.ValuesFiles,
 	}
+	vals, err := valueOpts.MergeValues(getter.All(env))
+	if err != nil {
+		return err
+	}
+	explicit, err := ensureMapKeysAreStrings(chart.Values)
+	if err != nil {
+		return err
+	}
+	vals = mergeMaps(vals, explicit)
 
 	histClient := action.NewHistory(cfg)
 	histClient.Max = 1
@@ -145,6 +195,7 @@ func (t *TestSpec) installChart(
 		if chartRequested.Metadata.Deprecated {
 			log.Warn("This chart is deprecated")
 		}
+
 		if req := chartRequested.Metadata.Dependencies; req != nil {
 			return fmt.Errorf("chart dependencies are not yet implemented")
 			/*
@@ -179,8 +230,8 @@ func (t *TestSpec) installChart(
 		//install.Replace = true
 		install.Namespace = chart.Namespace
 		install.ReleaseName = chart.ReleaseName
-		log.Info("Installing resolved chart")
-		release, err := install.Run(chartRequested, values)
+		log.Info("Installing resolved chart", zap.String("vals", fmt.Sprintf("%#v", vals)))
+		release, err := install.Run(chartRequested, vals)
 		if err != nil {
 			return err
 		}
@@ -204,7 +255,7 @@ func (t *TestSpec) installChart(
 	if chartRequested.Metadata.Deprecated {
 		log.Warn("This chart is deprecated")
 	}
-	rel, err := upgrade.Run(chart.ReleaseName, chartRequested, values)
+	rel, err := upgrade.Run(chart.ReleaseName, chartRequested, vals)
 	if err != nil {
 		return err
 	}

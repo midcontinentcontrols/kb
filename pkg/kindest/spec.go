@@ -79,13 +79,13 @@ type EnvSpec struct {
 }
 
 type ChartSpec struct {
-	ReleaseName    string                 `json:"releaseName" yaml:"releaseName"`
-	Namespace      string                 `json:"namespace,omitempty" yaml:"namespace,omitempty"`
-	Name           string                 `json:"name,omitempty" yaml:"name,omitempty"`
-	RepoURL        string                 `json:"repoURL,omitempty" yaml:"repoURL,omitempty"`
-	TargetRevision string                 `json:"targetRevision,omitempty" yaml:"targetRevision,omitempty"`
-	Values         map[string]interface{} `json:"values,omitempty" yaml:"values,omitempty"`
-	ValuesFiles    []string               `json:"valuesFiles,omitempty" yaml:"valuesFiles,omitempty"`
+	ReleaseName    string                      `json:"releaseName" yaml:"releaseName"`
+	Namespace      string                      `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Name           string                      `json:"name,omitempty" yaml:"name,omitempty"`
+	RepoURL        string                      `json:"repoURL,omitempty" yaml:"repoURL,omitempty"`
+	TargetRevision string                      `json:"targetRevision,omitempty" yaml:"targetRevision,omitempty"`
+	Values         map[interface{}]interface{} `json:"values,omitempty" yaml:"values,omitempty"`
+	ValuesFiles    []string                    `json:"valuesFiles,omitempty" yaml:"valuesFiles,omitempty"`
 }
 
 type KindestSpec struct {

@@ -24,5 +24,6 @@ func init() {
 	testCmd.PersistentFlags().StringVar(&testOptions.Context, "context", "", "kubecontext (on-cluster build)")
 	testCmd.PersistentFlags().StringVar(&testOptions.Kind, "kind", "", "copy image to kind cluster instead of pushing")
 	testCmd.PersistentFlags().BoolVar(&testOptions.NoRegistry, "no-registry", false, "disable local registry")
+	testCmd.PersistentFlags().BoolVar(&testOptions.SkipBuild, "skip-build", false, "skip pre-test building")
 	testCmd.PersistentFlags().StringVar(&testOptions.Builder, "builder", "docker", "builder backend (docker or kaniko)")
 }
