@@ -700,7 +700,45 @@ func deleteOldPods(pods corev1types.PodInterface, envName string) error {
 	return nil
 }
 
-func loadDependenciesOnCluster(spec *KindestSpec, provider *cluster.Provider) error {
+func restartPods(client *kubernetes.Clientset, restartImages []string) error {
+	pods, err := client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, pod := range pods.Items {
+		found := false
+		for _, image := range restartImages {
+			if pod.Spec.RestartPolicy == corev1.RestartPolicyAlways {
+				for _, container := range pod.Spec.Containers {
+					if container.Image == image {
+						found = true
+						break
+					}
+				}
+				if found {
+					break
+				}
+			}
+		}
+		if found {
+			log := log.With(
+				zap.String("pod.Name", pod.Name),
+				zap.String("pod.Namespace", pod.Namespace),
+			)
+			log.Debug("Restarting pod")
+			if err := client.CoreV1().Pods(pod.Namespace).Delete(
+				context.TODO(),
+				pod.Name,
+				metav1.DeleteOptions{},
+			); err != nil {
+				log.Error("Error restarting pod", zap.String("err", err.Error()))
+			}
+		}
+	}
+	return nil
+}
+
+func waitForFullReady(client *kubernetes.Clientset) error {
 	return nil
 }
 
@@ -708,11 +746,12 @@ func (t *TestSpec) runKubernetes(
 	rootPath string,
 	options *TestOptions,
 	spec *KindestSpec,
+	restartImages []string,
 ) error {
 	isKind := options.Kind != "" || options.Transient
 	var client *kubernetes.Clientset
 	var kubeContext string
-	image := t.Build.Name + ":latest"
+	image := sanitizeImageName(options.Repository, t.Build.Name, "latest")
 	imagePullPolicy := corev1.PullAlways
 	if isKind {
 		cli, err := dockerclient.NewEnvClient()
@@ -809,17 +848,6 @@ func (t *TestSpec) runKubernetes(
 				if err := EnsureLocalRegistryRunning(cli); err != nil {
 					return err
 				}
-				parts := strings.Split(image, "/")
-				numParts := len(parts)
-				oldImage := image
-				switch numParts {
-				case 1:
-					image = "localhost:5000/" + image
-				case 2:
-					image = "localhost:5000/" + parts[1]
-				default:
-					return fmt.Errorf("malformed image '%s'", image)
-				}
 				log := log.With(zap.String("image", image))
 				log.Info("Pushing image to local registry")
 				if err := cli.NetworkConnect(
@@ -828,13 +856,6 @@ func (t *TestSpec) runKubernetes(
 					"kind-registry",
 					&networktypes.EndpointSettings{},
 				); err != nil && !strings.Contains(err.Error(), "Error response from daemon: endpoint with name kind-registry already exists in network kind") {
-					return err
-				}
-				if err := cli.ImageTag(
-					context.TODO(),
-					oldImage,
-					image,
-				); err != nil {
 					return err
 				}
 				resp, err := cli.ImagePush(
@@ -857,7 +878,7 @@ func (t *TestSpec) runKubernetes(
 				); err != nil {
 					return err
 				}
-				log.Info("Pushed image", zap.String("image", image))
+				log.Info("Pushed image")
 			}
 		}
 	} else if options.Context != "" {
@@ -896,6 +917,11 @@ func (t *TestSpec) runKubernetes(
 	); err != nil {
 		return err
 	}
+
+	if err := restartPods(client, restartImages); err != nil {
+		return err
+	}
+
 	namespace := "default"
 	pods := client.CoreV1().Pods(namespace)
 	log := log.With(
@@ -903,10 +929,18 @@ func (t *TestSpec) runKubernetes(
 		zap.String("namespace", namespace),
 		zap.String("image", image),
 	)
-	log.Debug("Creating test pod")
+
 	if err := deleteOldPods(pods, t.Name); err != nil {
 		return err
 	}
+
+	// Wait for the rest of the the cluster to be Ready
+	if err := waitForFullReady(client); err != nil {
+		return err
+	}
+
+	log.Debug("Creating test pod")
+
 	podName := t.Name + "-" + uuid.New().String()[:8]
 	var env []corev1.EnvVar
 	for _, v := range t.Env.Variables {
@@ -1053,6 +1087,7 @@ func (t *TestSpec) Run(
 	manifestPath string,
 	options *TestOptions,
 	spec *KindestSpec,
+	restartImages []string,
 ) error {
 	if !options.SkipBuild {
 		if err := t.Build.Build(
@@ -1072,7 +1107,12 @@ func (t *TestSpec) Run(
 	if t.Env.Docker != nil {
 		return t.runDocker(options)
 	} else if t.Env.Kubernetes != nil {
-		return t.runKubernetes(filepath.Dir(manifestPath), options, spec)
+		return t.runKubernetes(
+			filepath.Dir(manifestPath),
+			options,
+			spec,
+			restartImages,
+		)
 	} else {
 		panic("unreachable branch detected")
 	}
@@ -1088,6 +1128,20 @@ type testRun struct {
 }
 
 func Test(options *TestOptions) error {
+	imagePushed := make(chan string)
+	images := make(chan []string)
+	go func() {
+		defer close(images)
+		var imgs []string
+		for {
+			image, ok := <-imagePushed
+			if !ok {
+				images <- imgs
+				return
+			}
+			imgs = append(imgs, image)
+		}
+	}()
 	if !options.SkipBuild {
 		buildOpts := &BuildOptions{
 			File:        options.File,
@@ -1186,6 +1240,9 @@ func Test(options *TestOptions) error {
 			return err
 		}
 	}
+	close(imagePushed)
+	restartImages := <-images
+
 	var pool *tunny.Pool
 	concurrency := options.Concurrency
 	if concurrency == 0 {
@@ -1193,7 +1250,12 @@ func Test(options *TestOptions) error {
 	}
 	pool = tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
 		item := payload.(*testRun)
-		return item.test.Run(item.manifestPath, item.options, item.spec)
+		return item.test.Run(
+			item.manifestPath,
+			item.options,
+			item.spec,
+			restartImages,
+		)
 	})
 	defer pool.Close()
 	return TestEx(options, pool)
