@@ -16,6 +16,7 @@ var buildOptions kindest.BuildOptions
 var buildCmd = &cobra.Command{
 	Use: "build",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		log := logger.NewZapLoggerFromEnv()
 		start := time.Now()
 		var pool *tunny.Pool
 		pool = tunny.NewFunc(buildOptions.Concurrency, func(payload interface{}) interface{} {
@@ -24,7 +25,7 @@ var buildCmd = &cobra.Command{
 				pool,
 				nil,
 				nil,
-				logger.NewZapLoggerFromEnv(),
+				log,
 			)
 		})
 		defer pool.Close()

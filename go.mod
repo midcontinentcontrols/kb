@@ -26,6 +26,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/google/go-cmp v0.4.1 // indirect
+	github.com/google/martian v2.1.0+incompatible
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/gorilla/mux v1.7.4 // indirect
