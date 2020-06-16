@@ -6,6 +6,7 @@ import (
 
 	"github.com/Jeffail/tunny"
 	"github.com/midcontinentcontrols/kindest/pkg/kindest"
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -23,6 +24,7 @@ var buildCmd = &cobra.Command{
 				pool,
 				nil,
 				nil,
+				logger.NewZapLoggerFromEnv(),
 			)
 		})
 		defer pool.Close()

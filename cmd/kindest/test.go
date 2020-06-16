@@ -4,6 +4,7 @@ import (
 	"runtime"
 
 	"github.com/midcontinentcontrols/kindest/pkg/kindest"
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
 	"github.com/spf13/cobra"
 )
@@ -13,7 +14,10 @@ var testOptions kindest.TestOptions
 var testCmd = &cobra.Command{
 	Use: "test",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return kindest.Test(&testOptions)
+		return kindest.Test(
+			&testOptions,
+			logger.NewZapLoggerFromEnv(),
+		)
 	},
 }
 
