@@ -414,7 +414,7 @@ CMD ["cat", "/message"]`
 					Stream string `json:"stream"`
 				}
 				require.NoError(t, json.Unmarshal([]byte(message), &msg))
-				fmt.Println(msg.Stream)
+				//fmt.Println(msg.Stream)
 				if strings.Contains(msg.Stream, "Using cache") {
 					atomic.StoreInt32(&isUsingCache, 1)
 				}
