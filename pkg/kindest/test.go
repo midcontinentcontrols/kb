@@ -14,6 +14,7 @@ import (
 	"time"
 
 	dockerclient "github.com/docker/docker/client"
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/labels"
@@ -79,8 +80,8 @@ var ErrMultipleTestEnv = fmt.Errorf("multiple test environments defined")
 
 var ErrNoTestEnv = fmt.Errorf("no test environment")
 
-func (t *TestSpec) Verify(manifestPath string) error {
-	if err := t.Build.Verify(manifestPath); err != nil {
+func (t *TestSpec) Verify(manifestPath string, log logger.Logger) error {
+	if err := t.Build.Verify(manifestPath, log); err != nil {
 		return err
 	}
 	if t.Env.Docker != nil {
@@ -89,13 +90,13 @@ func (t *TestSpec) Verify(manifestPath string) error {
 		}
 		return t.Env.Docker.Verify(manifestPath)
 	} else if t.Env.Kubernetes != nil {
-		return t.Env.Kubernetes.Verify(manifestPath)
+		return t.Env.Kubernetes.Verify(manifestPath, log)
 	} else {
 		return ErrNoTestEnv
 	}
 }
 
-func (t *TestSpec) runDocker(options *TestOptions) error {
+func (t *TestSpec) runDocker(options *TestOptions, log logger.Logger) error {
 	cli, err := client.NewEnvClient()
 	if err != nil {
 		return err
@@ -120,7 +121,7 @@ func (t *TestSpec) runDocker(options *TestOptions) error {
 		return fmt.Errorf("error creating container: %v", err)
 	}
 	container := resp.ID
-	log := log.With(zap.String("test.Name", t.Name))
+	log = log.With(zap.String("test.Name", t.Name))
 	defer func() {
 		if rmerr := cli.ContainerRemove(
 			context.TODO(),
@@ -252,7 +253,7 @@ func clientForKindCluster(name string, provider *cluster.Provider) (*kubernetes.
 	return client, "kind-" + name, nil
 }
 
-func createTestRole(client *kubernetes.Clientset) error {
+func createTestRole(client *kubernetes.Clientset, log logger.Logger) error {
 	rbac := client.RbacV1()
 	clusterroles := rbac.ClusterRoles()
 	if _, err := clusterroles.Get(
@@ -288,7 +289,7 @@ func createTestRole(client *kubernetes.Clientset) error {
 	return nil
 }
 
-func createTestRoleBinding(client *kubernetes.Clientset) error {
+func createTestRoleBinding(client *kubernetes.Clientset, log logger.Logger) error {
 	if _, err := client.RbacV1().ClusterRoleBindings().Get(
 		context.TODO(),
 		"test",
@@ -327,7 +328,7 @@ func createTestRoleBinding(client *kubernetes.Clientset) error {
 	return nil
 }
 
-func createTestServiceAccount(client *kubernetes.Clientset) error {
+func createTestServiceAccount(client *kubernetes.Clientset, log logger.Logger) error {
 	if _, err := client.CoreV1().ServiceAccounts("default").Get(
 		context.TODO(),
 		"test",
@@ -357,14 +358,14 @@ func createTestServiceAccount(client *kubernetes.Clientset) error {
 	return nil
 }
 
-func createTestRBAC(client *kubernetes.Clientset) error {
-	if err := createTestRole(client); err != nil {
+func createTestRBAC(client *kubernetes.Clientset, log logger.Logger) error {
+	if err := createTestRole(client, log); err != nil {
 		return err
 	}
-	if err := createTestRoleBinding(client); err != nil {
+	if err := createTestRoleBinding(client, log); err != nil {
 		return err
 	}
-	if err := createTestServiceAccount(client); err != nil {
+	if err := createTestServiceAccount(client, log); err != nil {
 		return err
 	}
 	return nil
@@ -451,11 +452,17 @@ func getSpecImages(spec *KindestSpec, rootPath string) ([]string, error) {
 	return images, nil
 }
 
-func loadImagesOnCluster(imageNames []string, name string, provider *cluster.Provider, concurrency int) error {
+func loadImagesOnCluster(
+	imageNames []string,
+	name string,
+	provider *cluster.Provider,
+	concurrency int,
+	log logger.Logger,
+) error {
 	if concurrency == 0 {
 		concurrency = runtime.NumCPU()
 	}
-	log := log.With(zap.String("cluster", name))
+	log = log.With(zap.String("cluster", name))
 	log.Info("Copying images onto cluster",
 		zap.Int("numImages", len(imageNames)),
 		zap.Int("concurrency", concurrency),
@@ -565,7 +572,7 @@ func loadImageOnCluster(imageName, name string, provider *cluster.Provider) erro
 	return kinderrors.UntilErrorConcurrent(fns)
 }
 
-func waitForCluster(client *kubernetes.Clientset) error {
+func waitForCluster(client *kubernetes.Clientset, log logger.Logger) error {
 	timeout := time.Second * 120
 	delay := time.Second
 	start := time.Now()
@@ -660,7 +667,7 @@ containerdConfigPatches:
 //  - containerPath: /var/lib/etcd
 //    hostPath: /tmp/etcd`
 
-func deleteOldPods(pods corev1types.PodInterface, envName string) error {
+func deleteOldPods(pods corev1types.PodInterface, envName string, log logger.Logger) error {
 	stop := make(chan int)
 	defer func() {
 		stop <- 0
@@ -700,7 +707,124 @@ func deleteOldPods(pods corev1types.PodInterface, envName string) error {
 	return nil
 }
 
-func restartPods(client *kubernetes.Clientset, restartImages []string) error {
+func restartDeployments(client *kubernetes.Clientset, restartImages []string, log logger.Logger) error {
+	deployments, err := client.AppsV1().Deployments("").List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	var waitFor []int
+	for i, deployment := range deployments.Items {
+		found := false
+		for _, image := range restartImages {
+			if deployment.Spec.Template.Spec.RestartPolicy == corev1.RestartPolicyAlways {
+				for _, container := range deployment.Spec.Template.Spec.Containers {
+					if container.Image == image {
+						found = true
+						break
+					}
+				}
+				if found {
+					break
+				}
+			}
+		}
+		if found {
+			waitFor = append(waitFor, i)
+			log := log.With(
+				zap.String("deployment.Name", deployment.Name),
+				zap.String("deployment.Namespace", deployment.Namespace),
+			)
+			log.Debug("Restarting deployment")
+			if deployment.Spec.Template.ObjectMeta.Annotations != nil {
+				deployment.Spec.Template.ObjectMeta.Annotations["kindest.io/restartedAt"] = time.Now().String()
+			} else {
+				deployment.Spec.Template.ObjectMeta.Annotations = map[string]string{
+					"kindest.io/restartedAt": time.Now().String(),
+				}
+			}
+			if _, err := client.AppsV1().Deployments(deployment.Namespace).Update(
+				context.TODO(),
+				&deployment,
+				metav1.UpdateOptions{},
+			); err != nil {
+				log.Error("Error restarting deployment", zap.String("err", err.Error()))
+			}
+		}
+	}
+	done := make(chan int)
+	go func() {
+		for {
+			select {
+			case <-time.After(5 * time.Second):
+				log.Info("Waiting for deployments")
+			case <-done:
+				return
+			}
+		}
+	}()
+	defer func() {
+		done <- 0
+		close(done)
+	}()
+	//n := len(waitFor)
+	//dones := make([]chan error, n, n)
+	timeout := 120 * time.Second
+	delay := 3 * time.Second
+	deadline := time.Now().Add(timeout)
+	for _, j := range waitFor {
+		deployment := &deployments.Items[j]
+		name := deployment.Name
+		namespace := deployment.Namespace
+		//done := make(chan error, 1)
+		//dones[i] = done
+		//go func(name string, namespace string, done chan<- error) {
+		log := log.With(
+			zap.String("deployment.Name", name),
+			zap.String("deployment.Namespace", namespace),
+		)
+		//defer close(done)
+		//done <- func() error {
+		getter := client.AppsV1().Deployments(namespace)
+		ready := false
+		for time.Now().Before(deadline) {
+			deployment, err := getter.Get(
+				context.TODO(),
+				name,
+				metav1.GetOptions{},
+			)
+			if err != nil {
+				return err
+			}
+			var replicas int32 = 1
+			if deployment.Spec.Replicas != nil {
+				replicas = *deployment.Spec.Replicas
+			}
+			if deployment.Status.AvailableReplicas >= replicas {
+				log.Debug("Deployment is ready", zap.Int32("replicas", replicas))
+				ready = true
+				break
+			}
+			time.Sleep(delay)
+		}
+		if !ready {
+			fmt.Errorf("%s.%s: %v", deployment.Name, deployment.Namespace, err)
+		}
+		//return fmt.Errorf("failed to be ready within %v", timeout)
+		//}()
+		//}(deployment.Name, deployment.Namespace, done)
+	}
+	return nil
+	//var multi error
+	//for i, j := range waitFor {
+	//	if err := <-dones[i]; err != nil {
+	//		deployment := &deployments.Items[j]
+	//		multi = multierror.Append(multi, fmt.Errorf("%s.%s: %v", deployment.Name, deployment.Namespace, err))
+	//	}
+	//}
+	//return multi
+}
+
+func restartPods(client *kubernetes.Clientset, restartImages []string, log logger.Logger) error {
 	pods, err := client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -738,7 +862,7 @@ func restartPods(client *kubernetes.Clientset, restartImages []string) error {
 	return nil
 }
 
-func waitForFullReady(client *kubernetes.Clientset) error {
+func waitForFullReady(client *kubernetes.Clientset, log logger.Logger) error {
 	return nil
 }
 
@@ -747,6 +871,7 @@ func (t *TestSpec) runKubernetes(
 	options *TestOptions,
 	spec *KindestSpec,
 	restartImages []string,
+	log logger.Logger,
 ) error {
 	isKind := options.Kind != "" || options.Transient
 	var client *kubernetes.Clientset
@@ -825,7 +950,7 @@ func (t *TestSpec) runKubernetes(
 		if err != nil {
 			return err
 		}
-		if err := waitForCluster(client); err != nil {
+		if err := waitForCluster(client, log); err != nil {
 			return err
 		}
 		if !options.SkipBuild {
@@ -841,11 +966,12 @@ func (t *TestSpec) runKubernetes(
 					name,
 					provider,
 					options.Concurrency,
+					log,
 				); err != nil {
 					return err
 				}
 			} else {
-				if err := EnsureLocalRegistryRunning(cli); err != nil {
+				if err := EnsureLocalRegistryRunning(cli, log); err != nil {
 					return err
 				}
 				log := log.With(zap.String("image", image))
@@ -900,7 +1026,7 @@ func (t *TestSpec) runKubernetes(
 	start := time.Now()
 
 	log.Debug("Checking RBAC...")
-	if err := createTestRBAC(client); err != nil {
+	if err := createTestRBAC(client, log); err != nil {
 		return err
 	}
 
@@ -914,28 +1040,30 @@ func (t *TestSpec) runKubernetes(
 	if err := t.installCharts(
 		rootPath,
 		options,
+		log,
 	); err != nil {
 		return err
 	}
 
-	if err := restartPods(client, restartImages); err != nil {
-		return err
-	}
+	//log.Info("Restarting deployments", zap.String("restartImages", fmt.Sprintf("%#v", restartImages)))
+	//if err := restartDeployments(client, restartImages); err != nil {
+	//	return err
+	//}
 
 	namespace := "default"
 	pods := client.CoreV1().Pods(namespace)
-	log := log.With(
+	log = log.With(
 		zap.String("t.Name", t.Name),
 		zap.String("namespace", namespace),
 		zap.String("image", image),
 	)
 
-	if err := deleteOldPods(pods, t.Name); err != nil {
+	if err := deleteOldPods(pods, t.Name, log); err != nil {
 		return err
 	}
 
 	// Wait for the rest of the the cluster to be Ready
-	if err := waitForFullReady(client); err != nil {
+	if err := waitForFullReady(client, log); err != nil {
 		return err
 	}
 
@@ -1088,6 +1216,7 @@ func (t *TestSpec) Run(
 	options *TestOptions,
 	spec *KindestSpec,
 	restartImages []string,
+	log logger.Logger,
 ) error {
 	if !options.SkipBuild {
 		if err := t.Build.Build(
@@ -1100,18 +1229,20 @@ func (t *TestSpec) Run(
 				Repository:  options.Repository,
 			},
 			nil,
+			log,
 		); err != nil {
 			return err
 		}
 	}
 	if t.Env.Docker != nil {
-		return t.runDocker(options)
+		return t.runDocker(options, log)
 	} else if t.Env.Kubernetes != nil {
 		return t.runKubernetes(
 			filepath.Dir(manifestPath),
 			options,
 			spec,
 			restartImages,
+			log,
 		)
 	} else {
 		panic("unreachable branch detected")
@@ -1127,7 +1258,7 @@ type testRun struct {
 	manifestPath string
 }
 
-func Test(options *TestOptions) error {
+func Test(options *TestOptions, log logger.Logger) error {
 	imagePushed := make(chan string)
 	images := make(chan []string)
 	go func() {
@@ -1212,7 +1343,7 @@ func Test(options *TestOptions) error {
 				if err != nil {
 					return err
 				}
-				if err := EnsureLocalRegistryRunning(cli); err != nil {
+				if err := EnsureLocalRegistryRunning(cli, log); err != nil {
 					return err
 				}
 				buildOpts.Repository = "localhost:5000"
@@ -1236,7 +1367,18 @@ func Test(options *TestOptions) error {
 			//}
 			//buildOpts.Repository = "localhost:5000"
 		}
-		if err := Build(buildOpts); err != nil {
+		var pool *tunny.Pool
+		concurrency := options.Concurrency
+		if concurrency == 0 {
+			concurrency = runtime.NumCPU()
+		}
+		pool = tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
+			options := payload.(*BuildOptions)
+			return BuildEx(options, pool, nil, imagePushed, log)
+		})
+		defer pool.Close()
+		err, _ := pool.Process(buildOpts).(error)
+		if err != nil {
 			return err
 		}
 	}
@@ -1255,14 +1397,15 @@ func Test(options *TestOptions) error {
 			item.options,
 			item.spec,
 			restartImages,
+			log,
 		)
 	})
 	defer pool.Close()
-	return TestEx(options, pool)
+	return TestEx(options, pool, log)
 }
 
-func TestEx(options *TestOptions, pool *tunny.Pool) error {
-	spec, manifestPath, err := loadSpec(options.File)
+func TestEx(options *TestOptions, pool *tunny.Pool, log logger.Logger) error {
+	spec, manifestPath, err := loadSpec(options.File, log)
 	if err != nil {
 		return err
 	}

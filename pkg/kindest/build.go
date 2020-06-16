@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	"github.com/jhoonb/archivex"
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/monochromegane/go-gitignore"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -45,7 +46,7 @@ type BuildSpec struct {
 	Command    []string    `json:"command,omitempty" yaml:"command,omitempty"`
 }
 
-func (b *BuildSpec) verifyDocker(manifestPath string) error {
+func (b *BuildSpec) verifyDocker(manifestPath string, log logger.Logger) error {
 	var path string
 	if b.Dockerfile != "" {
 		path = filepath.Join(filepath.Dir(manifestPath), filepath.FromSlash(b.Dockerfile))
@@ -62,11 +63,11 @@ func (b *BuildSpec) verifyDocker(manifestPath string) error {
 
 var ErrMissingImageName = fmt.Errorf("missing image name")
 
-func (b *BuildSpec) Verify(manifestPath string) error {
+func (b *BuildSpec) Verify(manifestPath string, log logger.Logger) error {
 	if b.Name == "" {
 		return ErrMissingImageName
 	}
-	return b.verifyDocker(manifestPath)
+	return b.verifyDocker(manifestPath, log)
 }
 
 func walkDir(
@@ -188,6 +189,7 @@ func (b *BuildSpec) buildDocker(
 	manifestPath string,
 	options *BuildOptions,
 	respHandler func(io.ReadCloser) error,
+	log logger.Logger,
 ) error {
 	cli, err := client.NewEnvClient()
 	if err != nil {
@@ -315,12 +317,14 @@ func (b *BuildSpec) Build(
 	manifestPath string,
 	options *BuildOptions,
 	respHandler func(io.ReadCloser) error,
+	log logger.Logger,
 ) error {
 	switch options.Builder {
 	case "kaniko":
 		return b.buildKaniko(
 			manifestPath,
 			options,
+			log,
 		)
 	case "":
 		fallthrough
@@ -329,6 +333,7 @@ func (b *BuildSpec) Build(
 			manifestPath,
 			options,
 			respHandler,
+			log,
 		)
 	default:
 		return fmt.Errorf("unknown builder '%s'", options.Builder)
@@ -409,7 +414,7 @@ func resolveDockerfile(manifestPath string, dockerfilePath string, contextPath s
 	return filepath.ToSlash(rel), nil
 }
 
-func loadSpec(file string) (*KindestSpec, string, error) {
+func loadSpec(file string, log logger.Logger) (*KindestSpec, string, error) {
 	manifestPath, err := locateSpec(file)
 	if err != nil {
 		return nil, "", err
@@ -422,13 +427,13 @@ func loadSpec(file string) (*KindestSpec, string, error) {
 	if err := yaml.Unmarshal(docBytes, spec); err != nil {
 		return nil, "", err
 	}
-	if err := spec.Validate(manifestPath); err != nil {
+	if err := spec.Validate(manifestPath, log); err != nil {
 		return nil, "", err
 	}
 	return spec, manifestPath, nil
 }
 
-func Build(options *BuildOptions) error {
+func Build(options *BuildOptions, log logger.Logger) error {
 	var pool *tunny.Pool
 	concurrency := options.Concurrency
 	if concurrency == 0 {
@@ -436,10 +441,10 @@ func Build(options *BuildOptions) error {
 	}
 	pool = tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
 		options := payload.(*BuildOptions)
-		return BuildEx(options, pool, nil)
+		return BuildEx(options, pool, nil, nil, log)
 	})
 	defer pool.Close()
-	return BuildEx(options, pool, nil)
+	return BuildEx(options, pool, nil, nil, log)
 }
 
 func getAuthConfig(domain string, configs map[string]types.AuthConfig) (*types.AuthConfig, error) {
@@ -477,8 +482,10 @@ func BuildEx(
 	options *BuildOptions,
 	pool *tunny.Pool,
 	respHandler func(io.ReadCloser) error,
+	images chan<- string,
+	log logger.Logger,
 ) error {
-	spec, manifestPath, err := loadSpec(options.File)
+	spec, manifestPath, err := loadSpec(options.File, log)
 	if err != nil {
 		return err
 	}
@@ -496,8 +503,12 @@ func BuildEx(
 			manifestPath,
 			options,
 			respHandler,
+			log,
 		); err != nil {
 			return err
+		}
+		if images != nil {
+			images <- sanitizeImageName(options.Repository, spec.Build.Name, options.Tag)
 		}
 	}
 	return nil

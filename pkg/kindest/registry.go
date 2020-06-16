@@ -9,6 +9,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/hashicorp/go-multierror"
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,7 +22,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func CreateLocalRegistry(regName string, regPort int, cli client.APIClient) error {
+func CreateLocalRegistry(regName string, regPort int, cli client.APIClient, log logger.Logger) error {
 	portStr := fmt.Sprintf("%d/tcp", regPort)
 	info, err := cli.ContainerCreate(
 		context.TODO(),
@@ -45,10 +46,10 @@ func CreateLocalRegistry(regName string, regPort int, cli client.APIClient) erro
 	if err != nil {
 		return err
 	}
-	if err := waitForContainer(regName, cli); err != nil {
+	if err := waitForContainer(regName, cli, log); err != nil {
 		return err
 	}
-	log := log.With(zap.String("id", info.ID))
+	log = log.With(zap.String("id", info.ID))
 	log.Info("Created registry container")
 	for _, warning := range info.Warnings {
 		log.Warn("Container create warning", zap.String("message", warning))
@@ -56,10 +57,10 @@ func CreateLocalRegistry(regName string, regPort int, cli client.APIClient) erro
 	return nil
 }
 
-func DeleteRegistry(cli client.APIClient) error {
+func DeleteRegistry(cli client.APIClient, log logger.Logger) error {
 	name := "kind-registry"
 	timeout := 10 * time.Second
-	log := log.With(zap.String("name", name))
+	log = log.With(zap.String("name", name))
 	log.Info("Stopping registry container")
 	if err := cli.ContainerStop(
 		context.TODO(),
@@ -84,12 +85,12 @@ func DeleteRegistry(cli client.APIClient) error {
 
 // EnsureRegistryRunning ensures a local docker registry is running,
 // as per https://kind.sigs.k8s.io/docs/user/local-registry/
-func EnsureLocalRegistryRunning(cli client.APIClient) error {
+func EnsureLocalRegistryRunning(cli client.APIClient, log logger.Logger) error {
 	regName := "kind-registry"
 	regPort := 5000
-	if err := waitForContainer(regName, cli); err != nil {
+	if err := waitForContainer(regName, cli, log); err != nil {
 		if client.IsErrNotFound(err) {
-			return CreateLocalRegistry(regName, regPort, cli)
+			return CreateLocalRegistry(regName, regPort, cli, log)
 		}
 		return err
 	}
@@ -146,6 +147,9 @@ func registryDeployment() *appsv1.Deployment {
 						Env: []corev1.EnvVar{{
 							Name:  "REGISTRY_STORAGE_DELETE_ENABLED",
 							Value: "true",
+						}, {
+							Name:  "REGISTRY_STORAGE_INMEMORY",
+							Value: "1",
 						}},
 						Resources: corev1.ResourceRequirements{
 							//Limits: v1.ResourceList{
@@ -164,8 +168,12 @@ func registryDeployment() *appsv1.Deployment {
 	}
 }
 
-func ensureDeployment(desired *appsv1.Deployment, cl *kubernetes.Clientset) error {
-	log := log.With(
+func ensureDeployment(
+	desired *appsv1.Deployment,
+	cl *kubernetes.Clientset,
+	log logger.Logger,
+) error {
+	log = log.With(
 		zap.String("name", desired.Name),
 		zap.String("namespace", desired.Namespace),
 	)
@@ -211,8 +219,12 @@ func ensureDeployment(desired *appsv1.Deployment, cl *kubernetes.Clientset) erro
 	)
 }
 
-func ensureService(desired *corev1.Service, cl *kubernetes.Clientset) error {
-	log := log.With(
+func ensureService(
+	desired *corev1.Service,
+	cl *kubernetes.Clientset,
+	log logger.Logger,
+) error {
+	log = log.With(
 		zap.String("name", desired.Name),
 		zap.String("namespace", desired.Namespace),
 	)
@@ -240,7 +252,10 @@ func ensureService(desired *corev1.Service, cl *kubernetes.Clientset) error {
 	return nil
 }
 
-func ensureNamespace(namespace string, cl *kubernetes.Clientset) error {
+func ensureNamespace(
+	namespace string,
+	cl *kubernetes.Clientset,
+) error {
 	if _, err := cl.CoreV1().Namespaces().Create(
 		context.TODO(),
 		&corev1.Namespace{
@@ -287,18 +302,18 @@ func WaitForDeployment(
 	return nil
 }
 
-func EnsureInClusterRegistryRunning(cl *kubernetes.Clientset) error {
+func EnsureInClusterRegistryRunning(cl *kubernetes.Clientset, log logger.Logger) error {
 	if err := ensureNamespace("kindest", cl); err != nil {
 		return err
 	}
 	deploymentDone := make(chan error, 1)
 	serviceDone := make(chan error, 1)
 	go func() {
-		deploymentDone <- ensureDeployment(registryDeployment(), cl)
+		deploymentDone <- ensureDeployment(registryDeployment(), cl, log)
 		close(deploymentDone)
 	}()
 	go func() {
-		serviceDone <- ensureService(registryService(), cl)
+		serviceDone <- ensureService(registryService(), cl, log)
 		close(serviceDone)
 	}()
 	var multi error

@@ -3,6 +3,7 @@ package kindest
 import (
 	"time"
 
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"go.uber.org/zap"
 )
 
@@ -10,7 +11,7 @@ type WaitingMessage struct {
 	exit chan<- int
 }
 
-func NewWaitingMessage(name string, delay time.Duration) *WaitingMessage {
+func NewWaitingMessage(name string, delay time.Duration, log logger.Logger) *WaitingMessage {
 	exit := make(chan int, 1)
 	go func() {
 		iterations := 0

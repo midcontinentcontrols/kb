@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/kind/pkg/cluster"
@@ -21,6 +23,7 @@ func TestNoTests(t *testing.T) {
 			File:       specPath,
 			NoRegistry: true,
 		},
+		logger.NewFakeLogger(),
 	))
 }
 
@@ -60,6 +63,7 @@ test:
 			File:       specPath,
 			NoRegistry: true,
 		},
+		logger.NewFakeLogger(),
 	))
 }
 
@@ -94,6 +98,7 @@ test:
 			File:       specPath,
 			NoRegistry: true,
 		},
+		logger.NewFakeLogger(),
 	))
 }
 
@@ -131,6 +136,7 @@ test:
 			File:       specPath,
 			NoRegistry: true,
 		},
+		logger.NewFakeLogger(),
 	))
 }
 
@@ -167,6 +173,7 @@ test:
 			File:   specPath,
 			NoPush: true,
 		},
+		logger.NewFakeLogger(),
 	)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "exit code 1"))
@@ -206,6 +213,7 @@ test:
 			NoRegistry: true,
 			Transient:  true,
 		},
+		logger.NewFakeLogger(),
 	)
 	require.NoError(t, err)
 }
@@ -276,6 +284,7 @@ test:
 			NoRegistry: true,
 			Transient:  true,
 		},
+		logger.NewFakeLogger(),
 	))
 }
 
@@ -322,6 +331,7 @@ test:
 			NoRegistry: true,
 			Transient:  true,
 		},
+		logger.NewFakeLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), ErrTestFailed.Error())
@@ -363,6 +373,7 @@ test:
 			NoRegistry: true,
 			Transient:  true,
 		},
+		logger.NewFakeLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "test.yaml' not found")
@@ -401,6 +412,7 @@ test:
 			File:       specPath,
 			NoRegistry: true,
 		},
+		logger.NewFakeLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), ErrUnknownCluster.Error())
@@ -440,6 +452,7 @@ test:
 			Context:    name,
 			NoRegistry: true,
 		},
+		logger.NewFakeLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), fmt.Sprintf("context \"%s\" does not exist", name))
@@ -493,6 +506,7 @@ test:
 			Kind:       name,
 			NoRegistry: true,
 		},
+		logger.NewFakeLogger(),
 	)
 	require.NoError(t, err)
 }
@@ -546,6 +560,7 @@ test:
 			Kind:       name,
 			NoRegistry: true,
 		},
+		logger.NewFakeLogger(),
 	)
 	require.NoError(t, err)
 }
@@ -586,6 +601,7 @@ test:
 			Transient:  false,
 			NoRegistry: false,
 		},
+		logger.NewFakeLogger(),
 	))
 	defer func() {
 		provider := cluster.NewProvider()
@@ -598,6 +614,7 @@ test:
 			Transient:  false,
 			NoRegistry: false,
 		},
+		logger.NewFakeLogger(),
 	))
 	require.NoError(t, Test(
 		&TestOptions{
@@ -606,5 +623,6 @@ test:
 			Transient:  false,
 			NoRegistry: false,
 		},
+		logger.NewFakeLogger(),
 	))
 }

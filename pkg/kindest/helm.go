@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/action"
@@ -30,6 +31,18 @@ func ensureMapKeysAreStrings(m map[interface{}]interface{}) (map[string]interfac
 			return nil, fmt.Errorf("Unexpected type %s for key %s", reflect.TypeOf(k), k)
 		}
 		switch v.(type) {
+		case []interface{}:
+			va := v.([]interface{})
+			for i, item := range va {
+				if vi, ok := item.(map[interface{}]interface{}); ok {
+					var err error
+					va[i], err = ensureMapKeysAreStrings(vi)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+			r[typedKey] = va
 		case map[interface{}]interface{}:
 			nestedMapWithStringKeys, err := ensureMapKeysAreStrings(v.(map[interface{}]interface{}))
 			if err != nil {
@@ -46,12 +59,14 @@ func ensureMapKeysAreStrings(m map[interface{}]interface{}) (map[string]interfac
 func (t *TestSpec) installCharts(
 	rootPath string,
 	options *TestOptions,
+	log logger.Logger,
 ) error {
 	for _, chart := range t.Env.Kubernetes.Charts {
 		if err := t.installChart(
 			chart,
 			rootPath,
 			options,
+			log,
 		); err != nil {
 			return fmt.Errorf("failed to install chart '%s': %v", chart.Name, err)
 		}
@@ -59,8 +74,10 @@ func (t *TestSpec) installCharts(
 	return nil
 }
 
-func debug(format string, v ...interface{}) {
-	log.Debug(fmt.Sprintf(format, v...))
+func debug(log logger.Logger) func(string, ...interface{}) {
+	return func(format string, v ...interface{}) {
+		log.Debug(fmt.Sprintf(format, v...))
+	}
 }
 
 // This function loads releases into the memory storage if the
@@ -139,15 +156,15 @@ func (t *TestSpec) installChart(
 	chart *ChartSpec,
 	rootPath string,
 	options *TestOptions,
+	log logger.Logger,
 ) error {
 	chartPath := filepath.Clean(filepath.Join(rootPath, chart.Name))
-	log := log.With(
+	log = log.With(
 		zap.String("releaseName", chart.ReleaseName),
 		zap.String("name", chart.Name),
 		zap.String("namespace", chart.Namespace),
 		zap.String("path", chartPath),
 	)
-	log.Info("Installing chart")
 	env := createHelmEnv(chart.Namespace)
 	cfg := new(action.Configuration)
 	helmDriver := os.Getenv("HELM_DRIVER")
@@ -155,7 +172,7 @@ func (t *TestSpec) installChart(
 		env.RESTClientGetter(),
 		chart.Namespace,
 		helmDriver,
-		debug,
+		debug(log),
 	); err != nil {
 		return err
 	}
@@ -175,6 +192,9 @@ func (t *TestSpec) installChart(
 		return err
 	}
 	vals = mergeMaps(vals, explicit)
+
+	log.Info("Installing chart")
+	//zap.String("vals", fmt.Sprintf("%#v", vals)), zap.String("original", fmt.Sprintf("%#v", chart.Values)))
 
 	histClient := action.NewHistory(cfg)
 	histClient.Max = 1

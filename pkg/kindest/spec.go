@@ -2,6 +2,9 @@ package kindest
 
 import (
 	"fmt"
+
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
+
 	"os"
 	"path/filepath"
 )
@@ -32,7 +35,7 @@ func (k *KubernetesEnvSpec) verifyResources(rootDir string) error {
 	return nil
 }
 
-func (k *KubernetesEnvSpec) verifyCharts(rootDir string) error {
+func (k *KubernetesEnvSpec) verifyCharts(rootDir string, log logger.Logger) error {
 	for _, chart := range k.Charts {
 		if chart.Name == "" {
 			return ErrMissingChartSource
@@ -54,12 +57,12 @@ func (k *KubernetesEnvSpec) verifyCharts(rootDir string) error {
 	return nil
 }
 
-func (k *KubernetesEnvSpec) Verify(manifestPath string) error {
+func (k *KubernetesEnvSpec) Verify(manifestPath string, log logger.Logger) error {
 	rootDir := filepath.Dir(manifestPath)
 	if err := k.verifyResources(rootDir); err != nil {
 		return err
 	}
-	if err := k.verifyCharts(rootDir); err != nil {
+	if err := k.verifyCharts(rootDir, log); err != nil {
 		return err
 	}
 	return nil
@@ -94,9 +97,9 @@ type KindestSpec struct {
 	Test         []*TestSpec `json:"test,omitempty" yaml:"test,omitempty"`
 }
 
-func (s *KindestSpec) Validate(manifestPath string) error {
+func (s *KindestSpec) Validate(manifestPath string, log logger.Logger) error {
 	if s.Build != nil {
-		if err := s.Build.Verify(manifestPath); err != nil {
+		if err := s.Build.Verify(manifestPath, log); err != nil {
 			return err
 		}
 	}
@@ -108,7 +111,7 @@ func (s *KindestSpec) Validate(manifestPath string) error {
 		}
 	}
 	for _, test := range s.Test {
-		if err := test.Verify(manifestPath); err != nil {
+		if err := test.Verify(manifestPath, log); err != nil {
 			return err
 		}
 	}

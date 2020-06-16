@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/docker/docker/client"
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"sigs.k8s.io/kind/pkg/cluster"
 
 	"github.com/google/uuid"
@@ -27,14 +28,15 @@ func TestDockerContainerInspect(t *testing.T) {
 func TestLocalRegistryCreateDelete(t *testing.T) {
 	var err error
 	cli := newCLI(t)
+	log := logger.NewFakeLogger()
 	// Successive calls to EnsureRegistryRunning should do nothing
-	require.NoError(t, EnsureLocalRegistryRunning(cli))
-	require.NoError(t, EnsureLocalRegistryRunning(cli))
-	require.NoError(t, EnsureLocalRegistryRunning(cli))
-	require.NoError(t, EnsureLocalRegistryRunning(cli))
+	require.NoError(t, EnsureLocalRegistryRunning(cli, log))
+	require.NoError(t, EnsureLocalRegistryRunning(cli, log))
+	require.NoError(t, EnsureLocalRegistryRunning(cli, log))
+	require.NoError(t, EnsureLocalRegistryRunning(cli, log))
 	_, err = cli.ContainerInspect(context.TODO(), "kind-registry")
 	require.NoError(t, err)
-	require.NoError(t, DeleteRegistry(cli))
+	require.NoError(t, DeleteRegistry(cli, log))
 	_, err = cli.ContainerInspect(context.TODO(), "kind-registry")
 	require.True(t, client.IsErrNotFound(err))
 }
@@ -73,6 +75,7 @@ test:
 			Transient:  true,
 			NoRegistry: false,
 		},
+		logger.NewFakeLogger(),
 	))
 }
 
@@ -102,11 +105,12 @@ func TestInClusterRegistryCreateDelete(t *testing.T) {
 		}()
 	}
 	client, _, err := clientForKindCluster(kind, provider)
+	log := logger.NewFakeLogger()
 	require.NoError(t, err)
-	require.NoError(t, waitForCluster(client))
-	require.NoError(t, EnsureInClusterRegistryRunning(client))
-	require.NoError(t, EnsureInClusterRegistryRunning(client))
-	require.NoError(t, EnsureInClusterRegistryRunning(client))
-	require.NoError(t, ensureDeployment(registryDeployment(), client))
-	require.NoError(t, ensureService(registryService(), client))
+	require.NoError(t, waitForCluster(client, log))
+	require.NoError(t, EnsureInClusterRegistryRunning(client, log))
+	require.NoError(t, EnsureInClusterRegistryRunning(client, log))
+	require.NoError(t, EnsureInClusterRegistryRunning(client, log))
+	require.NoError(t, ensureDeployment(registryDeployment(), client, log))
+	require.NoError(t, ensureService(registryService(), client, log))
 }

@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
+
 	"github.com/Jeffail/tunny"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
@@ -73,7 +75,7 @@ build:
 	err := Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	})
+	}, logger.NewFakeLogger())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "dependency 0: missing kindest.yaml")
 }
@@ -86,7 +88,7 @@ func TestBuildErrMissingDockerfile(t *testing.T) {
 	err := Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	})
+	}, logger.NewFakeLogger())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing Dockerfile")
 }
@@ -111,7 +113,7 @@ func TestBuildErrMissingName(t *testing.T) {
 	require.Equal(t, ErrMissingImageName, Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}))
+	}, logger.NewFakeLogger()))
 }
 
 func TestBuildContextPath(t *testing.T) {
@@ -143,7 +145,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}))
+	}, logger.NewFakeLogger()))
 }
 
 func TestBuildDependency(t *testing.T) {
@@ -189,7 +191,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}))
+	}, logger.NewFakeLogger()))
 }
 
 func TestBuildDependencyModule(t *testing.T) {
@@ -230,7 +232,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}))
+	}, logger.NewFakeLogger()))
 }
 
 func TestBuildDockerignore(t *testing.T) {
@@ -284,7 +286,7 @@ build:
 		err := Build(&BuildOptions{
 			File:   specPath,
 			NoPush: true,
-		})
+		}, logger.NewFakeLogger())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bar.txt: no such file or directory")
 	})
@@ -370,7 +372,7 @@ build:
 		err := Build(&BuildOptions{
 			File:   specPath,
 			NoPush: true,
-		})
+		}, logger.NewFakeLogger())
 		require.NoError(t, err)
 	})
 }
@@ -418,7 +420,7 @@ CMD ["cat", "/message"]`
 				}
 			}
 			return nil
-		})
+		}, nil, logger.NewFakeLogger())
 	})
 	defer pool.Close()
 	err, _ := pool.Process(&BuildOptions{
@@ -446,7 +448,7 @@ func testBuilder(t *testing.T, builder string, mutatetOpts func(options interfac
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		require.NoError(t, Build(options))
+		require.NoError(t, Build(options, logger.NewFakeLogger()))
 	})
 
 	t.Run("dependency failure", func(t *testing.T) {
@@ -495,7 +497,7 @@ RUN exit 1`
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		err := Build(options)
+		err := Build(options, logger.NewFakeLogger())
 		require.Error(t, err)
 		switch builder {
 		case "docker":
@@ -538,7 +540,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		require.NoError(t, Build(options))
+		require.NoError(t, Build(options, logger.NewFakeLogger()))
 	})
 
 	t.Run("missing build arg", func(t *testing.T) {
@@ -570,7 +572,7 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 3; fi`
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		err := Build(options)
+		err := Build(options, logger.NewFakeLogger())
 		require.Error(t, err)
 		switch builder {
 		case "docker":
@@ -614,7 +616,7 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 3; fi`
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		require.NoError(t, Build(options))
+		require.NoError(t, Build(options, logger.NewFakeLogger()))
 	})
 }
 
@@ -622,7 +624,7 @@ func TestBuildDocker(t *testing.T) {
 	testBuilder(t, "docker", nil)
 
 	t.Run("target", func(t *testing.T) {
-		require.NoError(t, EnsureLocalRegistryRunning(newCLI(t)))
+		require.NoError(t, EnsureLocalRegistryRunning(newCLI(t), logger.NewFakeLogger()))
 		name := "test-" + uuid.New().String()[:8]
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -671,7 +673,7 @@ test:
 			File:    specPath,
 			Builder: "docker",
 		}
-		require.NoError(t, Test(options))
+		require.NoError(t, Test(options, logger.NewFakeLogger()))
 	})
 
 	t.Run("dependency context", func(t *testing.T) {
@@ -725,7 +727,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		require.NoError(t, Build(&BuildOptions{
 			File:   specPath,
 			NoPush: true,
-		}))
+		}, logger.NewFakeLogger()))
 	})
 
 	t.Run("dependency base image", func(t *testing.T) {
@@ -788,7 +790,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		//if mutatetOpts != nil {
 		//	mutatetOpts(options)
 		//}
-		require.NoError(t, Build(options))
+		require.NoError(t, Build(options, logger.NewFakeLogger()))
 	})
 }
 
@@ -817,10 +819,10 @@ func TestBuildKaniko(t *testing.T) {
 			require.NoError(t, provider.Delete(kind, ""))
 		}()
 	}
-	require.NoError(t, EnsureLocalRegistryRunning(newCLI(t)))
+	require.NoError(t, EnsureLocalRegistryRunning(newCLI(t), logger.NewFakeLogger()))
 	client, kubeContext, err := clientForKindCluster(kind, provider)
 	require.NoError(t, err)
-	require.NoError(t, waitForCluster(client))
+	require.NoError(t, waitForCluster(client, logger.NewFakeLogger()))
 	testBuilder(t, "kaniko", func(options interface{}) {
 		if buildOptions, ok := options.(*BuildOptions); ok {
 			buildOptions.Context = kubeContext

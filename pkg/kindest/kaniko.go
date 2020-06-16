@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
+
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/strslice"
 	corev1 "k8s.io/api/core/v1"
@@ -27,7 +29,11 @@ import (
 	"go.uber.org/zap"
 )
 
-func waitForContainer(containerName string, cli client.APIClient) error {
+func waitForContainer(
+	containerName string,
+	cli client.APIClient,
+	log logger.Logger,
+) error {
 	done := make(chan int)
 	go func() {
 		log := log.With(zap.String("name", containerName))
@@ -73,6 +79,7 @@ func waitForContainer(containerName string, cli client.APIClient) error {
 func (b *BuildSpec) buildKanikoLocal(
 	manifestPath string,
 	options *BuildOptions,
+	log logger.Logger,
 ) error {
 	cli, err := client.NewEnvClient()
 	if err != nil {
@@ -126,10 +133,10 @@ func (b *BuildSpec) buildKanikoLocal(
 	if err != nil {
 		return err
 	}
-	if err := waitForContainer(containerName, cli); err != nil {
+	if err := waitForContainer(containerName, cli, log); err != nil {
 		return err
 	}
-	log := log.With(zap.String("id", info.ID))
+	log = log.With(zap.String("id", info.ID))
 	log.Info("Created container")
 	for _, warning := range info.Warnings {
 		log.Warn("Container create warning", zap.String("message", warning))
@@ -141,6 +148,7 @@ func (b *BuildSpec) buildKanikoRemote(
 	context string,
 	manifestPath string,
 	options *BuildOptions,
+	log logger.Logger,
 ) error {
 	return fmt.Errorf("unimplemented")
 }
@@ -195,7 +203,7 @@ func kanikoPod(
 	}, nil
 }
 
-func waitForPod(name, namespace string, client *kubernetes.Clientset) error {
+func waitForPod(name, namespace string, client *kubernetes.Clientset, log logger.Logger) error {
 	timeout := time.Second * 120
 	delay := time.Second
 	start := time.Now()
@@ -238,6 +246,7 @@ func sanitizeImageName(host, image, tag string) string {
 func (b *BuildSpec) buildKaniko(
 	manifestPath string,
 	options *BuildOptions,
+	log logger.Logger,
 ) (err error) {
 	if options.Kind != "" {
 		return fmt.Errorf("options --kind cannot be used with --builder=kaniko. Omit --kind and use --context to build with kaniko with a kind cluster")
@@ -288,7 +297,7 @@ func (b *BuildSpec) buildKaniko(
 		return err
 	}
 	defer os.Remove(tarPath)
-	if err := waitForPod(pod.Name, pod.Namespace, client); err != nil {
+	if err := waitForPod(pod.Name, pod.Namespace, client, log); err != nil {
 		return err
 	}
 	tarData, err := ioutil.ReadFile(tarPath)
@@ -357,7 +366,7 @@ func (b *BuildSpec) buildKaniko(
 	return nil
 }
 
-func execCommand(command string, args ...interface{}) error {
+func execCommand(log logger.Logger, command string, args ...interface{}) error {
 	var interpolated string
 	if len(args) > 0 {
 		interpolated = fmt.Sprintf(command, args...)
@@ -394,7 +403,7 @@ func execCommand(command string, args ...interface{}) error {
 		}
 		resultStdout <- string(stdout)
 	}()
-	defer NewWaitingMessage(interpolated, 5*time.Second).Stop()
+	defer NewWaitingMessage(interpolated, 5*time.Second, log).Stop()
 	if err := cmd.Run(); err != nil && err != io.EOF && err != os.ErrClosed {
 		stdoutStr, _ := (<-resultStdout).(string)
 		vStderr := <-resultStderr
