@@ -49,5 +49,5 @@ func init() {
 	buildCmd.PersistentFlags().StringVar(&buildOptions.Builder, "builder", "docker", "builder backend (docker or kaniko)")
 	buildCmd.PersistentFlags().BoolVar(&buildOptions.NoPush, "no-push", false, "do not push built images")
 	buildCmd.PersistentFlags().StringVar(&buildOptions.Kind, "kind", "", "copy image to kind cluster instead of pushing")
-	testCmd.PersistentFlags().StringVar(&buildOptions.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
+	buildCmd.PersistentFlags().StringVar(&buildOptions.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
 }
