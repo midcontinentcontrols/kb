@@ -411,11 +411,11 @@ func (b *BuildSpec) buildDocker(
 
 var errDigestNotCached = fmt.Errorf("digest not cached")
 
-func (b *BuildSpec) loadCachedDigest() (string, error) {
+func (b *BuildSpec) loadCachedDigest(manifestPath string) (string, error) {
 	return "", errDigestNotCached
 }
 
-func (b *BuildSpec) cacheDigest(value string) error {
+func (b *BuildSpec) cacheDigest(manifestPath string, value string) error {
 	return nil
 }
 
@@ -429,11 +429,11 @@ func (b *BuildSpec) Build(
 	if err != nil {
 		return err
 	}
-	cachedDigest, err := b.loadCachedDigest()
+	cachedDigest, err := b.loadCachedDigest(manifestPath)
 	if err != nil && err != errDigestNotCached {
 		return err
 	}
-	if digest == cachedDigest {
+	if !options.NoCache && digest == cachedDigest {
 		log.Info("No files changed", zap.String("digest", digest))
 		return nil
 	}
@@ -459,7 +459,7 @@ func (b *BuildSpec) Build(
 	if err != nil {
 		return err
 	}
-	return b.cacheDigest(digest)
+	return b.cacheDigest(manifestPath, digest)
 }
 
 type BuildOptions struct {
