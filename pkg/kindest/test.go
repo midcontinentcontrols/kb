@@ -1182,8 +1182,8 @@ func (t *TestSpec) runKubernetes(
 					}
 					return err
 				}
-				log.Info("Test output", zap.String("message", message))
-				//fmt.Println(message)
+				//log.Info("Test output", zap.String("message", message))
+				fmt.Println(message)
 			}
 		default:
 			return fmt.Errorf("unexpected phase '%s'", pod.Status.Phase)

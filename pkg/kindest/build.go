@@ -3,9 +3,12 @@ package kindest
 import (
 	"archive/tar"
 	"context"
+	"crypto/md5"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"io"
 	"io/ioutil"
 	"os"
@@ -70,7 +73,57 @@ func (b *BuildSpec) Verify(manifestPath string, log logger.Logger) error {
 	return b.verifyDocker(manifestPath, log)
 }
 
-func walkDir(
+func hashDir(
+	dir string,
+	contextPath string,
+	dockerignore gitignore.IgnoreMatcher,
+	h hash.Hash,
+	resolvedDockerfile string,
+) error {
+	infos, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, info := range infos {
+		path := filepath.Join(dir, info.Name())
+		rel, err := filepath.Rel(contextPath, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		// Always include the specific Dockerfile in the build context,
+		// regardless of what .dockerignore says. It's something sneaky
+		// that `docker build` does.
+		if rel != resolvedDockerfile && dockerignore.Match(rel, info.IsDir()) {
+			continue
+		} else {
+			if info.IsDir() {
+				// mangle names of folders from files so an empty file
+				// and empty folder do not have the same hash
+				if _, err := h.Write([]byte(fmt.Sprintf("%s?f", rel))); err != nil {
+					return err
+				}
+				if err := hashDir(path, contextPath, dockerignore, h, resolvedDockerfile); err != nil {
+					return err
+				}
+			} else {
+				if _, err := h.Write([]byte(rel)); err != nil {
+					return err
+				}
+				body, err := ioutil.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				if _, err := h.Write(body); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func tarDir(
 	dir string,
 	contextPath string,
 	dockerignore gitignore.IgnoreMatcher,
@@ -106,7 +159,7 @@ func walkDir(
 				if err := archive.Writer.WriteHeader(header); err != nil {
 					return err
 				}
-				if err := walkDir(path, contextPath, dockerignore, archive, resolvedDockerfile); err != nil {
+				if err := tarDir(path, contextPath, dockerignore, archive, resolvedDockerfile); err != nil {
 					return err
 				}
 			} else {
@@ -133,6 +186,49 @@ func walkDir(
 		}
 	}
 	return nil
+}
+
+func (b *BuildSpec) hashBuildContext(manifestPath string, options *BuildOptions) (string, error) {
+	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), filepath.FromSlash(b.Context)))
+	u, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	tmpDir := filepath.Join(u.HomeDir, ".kindest", "tmp")
+	if err := os.MkdirAll(tmpDir, 0766); err != nil {
+		return "", err
+	}
+	resolvedDockerfile, err := resolveDockerfile(
+		manifestPath,
+		b.Dockerfile,
+		b.Context,
+	)
+	if err != nil {
+		return "", err
+	}
+	dockerignorePath := filepath.Join(contextPath, ".dockerignore")
+	h := md5.New()
+	if _, err := os.Stat(dockerignorePath); err == nil {
+		r, err := os.Open(dockerignorePath)
+		if err != nil {
+			return "", err
+		}
+		defer r.Close()
+		dockerignore := gitignore.NewGitIgnoreFromReader("", r)
+		if err != nil {
+			return "", err
+		}
+		if err := hashDir(
+			contextPath,
+			contextPath,
+			dockerignore,
+			h,
+			resolvedDockerfile,
+		); err != nil {
+			return "", err
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func (b *BuildSpec) tarBuildContext(manifestPath string, options *BuildOptions) (string, error) {
@@ -167,7 +263,7 @@ func (b *BuildSpec) tarBuildContext(manifestPath string, options *BuildOptions) 
 		if err != nil {
 			return "", err
 		}
-		if err := walkDir(
+		if err := tarDir(
 			contextPath,
 			contextPath,
 			dockerignore,
@@ -313,15 +409,37 @@ func (b *BuildSpec) buildDocker(
 	return nil
 }
 
+var errDigestNotCached = fmt.Errorf("digest not cached")
+
+func (b *BuildSpec) loadCachedDigest() (string, error) {
+	return "", errDigestNotCached
+}
+
+func (b *BuildSpec) cacheDigest(value string) error {
+	return nil
+}
+
 func (b *BuildSpec) Build(
 	manifestPath string,
 	options *BuildOptions,
 	respHandler func(io.ReadCloser) error,
 	log logger.Logger,
 ) error {
+	digest, err := b.hashBuildContext(manifestPath, options)
+	if err != nil {
+		return err
+	}
+	cachedDigest, err := b.loadCachedDigest()
+	if err != nil && err != errDigestNotCached {
+		return err
+	}
+	if digest == cachedDigest {
+		log.Info("No files changed", zap.String("digest", digest))
+		return nil
+	}
 	switch options.Builder {
 	case "kaniko":
-		return b.buildKaniko(
+		err = b.buildKaniko(
 			manifestPath,
 			options,
 			log,
@@ -329,7 +447,7 @@ func (b *BuildSpec) Build(
 	case "":
 		fallthrough
 	case "docker":
-		return b.buildDocker(
+		err = b.buildDocker(
 			manifestPath,
 			options,
 			respHandler,
@@ -338,6 +456,10 @@ func (b *BuildSpec) Build(
 	default:
 		return fmt.Errorf("unknown builder '%s'", options.Builder)
 	}
+	if err != nil {
+		return err
+	}
+	return b.cacheDigest(digest)
 }
 
 type BuildOptions struct {
