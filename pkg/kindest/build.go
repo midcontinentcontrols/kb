@@ -433,6 +433,12 @@ func (b *BuildSpec) cacheDigest(manifestPath string, value string) error {
 	if err != nil {
 		return err
 	}
+	dir := filepath.Dir(path)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err = os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+	}
 	if err := ioutil.WriteFile(path, []byte(value), 0644); err != nil {
 		return err
 	}
