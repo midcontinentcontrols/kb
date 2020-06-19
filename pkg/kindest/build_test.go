@@ -377,7 +377,7 @@ build:
 	})
 }
 
-func TestBuildCache(t *testing.T) {
+func TestBuildDockerCache(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))

@@ -2,6 +2,8 @@ package kindest
 
 import (
 	"archive/tar"
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/base64"
@@ -77,6 +79,7 @@ func hashDir(
 	dir string,
 	contextPath string,
 	dockerignore gitignore.IgnoreMatcher,
+	include gitignore.IgnoreMatcher,
 	h hash.Hash,
 	resolvedDockerfile string,
 ) error {
@@ -94,29 +97,39 @@ func hashDir(
 		// Always include the specific Dockerfile in the build context,
 		// regardless of what .dockerignore says. It's something sneaky
 		// that `docker build` does.
-		if rel != resolvedDockerfile && dockerignore.Match(rel, info.IsDir()) {
+		if (dockerignore != nil && dockerignore.Match(rel, info.IsDir())) && rel != resolvedDockerfile {
 			continue
+		}
+		if include != nil && !include.Match(rel, info.IsDir()) {
+			// This file/directory wasn't COPY'd in the dockerfile
+			continue
+		}
+		if info.IsDir() {
+			// mangle names of folders from files so an empty file
+			// and empty folder do not have the same hash
+			if _, err := h.Write([]byte(fmt.Sprintf("%s?f", rel))); err != nil {
+				return err
+			}
+			if err := hashDir(
+				path,
+				contextPath,
+				dockerignore,
+				include,
+				h,
+				resolvedDockerfile,
+			); err != nil {
+				return err
+			}
 		} else {
-			if info.IsDir() {
-				// mangle names of folders from files so an empty file
-				// and empty folder do not have the same hash
-				if _, err := h.Write([]byte(fmt.Sprintf("%s?f", rel))); err != nil {
-					return err
-				}
-				if err := hashDir(path, contextPath, dockerignore, h, resolvedDockerfile); err != nil {
-					return err
-				}
-			} else {
-				if _, err := h.Write([]byte(rel)); err != nil {
-					return err
-				}
-				body, err := ioutil.ReadFile(path)
-				if err != nil {
-					return err
-				}
-				if _, err := h.Write(body); err != nil {
-					return err
-				}
+			if _, err := h.Write([]byte(rel)); err != nil {
+				return err
+			}
+			body, err := ioutil.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			if _, err := h.Write(body); err != nil {
+				return err
 			}
 		}
 	}
@@ -188,6 +201,71 @@ func tarDir(
 	return nil
 }
 
+func (b *BuildSpec) hashAddedFiles(manifestPath string, options *BuildOptions) (string, error) {
+	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), filepath.FromSlash(b.Context)))
+	resolvedDockerfile, err := resolveDockerfile(
+		manifestPath,
+		b.Dockerfile,
+		b.Context,
+	)
+	if err != nil {
+		return "", err
+	}
+	var addedPaths []string
+	absDockerfile := filepath.Clean(filepath.Join(contextPath, resolvedDockerfile))
+	f, err := os.Open(absDockerfile)
+	if err != nil {
+		return "", err
+	}
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if len(line) == 0 || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "COPY") || strings.HasPrefix(line, "ADD") {
+			fields := strings.Fields(line)
+			if rel := fields[1]; !strings.HasPrefix(rel, "--from") {
+				abs := filepath.Clean(filepath.Join(contextPath, rel))
+				info, err := os.Stat(abs)
+				if err != nil {
+					return "", fmt.Errorf("failed to stat %v", abs)
+				}
+				if info.IsDir() && !strings.HasSuffix(rel, "/") {
+					rel += "/"
+				}
+				addedPaths = append(addedPaths, rel)
+			}
+		}
+	}
+	include := gitignore.NewGitIgnoreFromReader(
+		"",
+		bytes.NewBuffer([]byte(strings.Join(addedPaths, "\n"))),
+	)
+	dockerignorePath := filepath.Join(contextPath, ".dockerignore")
+	var dockerignore gitignore.IgnoreMatcher
+	if _, err := os.Stat(dockerignorePath); err == nil {
+		r, err := os.Open(dockerignorePath)
+		if err != nil {
+			return "", err
+		}
+		defer r.Close()
+		dockerignore = gitignore.NewGitIgnoreFromReader("", r)
+	}
+	h := md5.New()
+	if err := hashDir(
+		contextPath,
+		contextPath,
+		dockerignore,
+		include,
+		h,
+		resolvedDockerfile,
+	); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
 func (b *BuildSpec) hashBuildContext(manifestPath string, options *BuildOptions) (string, error) {
 	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), filepath.FromSlash(b.Context)))
 	resolvedDockerfile, err := resolveDockerfile(
@@ -200,25 +278,24 @@ func (b *BuildSpec) hashBuildContext(manifestPath string, options *BuildOptions)
 	}
 	dockerignorePath := filepath.Join(contextPath, ".dockerignore")
 	h := md5.New()
+	var dockerignore gitignore.IgnoreMatcher
 	if _, err := os.Stat(dockerignorePath); err == nil {
 		r, err := os.Open(dockerignorePath)
 		if err != nil {
 			return "", err
 		}
 		defer r.Close()
-		dockerignore := gitignore.NewGitIgnoreFromReader("", r)
-		if err != nil {
-			return "", err
-		}
-		if err := hashDir(
-			contextPath,
-			contextPath,
-			dockerignore,
-			h,
-			resolvedDockerfile,
-		); err != nil {
-			return "", err
-		}
+		dockerignore = gitignore.NewGitIgnoreFromReader("", r)
+	}
+	if err := hashDir(
+		contextPath,
+		contextPath,
+		dockerignore,
+		nil,
+		h,
+		resolvedDockerfile,
+	); err != nil {
+		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
@@ -451,7 +528,19 @@ func (b *BuildSpec) Build(
 	respHandler func(io.ReadCloser) error,
 	log logger.Logger,
 ) error {
-	digest, err := b.hashBuildContext(manifestPath, options)
+	// TODO: calculate digest in different ways.
+	// Default is to just use the build context
+	var digest string
+	var err error
+	method := "dockerfile"
+	switch method {
+	case "buildContext":
+		digest, err = b.hashBuildContext(manifestPath, options)
+	case "dockerfile":
+		digest, err = b.hashAddedFiles(manifestPath, options)
+	default:
+		return fmt.Errorf("unrecognized digest method '%s'", method)
+	}
 	if err != nil {
 		return err
 	}
