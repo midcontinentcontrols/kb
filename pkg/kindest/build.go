@@ -429,13 +429,16 @@ func (b *BuildSpec) Build(
 	if err != nil {
 		return err
 	}
-	cachedDigest, err := b.loadCachedDigest(manifestPath)
-	if err != nil && err != errDigestNotCached {
-		return err
-	}
-	if !options.NoCache && digest == cachedDigest {
-		log.Info("No files changed", zap.String("digest", digest))
-		return nil
+	if !options.NoCache {
+		// Check to see if files actually changed
+		cachedDigest, err := b.loadCachedDigest(manifestPath)
+		if err != nil && err != errDigestNotCached {
+			return err
+		}
+		if digest == cachedDigest {
+			log.Info("No files changed", zap.String("digest", digest))
+			return nil
+		}
 	}
 	switch options.Builder {
 	case "kaniko":
