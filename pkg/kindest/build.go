@@ -411,11 +411,39 @@ func (b *BuildSpec) buildDocker(
 
 var errDigestNotCached = fmt.Errorf("digest not cached")
 
+func digestPathForManifest(manifestPath string) (string, error) {
+	h := md5.New()
+	h.Write([]byte(manifestPath))
+	name := hex.EncodeToString(h.Sum(nil))
+	u, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(u.HomeDir, ".kindest", "digest", name)
+	return path, nil
+}
+
 func (b *BuildSpec) loadCachedDigest(manifestPath string) (string, error) {
-	return "", errDigestNotCached
+	path, err := digestPathForManifest(manifestPath)
+	if err != nil {
+		return "", err
+	}
+	body, err := ioutil.ReadFile(path)
+	if err != nil {
+		// TODO: disambiguate error and fix this
+		return "", errDigestNotCached
+	}
+	return string(body), errDigestNotCached
 }
 
 func (b *BuildSpec) cacheDigest(manifestPath string, value string) error {
+	path, err := digestPathForManifest(manifestPath)
+	if err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(path, []byte(value), 0644); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -436,9 +464,11 @@ func (b *BuildSpec) Build(
 			return err
 		}
 		if digest == cachedDigest {
-			log.Info("No files changed", zap.String("digest", digest))
+			log.Debug("No files changed", zap.String("digest", digest))
 			return nil
 		}
+	} else {
+		log.Debug("Bypassing cache")
 	}
 	switch options.Builder {
 	case "kaniko":
@@ -462,7 +492,11 @@ func (b *BuildSpec) Build(
 	if err != nil {
 		return err
 	}
-	return b.cacheDigest(manifestPath, digest)
+	if err := b.cacheDigest(manifestPath, digest); err != nil {
+		return err
+	}
+	log.Debug("Updated cache", zap.String("digest", digest))
+	return nil
 }
 
 type BuildOptions struct {
