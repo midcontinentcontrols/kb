@@ -10,7 +10,6 @@ import (
 
 	"github.com/docker/docker/client"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
-	"sigs.k8s.io/kind/pkg/cluster"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -73,12 +72,14 @@ test:
 		&TestOptions{
 			File:       specPath,
 			Transient:  true,
+			Repository: "localhost:5000",
 			NoRegistry: false,
 		},
-		logger.NewFakeLogger(),
+		logger.NewZapLoggerFromEnv(),
 	))
 }
 
+/*
 func TestInClusterRegistryCreateDelete(t *testing.T) {
 	transient := os.Getenv("KINDEST_PERSISTENT") != "1"
 	kind := "kindest"
@@ -114,3 +115,4 @@ func TestInClusterRegistryCreateDelete(t *testing.T) {
 	require.NoError(t, ensureDeployment(registryDeployment(), client, log))
 	require.NoError(t, ensureService(registryService(), client, log))
 }
+*/

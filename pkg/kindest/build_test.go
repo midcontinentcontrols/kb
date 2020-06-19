@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"sigs.k8s.io/kind/pkg/cluster"
 
 	"github.com/Jeffail/tunny"
 	"github.com/docker/docker/client"
@@ -793,7 +794,6 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	})
 }
 
-/*
 func TestBuildKaniko(t *testing.T) {
 	transient := os.Getenv("KINDEST_PERSISTENT") != "1"
 	kind := "kindest"
@@ -832,4 +832,3 @@ func TestBuildKaniko(t *testing.T) {
 		}
 	})
 }
-*/

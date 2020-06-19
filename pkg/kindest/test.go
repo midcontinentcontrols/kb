@@ -1002,7 +1002,7 @@ func (t *TestSpec) runKubernetes(
 					isTerm,
 					nil,
 				); err != nil {
-					return err
+					return fmt.Errorf("push: %v", err)
 				}
 				log.Info("Pushed image")
 			}
