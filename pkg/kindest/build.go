@@ -449,7 +449,7 @@ func (b *BuildSpec) Build(
 	if err != nil {
 		return err
 	}
-	if !options.NoCache {
+	if !options.NoCache && !options.Force {
 		// Check to see if files actually changed
 		cachedDigest, err := b.loadCachedDigest(manifestPath)
 		if err != nil && err != errDigestNotCached {
@@ -502,6 +502,7 @@ type BuildOptions struct {
 	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
 	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
 	Kind        string `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Force       bool   `json:"force,omitempty"` // If true, will always run docker build regardless of kindest digest
 }
 
 func buildDependencies(
