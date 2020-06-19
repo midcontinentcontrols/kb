@@ -2,11 +2,11 @@
 
 This is a toolchain built on top of [kind](https://github.com/kubernetes-sigs/kind) that aims to reduce the complexity associated with using it as a tool for microservice development. It was born out of necessity to reduce increasing execution times and maintenance overhead of bash scripts that accomplished more or less the same thing.
 
-Currently, kindest only runs locally using the Docker daemon. It is already suitable for replacing invocations to `docker build`. There are plans to support on-cluster building with [kaniko](https://github.com/GoogleContainerTools/kaniko).
-
-The test side is still in its infancy. There is support for running kind clusters locally, and soon it will have support for using any kube context - kind or otherwise - for running tests. The [test code](https://github.com/midcontinentcontrols/kindest/blob/master/pkg/kindest/test_test.go) is the authority for features.
+Currently, kindest only runs locally using the Docker daemon. It is already a suitable replacement for `docker build`. There are plans to support on-cluster building with [kaniko](https://github.com/GoogleContainerTools/kaniko).
 
 At its core, the `kindest.yaml` file defines how images are built and tested either locally or on Kubernetes. The build process is fully parallelized and utilizes caching, so as to bypass redundant work for each submodule when no files have changed.
+
+The testing features are stable but currently lack documentation. To run tests on a kind cluster using the [local registry](https://kind.sigs.k8s.io/docs/user/local-registry/), use the command `kindest test --kind my-cluster --repository localhost:5000`
 
 ### kindest.yaml
 ```yaml
@@ -60,10 +60,12 @@ test:
       # tests run.
       charts:
         - releaseName: kindest
-          path: ./charts/kindest # ./charts/kindest/Chart.yaml
+          namespace: kindest
+          path: chart # ./chart/Chart.yaml
           values: {}
 
-    # List of environment variables that will be passed to the test container.
+    # List of environment variables that will be passed to
+    # the test container.
     variables:
       - name: EXAMPLE_DEPENDENCY_URI
         value: http://example-dependency-microservice.default.svc.cluster.local:5000
@@ -73,7 +75,7 @@ test:
 The minimal environment required by the tests is configured under the `test.env:` section of `kindest.yaml`. 
 
 ### Docker
-For tests that do not require Kubernetes (e.g. unit tests), there is Docker executor that runs the test image in isolation: 
+For tests that do not *require* Kubernetes (e.g. unit tests), there is Docker executor that runs the test image in isolation: 
 
 ```yaml
 # kindest.yaml
@@ -100,10 +102,10 @@ test:
     #  value: BAR
 ```
 
-Note that tests using the Docker environment may still run as pods on Kubernetes (such as for CI purposes) but they will not have access to the cluster.
+Note that tests using the Docker environment can still run as pods on Kubernetes, but they will not have access to the cluster.
 
 ### Kubernetes
-Tests requiring a Kubernetes environment can indicate this by defining the `test.env.kubernetes:` object. 
+Tests requiring a Kubernetes cluster can indicate the minimal requirements by defining the `test.env.kubernetes:` object. 
 
 ```yaml
 # kindest.yaml
@@ -113,10 +115,13 @@ test:
     # Run these tests on kubernetes
     kubernetes:
       # Paths to resources that will be applied every time
-      # before running tests
+      # before running tests. Use this to load CRDs and
+      # secrets. Remember to add your secrets to .gitignore
+      # so they are not checked into source control.
       resources:
         - crds/my-example-crd.yaml
-      
+        - test/fixtures/secrets/my-secret.yaml
+
       # These charts will be installed/upgraded before the
       # tests run.
       charts:
@@ -125,7 +130,7 @@ test:
           values: {}
 ```
 
-The test container will now run as a pod on Kubernetes with cluster admin privileges. Any setup necessary for your tests, such as applying manifests or syncing helm charts, should go in `test.env.kubernetes`. If the current functionality is insufficient to prepare your test environment, please [open an issue](https://github.com/midcontinentcontrols/kindest/issues).
+The test container will now run as a pod on Kubernetes with cluster admin privileges. Any setup necessary for your tests, such as applying manifests or syncing helm charts, should go in `test.env.kubernetes`. If you require additional features to prepare your test environment, please [open an issue](https://github.com/midcontinentcontrols/kindest/issues).
 
 ## Docker Desktop Resource Limits
 **The default resource limits for Docker Desktop appear insufficient to run the tests.** If this occurs, you will encounter [kind#1437](https://github.com/kubernetes-sigs/kind/issues/1437#issuecomment-602975739). Configure Docker with 4gb of both memory and swap just to be safe:
@@ -133,7 +138,7 @@ The test container will now run as a pod on Kubernetes with cluster admin privil
 ![](docs/images/docker-resources.png)
 
 ## Security
-Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kindest. Open source developers in particular should consider the risks of using kindest with their community CI and take appropriate mitigating measures.
+Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kindest. Open source developers in particular should consider the risks of using kindest with their community CI, and take appropriate mitigating measures.
 
 Even when not using kind, test pods always run with cluster admin permissions. This may change in the future, but for now the goal is to keep things simple.
 
@@ -145,7 +150,7 @@ The unit tests aim to be comprehensive. To run them with full console output:
 ```
 git clone git@github.com:midcontinentcontrols/kindest.git
 cd kindest/pkg/kindest
-go test -v -timeout 2h
+go test -v -timeout 4h
 ```
 Image pulling and building is part of the tests, so the `-timeout` flag is necessary. `.vscode/settings.json` is intentionally part of this repository in order for VS Code's `Go: Toggle Test Coverage in Current Package` to work correctly.
 

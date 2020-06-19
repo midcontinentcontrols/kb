@@ -19,7 +19,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"sigs.k8s.io/kind/pkg/cluster"
 )
 
 func newCLI(t *testing.T) client.APIClient {
@@ -794,6 +793,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	})
 }
 
+/*
 func TestBuildKaniko(t *testing.T) {
 	transient := os.Getenv("KINDEST_PERSISTENT") != "1"
 	kind := "kindest"
@@ -832,3 +832,4 @@ func TestBuildKaniko(t *testing.T) {
 		}
 	})
 }
+*/
