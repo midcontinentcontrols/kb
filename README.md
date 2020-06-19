@@ -6,7 +6,7 @@ Currently, kindest only runs locally using the Docker daemon. It is already a su
 
 At its core, the `kindest.yaml` file defines how images are built and tested either locally or on Kubernetes. The build process is fully parallelized and utilizes caching, so as to bypass redundant work for each submodule when no files have changed.
 
-The testing features are stable but currently lack documentation. To run tests on a kind cluster using the [local registry](https://kind.sigs.k8s.io/docs/user/local-registry/), use the command `kindest test --kind my-cluster --repository localhost:5000`
+The testing features are stable but currently lack documentation. To run tests on a kind cluster using the [local registry](https://kind.sigs.k8s.io/docs/user/local-registry/), use the command `kindest test --kind my-cluster --repository localhost:5000`.
 
 ### kindest.yaml
 ```yaml
