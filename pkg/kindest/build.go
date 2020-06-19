@@ -190,14 +190,6 @@ func tarDir(
 
 func (b *BuildSpec) hashBuildContext(manifestPath string, options *BuildOptions) (string, error) {
 	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), filepath.FromSlash(b.Context)))
-	u, err := user.Current()
-	if err != nil {
-		return "", err
-	}
-	tmpDir := filepath.Join(u.HomeDir, ".kindest", "tmp")
-	if err := os.MkdirAll(tmpDir, 0766); err != nil {
-		return "", err
-	}
 	resolvedDockerfile, err := resolveDockerfile(
 		manifestPath,
 		b.Dockerfile,
