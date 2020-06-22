@@ -16,7 +16,7 @@ import (
 )
 
 func TestDockerContainerInspect(t *testing.T) {
-	t.Run("nonexistent", func(t *testing.T) {
+	t.Run("ErrNotFound", func(t *testing.T) {
 		cli := newCLI(t)
 		name := "test-" + uuid.New().String()[:8]
 		_, err := cli.ContainerInspect(context.TODO(), name)
