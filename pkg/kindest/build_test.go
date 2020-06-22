@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+
 	"go.uber.org/zap"
 	"sigs.k8s.io/kind/pkg/cluster"
 
@@ -834,78 +834,9 @@ func TestBuildKaniko(t *testing.T) {
 	})
 }
 
-type logLine struct {
-	level   string
-	message string
-	fields  []zap.Field
-}
-
-type MockLogger struct {
-	base  logger.Logger
-	l     sync.Mutex
-	lines []*logLine
-}
-
-var errNotObserved = fmt.Errorf("log entry was not observed")
-
-func (l *MockLogger) WasObserved(level string, msg string) error {
-	for _, line := range l.lines {
-		if line.level == level && line.message == msg {
-			return nil
-		}
-	}
-	return errNotObserved
-}
-
-func (l *MockLogger) Info(msg string, fields ...zap.Field) {
-	l.base.Info(msg, fields...)
-	l.l.Lock()
-	defer l.l.Unlock()
-	l.lines = append(l.lines, &logLine{
-		level:   "info",
-		message: msg,
-		fields:  fields,
-	})
-}
-
-func (l *MockLogger) Error(msg string, fields ...zap.Field) {
-	l.base.Error(msg, fields...)
-	l.l.Lock()
-	defer l.l.Unlock()
-	l.lines = append(l.lines, &logLine{
-		level:   "error",
-		message: msg,
-		fields:  fields,
-	})
-}
-func (l *MockLogger) Debug(msg string, fields ...zap.Field) {
-	l.base.Debug(msg, fields...)
-	l.l.Lock()
-	defer l.l.Unlock()
-	l.lines = append(l.lines, &logLine{
-		level:   "debug",
-		message: msg,
-		fields:  fields,
-	})
-}
-func (l *MockLogger) Warn(msg string, fields ...zap.Field) {
-	l.base.Warn(msg, fields...)
-	l.l.Lock()
-	defer l.l.Unlock()
-	l.lines = append(l.lines, &logLine{
-		level:   "warn",
-		message: msg,
-		fields:  fields,
-	})
-}
-func (l *MockLogger) With(fields ...zap.Field) logger.Logger {
-	return l
-}
-
 func TestBuildSkipUnchanged(t *testing.T) {
 	message := "No files changed"
-	log := new(MockLogger)
-	log.base = newTestLogger()
+	log := logger.NewMockLogger(newTestLogger())
 	specPath := createBasicTestProject(t, "tmp")
 	defer os.RemoveAll(filepath.Dir(specPath))
 	options := &BuildOptions{
@@ -913,7 +844,7 @@ func TestBuildSkipUnchanged(t *testing.T) {
 		NoPush: true,
 	}
 	require.NoError(t, Build(options, log))
-	require.Equal(t, errNotObserved, log.WasObserved("debug", message))
+	require.Equal(t, logger.ErrNotObserved, log.WasObserved("debug", message))
 	require.NoError(t, Build(options, log))
 	require.NoError(t, log.WasObserved("debug", message))
 }
