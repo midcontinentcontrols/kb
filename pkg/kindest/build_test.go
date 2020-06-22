@@ -903,6 +903,7 @@ func (l *MockLogger) With(fields ...zap.Field) logger.Logger {
 }
 
 func TestBuildSkipUnchanged(t *testing.T) {
+	message := "No files changed"
 	log := new(MockLogger)
 	log.base = newTestLogger()
 	specPath := createBasicTestProject(t, "tmp")
@@ -912,7 +913,7 @@ func TestBuildSkipUnchanged(t *testing.T) {
 		NoPush: true,
 	}
 	require.NoError(t, Build(options, log))
-	require.Equal(t, errNotObserved, log.WasObserved("debug", "No files changed"))
+	require.Equal(t, errNotObserved, log.WasObserved("debug", message))
 	require.NoError(t, Build(options, log))
-	require.NoError(t, log.WasObserved("debug", "No files changed"))
+	require.NoError(t, log.WasObserved("debug", message))
 }
