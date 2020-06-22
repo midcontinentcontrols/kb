@@ -98,7 +98,7 @@ test:
 			Transient:  transient,
 			Kind:       kind,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing Chart.yaml at ")
@@ -195,7 +195,7 @@ test:
 			Transient:  transient,
 			Kind:       kind,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing values.yaml at ")
@@ -325,7 +325,7 @@ test:
 			Transient:  transient,
 			Kind:       kind,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	))
 }
 
@@ -465,7 +465,7 @@ test:
 			Transient:  false,
 			Kind:       kind,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	))
 	script = `#!/bin/bash
 set -euo pipefail
@@ -513,6 +513,6 @@ spec:
 			Transient:  false,
 			Kind:       kind,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	))
 }

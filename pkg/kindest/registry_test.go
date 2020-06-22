@@ -27,7 +27,7 @@ func TestDockerContainerInspect(t *testing.T) {
 func TestLocalRegistryCreateDelete(t *testing.T) {
 	var err error
 	cli := newCLI(t)
-	log := logger.NewFakeLogger()
+	log := newTestLogger()
 	// Successive calls to EnsureRegistryRunning should do nothing
 	require.NoError(t, EnsureLocalRegistryRunning(cli, log))
 	require.NoError(t, EnsureLocalRegistryRunning(cli, log))
@@ -106,7 +106,7 @@ func TestInClusterRegistryCreateDelete(t *testing.T) {
 		}()
 	}
 	client, _, err := clientForKindCluster(kind, provider)
-	log := logger.NewFakeLogger()
+	log := newTestLogger()
 	require.NoError(t, err)
 	require.NoError(t, waitForCluster(client, log))
 	require.NoError(t, EnsureInClusterRegistryRunning(client, log))
