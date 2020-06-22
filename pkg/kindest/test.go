@@ -1223,11 +1223,11 @@ func (t *TestSpec) Run(
 		if err := t.Build.Build(
 			manifestPath,
 			&BuildOptions{
-				Concurrency: options.Concurrency,
-				NoPush:      options.NoPush,
+				Repository:  options.Repository,
+				NoPush:      options.NoPush || options.NoRegistry,
 				Builder:     options.Builder,
 				Context:     options.Context,
-				Repository:  options.Repository,
+				Concurrency: options.Concurrency,
 			},
 			nil,
 			log,
@@ -1260,132 +1260,134 @@ type testRun struct {
 }
 
 func Test(options *TestOptions, log logger.Logger) error {
-	imagePushed := make(chan string)
-	images := make(chan []string)
-	go func() {
-		defer close(images)
-		var imgs []string
-		for {
-			image, ok := <-imagePushed
-			if !ok {
-				images <- imgs
-				return
-			}
-			imgs = append(imgs, image)
-		}
-	}()
-	if !options.SkipBuild {
-		buildOpts := &BuildOptions{
-			File:        options.File,
-			Concurrency: options.Concurrency,
-			NoPush:      options.NoPush,
-			Builder:     options.Builder,
-			Context:     options.Context,
-		}
-		isKind := options.Kind != "" || options.Transient
-		if isKind {
-			provider := cluster.NewProvider()
-			kind := options.Kind
-			exists := false
-			if kind != "" {
-				clusters, err := provider.List()
-				if err != nil {
-					return err
+	/*
+		imagePushed := make(chan string)
+		images := make(chan []string)
+		go func() {
+			defer close(images)
+			var imgs []string
+			for {
+				image, ok := <-imagePushed
+				if !ok {
+					images <- imgs
+					return
 				}
-				for _, cluster := range clusters {
-					if cluster == options.Kind {
-						exists = true
-						break
+				imgs = append(imgs, image)
+			}
+		}()
+		if !options.SkipBuild {
+			buildOpts := &BuildOptions{
+				File:        options.File,
+				Concurrency: options.Concurrency,
+				NoPush:      options.NoPush,
+				Builder:     options.Builder,
+				Context:     options.Context,
+			}
+			isKind := options.Kind != "" || options.Transient
+			if isKind {
+				provider := cluster.NewProvider()
+				kind := options.Kind
+				exists := false
+				if kind != "" {
+					clusters, err := provider.List()
+					if err != nil {
+						return err
 					}
-				}
-			} else {
-				kind = "test-" + uuid.New().String()[:8]
-			}
-			if !exists {
-				log := log.With(
-					zap.String("name", kind),
-					zap.Bool("transient", options.Transient),
-				)
-				log.Info("Creating cluster")
-				ready := make(chan int, 1)
-				go func() {
-					start := time.Now()
-					for {
-						select {
-						case <-time.After(5 * time.Second):
-							log.Info("Still creating cluster", zap.String("elapsed", time.Now().Sub(start).String()))
-						case <-ready:
-							return
+					for _, cluster := range clusters {
+						if cluster == options.Kind {
+							exists = true
+							break
 						}
 					}
-				}()
-				kindConfig := generateKindConfig("kind-registry", 5000)
-				err := provider.Create(kind, cluster.CreateWithRawConfig([]byte(kindConfig)))
-				ready <- 0
-				if err != nil {
-					return fmt.Errorf("create cluster: %v", err)
+				} else {
+					kind = "test-" + uuid.New().String()[:8]
 				}
-				if options.Transient {
-					defer func() {
-						log.Info("Deleting transient cluster")
-						if err := provider.Delete(kind, ""); err != nil {
-							log.Error("Error cleaning up transient cluster", zap.String("message", err.Error()))
-						} else {
-							log.Info("Deleted transient cluster")
+				if !exists {
+					log := log.With(
+						zap.String("name", kind),
+						zap.Bool("transient", options.Transient),
+					)
+					log.Info("Creating cluster")
+					ready := make(chan int, 1)
+					go func() {
+						start := time.Now()
+						for {
+							select {
+							case <-time.After(5 * time.Second):
+								log.Info("Still creating cluster", zap.String("elapsed", time.Now().Sub(start).String()))
+							case <-ready:
+								return
+							}
 						}
 					}()
+					kindConfig := generateKindConfig("kind-registry", 5000)
+					err := provider.Create(kind, cluster.CreateWithRawConfig([]byte(kindConfig)))
+					ready <- 0
+					if err != nil {
+						return fmt.Errorf("create cluster: %v", err)
+					}
+					if options.Transient {
+						defer func() {
+							log.Info("Deleting transient cluster")
+							if err := provider.Delete(kind, ""); err != nil {
+								log.Error("Error cleaning up transient cluster", zap.String("message", err.Error()))
+							} else {
+								log.Info("Deleted transient cluster")
+							}
+						}()
+					}
 				}
+				if options.NoRegistry {
+					buildOpts.Kind = kind
+					buildOpts.NoPush = true
+				} else {
+					cli, err := client.NewEnvClient()
+					if err != nil {
+						return err
+					}
+					if err := EnsureLocalRegistryRunning(cli, log); err != nil {
+						return err
+					}
+					buildOpts.Repository = "localhost:5000"
+					if err := cli.NetworkConnect(
+						context.TODO(),
+						"kind",
+						"kind-registry",
+						&networktypes.EndpointSettings{},
+					); err != nil && !strings.Contains(err.Error(), "Error response from daemon: endpoint with name kind-registry already exists in network kind") {
+						return err
+					}
+				}
+			} else if options.Context != "" {
+				return fmt.Errorf("unimplemented")
+				//client, _, err := clientForContext(options.Context)
+				//if err != nil {
+				//	return err
+				//}
+				//if err := EnsureInClusterRegistryRunning(client); err != nil {
+				//	return err
+				//}
+				//buildOpts.Repository = "localhost:5000"
 			}
-			if options.NoRegistry {
-				buildOpts.Kind = kind
-				buildOpts.NoPush = true
-			} else {
-				cli, err := client.NewEnvClient()
-				if err != nil {
-					return err
-				}
-				if err := EnsureLocalRegistryRunning(cli, log); err != nil {
-					return err
-				}
-				buildOpts.Repository = "localhost:5000"
-				if err := cli.NetworkConnect(
-					context.TODO(),
-					"kind",
-					"kind-registry",
-					&networktypes.EndpointSettings{},
-				); err != nil && !strings.Contains(err.Error(), "Error response from daemon: endpoint with name kind-registry already exists in network kind") {
-					return err
-				}
+			var pool *tunny.Pool
+			concurrency := options.Concurrency
+			if concurrency == 0 {
+				concurrency = runtime.NumCPU()
 			}
-		} else if options.Context != "" {
-			return fmt.Errorf("unimplemented")
-			//client, _, err := clientForContext(options.Context)
-			//if err != nil {
-			//	return err
-			//}
-			//if err := EnsureInClusterRegistryRunning(client); err != nil {
-			//	return err
-			//}
-			//buildOpts.Repository = "localhost:5000"
+			pool = tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
+				options := payload.(*BuildOptions)
+				return BuildEx(options, pool, nil, imagePushed, log)
+			})
+			defer pool.Close()
+			err, _ := pool.Process(buildOpts).(error)
+			if err != nil {
+				return err
+			}
 		}
-		var pool *tunny.Pool
-		concurrency := options.Concurrency
-		if concurrency == 0 {
-			concurrency = runtime.NumCPU()
-		}
-		pool = tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
-			options := payload.(*BuildOptions)
-			return BuildEx(options, pool, nil, imagePushed, log)
-		})
-		defer pool.Close()
-		err, _ := pool.Process(buildOpts).(error)
-		if err != nil {
-			return err
-		}
-	}
-	close(imagePushed)
-	restartImages := <-images
-
+		close(imagePushed)
+		restartImages := <-images
+	*/
+	var restartImages []string
 	var pool *tunny.Pool
 	concurrency := options.Concurrency
 	if concurrency == 0 {

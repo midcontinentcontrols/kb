@@ -15,6 +15,18 @@ import (
 	"sigs.k8s.io/kind/pkg/cluster"
 )
 
+func newTestLogger() logger.Logger {
+	return logger.NewZapLoggerFromEnv()
+}
+
+type testEnv struct {
+	files map[string]interface{}
+}
+
+func createTestEnv(t *testing.T, files map[string]interface{}) {
+
+}
+
 func TestNoTests(t *testing.T) {
 	specPath := createBasicTestProject(t, "tmp")
 	defer os.RemoveAll(filepath.Dir(filepath.Dir(specPath)))
@@ -23,48 +35,79 @@ func TestNoTests(t *testing.T) {
 			File:       specPath,
 			NoRegistry: true,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	))
 }
 
-func TestTestDockerEnv(t *testing.T) {
+func createFiles(files map[string]interface{}, dir string) error {
+	if err := os.MkdirAll(dir, 0766); err != nil {
+		return err
+	}
+	for k, v := range files {
+		path := filepath.Join(dir, k)
+		if m, ok := v.(map[string]interface{}); ok {
+			if err := createFiles(m, path); err != nil {
+				return fmt.Errorf("%s: %v", path, err)
+			}
+		} else if s, ok := v.(string); ok {
+			if err := ioutil.WriteFile(
+				path,
+				[]byte(s),
+				0644,
+			); err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("unknown type for %s", path)
+		}
+	}
+	return nil
+}
+
+func runTest(
+	t *testing.T,
+	files func(name string) map[string]interface{},
+	f func(t *testing.T, rootPath string),
+) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
-	defer os.RemoveAll(rootPath)
-	dockerfile := `FROM alpine:latest
-CMD ["sh", "-c", "set -eu; echo $MESSAGE"]`
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "Dockerfile"),
-		[]byte(dockerfile),
-		0644,
-	))
-	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`build:
+	require.NoError(t, createFiles(files(name), rootPath))
+	f(t, rootPath)
+}
+
+func TestTestDockerEnv(t *testing.T) {
+	files := func(name string) map[string]interface{} {
+		return map[string]interface{}{
+			"Dockerfile": `FROM alpine:latest
+CMD ["sh", "-c", "set -eu; echo $MESSAGE"]`,
+			"kindest.yaml": fmt.Sprintf(`build:
   name: test/%s
 test:
   - name: basic
-    env:
-      variables:
-        - name: MESSAGE
-          value: "It works!"
-      docker: {}
-    build:
-      name: midcontinentcontrols/kindest-basic-test
-      dockerfile: Dockerfile
-`, name)
-	require.NoError(t, ioutil.WriteFile(
-		specPath,
-		[]byte(spec),
-		0644,
-	))
-	require.NoError(t, Test(
-		&TestOptions{
-			File:       specPath,
-			NoRegistry: true,
+env:
+  variables:
+    - name: MESSAGE
+      value: "It works!"
+  docker: {}
+  build:
+    name: midcontinentcontrols/kindest-basic-test
+    dockerfile: Dockerfile
+`, name),
+		}
+	}
+	runTest(
+		t,
+		files,
+		func(t *testing.T, rootPath string) {
+			require.NoError(t, Test(
+				&TestOptions{
+					File:       filepath.Join(rootPath, "kindest.yaml"),
+					NoRegistry: true,
+				},
+				newTestLogger(),
+			))
 		},
-		logger.NewFakeLogger(),
-	))
+	)
 }
 
 func TestErrNoTestEnv(t *testing.T) {
@@ -98,7 +141,7 @@ test:
 			File:       specPath,
 			NoRegistry: true,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	))
 }
 
@@ -136,7 +179,7 @@ test:
 			File:       specPath,
 			NoRegistry: true,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	))
 }
 
@@ -173,7 +216,7 @@ test:
 			File:   specPath,
 			NoPush: true,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "exit code 1"))
@@ -213,7 +256,7 @@ test:
 			NoRegistry: true,
 			Transient:  true,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	)
 	require.NoError(t, err)
 }
@@ -284,7 +327,7 @@ test:
 			NoRegistry: true,
 			Transient:  true,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	))
 }
 
@@ -331,7 +374,7 @@ test:
 			NoRegistry: true,
 			Transient:  true,
 		},
-		logger.NewFakeLogger(),
+		logger.NewZapLoggerFromEnv(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), ErrTestFailed.Error())
@@ -373,7 +416,7 @@ test:
 			NoRegistry: true,
 			Transient:  true,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "test.yaml' not found")
@@ -412,7 +455,7 @@ test:
 			File:       specPath,
 			NoRegistry: true,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), ErrUnknownCluster.Error())
@@ -452,7 +495,7 @@ test:
 			Context:    name,
 			NoRegistry: true,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), fmt.Sprintf("context \"%s\" does not exist", name))
@@ -506,7 +549,7 @@ test:
 			Kind:       name,
 			NoRegistry: true,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	)
 	require.NoError(t, err)
 }
@@ -560,7 +603,7 @@ test:
 			Kind:       name,
 			NoRegistry: true,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	)
 	require.NoError(t, err)
 }
@@ -601,7 +644,7 @@ test:
 			Transient:  false,
 			NoRegistry: false,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	))
 	defer func() {
 		provider := cluster.NewProvider()
@@ -614,7 +657,7 @@ test:
 			Transient:  false,
 			NoRegistry: false,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	))
 	require.NoError(t, Test(
 		&TestOptions{
@@ -623,6 +666,6 @@ test:
 			Transient:  false,
 			NoRegistry: false,
 		},
-		logger.NewFakeLogger(),
+		newTestLogger(),
 	))
 }

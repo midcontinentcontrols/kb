@@ -377,10 +377,12 @@ func (b *BuildSpec) buildDocker(
 		return err
 	}
 	dest := sanitizeImageName(options.Repository, b.Name, options.Tag)
-	log.Info("Building",
+	buildLog := log.With(
 		zap.String("builder", "docker"),
-		zap.String("resolvedDockerfile", resolvedDockerfile),
 		zap.String("dest", dest),
+	)
+	buildLog.Info("Building",
+		zap.String("resolvedDockerfile", resolvedDockerfile),
 		zap.Bool("noPush", options.NoPush),
 		zap.Bool("noCache", options.NoCache))
 	tarPath, err := b.tarBuildContext(manifestPath, options)
@@ -428,14 +430,14 @@ func (b *BuildSpec) buildDocker(
 			return err
 		}
 	}
+	buildLog.Info("Built image")
 	if !options.NoPush {
-		log := log.With(zap.String("dest", dest))
-		log.Info("Pushing image")
+		buildLog.Info("Pushing image")
 		authConfig, err := RegistryAuthFromEnv(dest)
 		if err != nil {
 			return err
 		}
-		log.Info("Using docker credentials from env",
+		buildLog.Info("Using docker credentials from env",
 			zap.String("username", string(authConfig.Username)))
 		authBytes, err := json.Marshal(authConfig)
 		if err != nil {
@@ -463,10 +465,10 @@ func (b *BuildSpec) buildDocker(
 		); err != nil {
 			return err
 		}
-		log.Info("Pushed image")
+		buildLog.Info("Pushed image")
 	}
 	if options.Kind != "" {
-		log.Info("Copying image to kind cluster", zap.String("name", options.Kind))
+		buildLog.Info("Copying image to kind cluster", zap.String("kind", options.Kind))
 		if err := loadImageOnCluster(
 			dest,
 			options.Kind,
