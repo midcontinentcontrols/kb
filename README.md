@@ -143,7 +143,7 @@ Running kind in a Kubernetes pod poses security risks worthy of operator attenti
 Even when not using kind, test pods always run with cluster admin permissions. This may change in the future, but for now the goal is to keep things simple.
 
 ## Contributing
-Please open an issue or email [Tom Havlik](mailto:thavlik@midcontinentcontrols.com) if you would like to contribute or offer feedback. 
+Please open an issue or [send an email](mailto:thavlik@midcontinentcontrols.com) if you would like to contribute or offer feedback. 
 
 ### Running the Tests
 The unit tests aim to be comprehensive. To run them with full console output:
