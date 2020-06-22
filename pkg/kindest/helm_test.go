@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/kind/pkg/cluster"
 )
