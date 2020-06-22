@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"go.uber.org/zap"
 	"sigs.k8s.io/kind/pkg/cluster"
 
 	"github.com/Jeffail/tunny"
@@ -790,11 +791,13 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 }
 
 func TestBuildKaniko(t *testing.T) {
+	log := newTestLogger()
 	transient := os.Getenv("KINDEST_PERSISTENT") != "1"
 	kind := "kindest"
 	provider := cluster.NewProvider()
 	exists := false
 	if !transient {
+		log.Info("Using persistent cluster", zap.String("kind", kind))
 		clusters, err := provider.List()
 		require.NoError(t, err)
 		for _, cluster := range clusters {
@@ -805,6 +808,7 @@ func TestBuildKaniko(t *testing.T) {
 		}
 	} else {
 		kind += "-" + uuid.New().String()[:8]
+		log.Info("Using transient cluster", zap.String("kind", kind))
 	}
 	if !exists {
 		require.NoError(t, provider.Create(kind))
@@ -814,10 +818,10 @@ func TestBuildKaniko(t *testing.T) {
 			require.NoError(t, provider.Delete(kind, ""))
 		}()
 	}
-	require.NoError(t, EnsureLocalRegistryRunning(newCLI(t), newTestLogger()))
+	require.NoError(t, EnsureLocalRegistryRunning(newCLI(t), log))
 	client, kubeContext, err := clientForKindCluster(kind, provider)
 	require.NoError(t, err)
-	require.NoError(t, waitForCluster(client, newTestLogger()))
+	require.NoError(t, waitForCluster(client, log))
 	testBuilder(t, "kaniko", func(options interface{}) {
 		if buildOptions, ok := options.(*BuildOptions); ok {
 			buildOptions.Context = kubeContext

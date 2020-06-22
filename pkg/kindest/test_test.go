@@ -16,7 +16,10 @@ import (
 )
 
 func newTestLogger() logger.Logger {
-	return logger.NewZapLoggerFromEnv()
+	if os.Getenv("DEBUG") == "1" {
+		return logger.NewZapLoggerFromEnv()
+	}
+	return logger.NewFakeLogger()
 }
 
 type testEnv struct {
