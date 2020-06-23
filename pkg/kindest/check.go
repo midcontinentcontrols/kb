@@ -129,6 +129,11 @@ func (m *Module) broadcast(err error) {
 	defer m.subscribersL.Unlock()
 	msg := err.Error()
 	atomic.StorePointer(&m.err, unsafe.Pointer(&msg))
+	if err == nil {
+		err = m.setStatus(BuildStatusSucceeded)
+	} else {
+		m.setStatus(BuildStatusFailed)
+	}
 	for _, subscriber := range m.subscribers {
 		subscriber <- err
 		close(subscriber)
@@ -159,11 +164,6 @@ func (m *Module) Build() (err error) {
 		}
 	}
 	defer func() {
-		if err == nil {
-			err = m.setStatus(BuildStatusSucceeded)
-		} else {
-			m.setStatus(BuildStatusFailed)
-		}
 		m.broadcast(err)
 	}()
 	if err := m.buildDependencies(); err != nil {
