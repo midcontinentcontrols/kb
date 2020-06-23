@@ -16,6 +16,21 @@ import (
 
 type BuildStatus int32
 
+func (b BuildStatus) String() string {
+	switch b {
+	case BuildStatusPending:
+		return "Pending"
+	case BuildStatusInProgress:
+		return "InProgress"
+	case BuildStatusFailed:
+		return "Failed"
+	case BuildStatusSucceeded:
+		return "Succeeded"
+	default:
+		return fmt.Sprintf("Unknown (%d)", int32(b))
+	}
+}
+
 const (
 	BuildStatusPending    BuildStatus = 0
 	BuildStatusInProgress BuildStatus = 1
@@ -33,11 +48,10 @@ type Module struct {
 	ManifestPath string    // absolute path to manifest
 	Dependencies []*Module //
 	status       int32
-	l            sync.Mutex
-	err          unsafe.Pointer
-	log          logger.Logger
 	subscribersL sync.Mutex
 	subscribers  []chan<- error
+	err          unsafe.Pointer
+	log          logger.Logger
 }
 
 func NewModule(
