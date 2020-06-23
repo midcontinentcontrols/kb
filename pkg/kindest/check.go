@@ -5,6 +5,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -69,10 +72,31 @@ func NewModule(
 var ErrModuleNotCached = fmt.Errorf("module is not cached")
 
 func (m *Module) CachedDigest() (string, error) {
-	return "", ErrModuleNotCached
+	path, err := digestPathForManifest(m.ManifestPath)
+	if err != nil {
+		return "", err
+	}
+	body, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", errDigestNotCached
+	}
+	return string(body), ErrModuleNotCached
 }
 
 func (m *Module) cacheDigest(digest string) error {
+	path, err := digestPathForManifest(m.ManifestPath)
+	if err != nil {
+		return err
+	}
+	dir := filepath.Dir(path)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err = os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+	}
+	if err := ioutil.WriteFile(path, []byte(digest), 0644); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -87,6 +111,7 @@ func (m *Module) buildDependencies() error {
 
 func (m *Module) loadBuildContext() (BuildContext, error) {
 	c := make(map[string]interface{})
+	// TODO: copy over code with dockerignore, maybe do some refactoring
 	return BuildContext(c), nil
 }
 
