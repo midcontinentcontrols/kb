@@ -1039,6 +1039,7 @@ func (t *TestSpec) runKubernetes(
 	}
 	if err := t.installCharts(
 		rootPath,
+		kubeContext,
 		options,
 		log,
 	); err != nil {

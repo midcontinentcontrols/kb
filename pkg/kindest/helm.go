@@ -58,6 +58,7 @@ func ensureMapKeysAreStrings(m map[interface{}]interface{}) (map[string]interfac
 
 func (t *TestSpec) installCharts(
 	rootPath string,
+	kubeContext string,
 	options *TestOptions,
 	log logger.Logger,
 ) error {
@@ -65,6 +66,7 @@ func (t *TestSpec) installCharts(
 		if err := t.installChart(
 			chart,
 			rootPath,
+			kubeContext,
 			options,
 			log,
 		); err != nil {
@@ -123,13 +125,16 @@ func loadReleasesInMemory(actionConfig *action.Configuration, env *cli.EnvSettin
 
 var helmL sync.Mutex
 
-func createHelmEnv(namespace string) *cli.EnvSettings {
+func createHelmEnv(namespace string, kubeContext string) *cli.EnvSettings {
 	helmL.Lock()
 	defer helmL.Unlock()
 	cv := os.Getenv("HELM_NAMESPACE")
+	kc := os.Getenv("HELM_NAMESPACE")
 	os.Setenv("HELM_NAMESPACE", namespace)
+	os.Setenv("HELM_KUBECONTEXT", kubeContext)
 	env := cli.New()
 	os.Setenv("HELM_NAMESPACE", cv)
+	os.Setenv("HELM_KUBECONTEXT", kc)
 	return env
 }
 
@@ -155,6 +160,7 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 func (t *TestSpec) installChart(
 	chart *ChartSpec,
 	rootPath string,
+	kubeContext string,
 	options *TestOptions,
 	log logger.Logger,
 ) error {
@@ -165,7 +171,7 @@ func (t *TestSpec) installChart(
 		zap.String("namespace", chart.Namespace),
 		zap.String("path", chartPath),
 	)
-	env := createHelmEnv(chart.Namespace)
+	env := createHelmEnv(chart.Namespace, kubeContext)
 	cfg := new(action.Configuration)
 	helmDriver := os.Getenv("HELM_DRIVER")
 	if err := cfg.Init(
