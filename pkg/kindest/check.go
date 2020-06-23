@@ -65,12 +65,14 @@ func NewModule(
 	relative string,
 	manifestPath string,
 	dependencies []*Module,
+	log logger.Logger,
 ) *Module {
 	return &Module{
 		Spec:         spec,
 		Relative:     relative,
 		ManifestPath: manifestPath,
 		Dependencies: dependencies,
+		log:          log,
 	}
 }
 
