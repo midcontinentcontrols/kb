@@ -7,6 +7,7 @@ import (
 	"hash"
 	"sync"
 	"sync/atomic"
+	"unsafe"
 
 	"go.uber.org/zap"
 
@@ -33,7 +34,7 @@ type Module struct {
 	Dependencies []*Module //
 	status       int32
 	l            sync.Mutex
-	err          error
+	err          unsafe.Pointer
 	log          logger.Logger
 	subscribersL sync.Mutex
 	subscribers  []chan<- error
@@ -92,6 +93,10 @@ func (m *Module) claim() bool {
 	)
 }
 
+type errBox struct {
+	err error
+}
+
 func (m *Module) subscribe(done chan<- error) {
 	m.subscribersL.Lock()
 	defer m.subscribersL.Unlock()
@@ -99,7 +104,9 @@ func (m *Module) subscribe(done chan<- error) {
 	case BuildStatusInProgress:
 		m.subscribers = append(m.subscribers, done)
 	case BuildStatusFailed:
-		done <- m.err
+		// m.err may be nil because of threading volatility
+		box := (*errBox)(atomic.LoadPointer(&m.err))
+		done <- box.err
 	case BuildStatusSucceeded:
 		done <- nil
 	default:
@@ -110,9 +117,10 @@ func (m *Module) subscribe(done chan<- error) {
 func (m *Module) broadcast(err error) {
 	m.subscribersL.Lock()
 	defer m.subscribersL.Unlock()
-	m.err = err
+	atomic.StorePointer(&m.err, unsafe.Pointer(&errBox{err}))
 	for _, subscriber := range m.subscribers {
 		subscriber <- err
+		close(subscriber)
 	}
 }
 
@@ -128,10 +136,11 @@ func (m *Module) Build() (err error) {
 		case BuildStatusInProgress:
 			return m.WaitForCompletion()
 		case BuildStatusFailed:
-			if m.err == nil {
+			box := (*errBox)(atomic.LoadPointer(&m.err))
+			if box == nil || box.err == nil {
 				panic("unreachable")
 			}
-			return m.err
+			return box.err
 		case BuildStatusSucceeded:
 			return nil
 		default:
