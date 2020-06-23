@@ -47,6 +47,7 @@ type resolver struct {
 }
 
 type Module struct {
+	Spec         *KindestSpec
 	Relative     string
 	ManifestPath string    // absolute path to manifest
 	Dependencies []*Module //
@@ -58,11 +59,13 @@ type Module struct {
 }
 
 func NewModule(
+	spec *KindestSpec,
 	relative string,
 	manifestPath string,
 	dependencies []*Module,
 ) *Module {
 	return &Module{
+		Spec:         spec,
 		Relative:     relative,
 		ManifestPath: manifestPath,
 		Dependencies: dependencies,
