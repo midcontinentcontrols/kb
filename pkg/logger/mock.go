@@ -66,6 +66,17 @@ func (l *MockLogger) WasObserved(level string, msg string, fields ...zap.Field) 
 	return ErrNotObserved
 }
 
+func (l *MockLogger) WasObservedNoFields(level string, msg string) error {
+	l.l.Lock()
+	defer l.l.Unlock()
+	for _, line := range l.lines {
+		if line.level == level && line.message == msg {
+			return nil
+		}
+	}
+	return ErrNotObserved
+}
+
 func (l *MockLogger) Info(msg string, fields ...zap.Field) {
 	l.l.Lock()
 	defer l.l.Unlock()
