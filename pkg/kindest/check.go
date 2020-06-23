@@ -58,6 +58,8 @@ type Module struct {
 	log          logger.Logger
 }
 
+// NewModule constructor for the Module type.
+// `spec` is expected to be validated.
 func NewModule(
 	spec *KindestSpec,
 	relative string,
