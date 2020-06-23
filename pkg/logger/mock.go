@@ -66,7 +66,7 @@ func (l *MockLogger) WasObserved(level string, msg string, fields ...zap.Field) 
 	return ErrNotObserved
 }
 
-func (l *MockLogger) WasObservedNoFields(level string, msg string) error {
+func (l *MockLogger) WasObservedIgnoreFields(level string, msg string) error {
 	l.l.Lock()
 	defer l.l.Unlock()
 	for _, line := range l.lines {
