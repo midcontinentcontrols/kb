@@ -93,10 +93,6 @@ func (m *Module) claim() bool {
 	)
 }
 
-type errBox struct {
-	err error
-}
-
 func (m *Module) subscribe(done chan<- error) {
 	m.subscribersL.Lock()
 	defer m.subscribersL.Unlock()
@@ -105,8 +101,8 @@ func (m *Module) subscribe(done chan<- error) {
 		m.subscribers = append(m.subscribers, done)
 	case BuildStatusFailed:
 		// m.err may be nil because of threading volatility
-		box := (*errBox)(atomic.LoadPointer(&m.err))
-		done <- box.err
+		box := (*string)(atomic.LoadPointer(&m.err))
+		done <- fmt.Errorf(*box)
 	case BuildStatusSucceeded:
 		done <- nil
 	default:
@@ -117,7 +113,8 @@ func (m *Module) subscribe(done chan<- error) {
 func (m *Module) broadcast(err error) {
 	m.subscribersL.Lock()
 	defer m.subscribersL.Unlock()
-	atomic.StorePointer(&m.err, unsafe.Pointer(&errBox{err}))
+	msg := err.Error()
+	atomic.StorePointer(&m.err, unsafe.Pointer(&msg))
 	for _, subscriber := range m.subscribers {
 		subscriber <- err
 		close(subscriber)
@@ -136,11 +133,11 @@ func (m *Module) Build() (err error) {
 		case BuildStatusInProgress:
 			return m.WaitForCompletion()
 		case BuildStatusFailed:
-			box := (*errBox)(atomic.LoadPointer(&m.err))
-			if box == nil || box.err == nil {
+			box := (*string)(atomic.LoadPointer(&m.err))
+			if box == nil {
 				panic("unreachable")
 			}
-			return box.err
+			return fmt.Errorf(*box)
 		case BuildStatusSucceeded:
 			return nil
 		default:
