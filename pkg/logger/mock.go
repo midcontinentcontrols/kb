@@ -17,6 +17,7 @@ type MockLogger struct {
 	base  Logger
 	l     sync.Mutex
 	lines []*logLine
+	with  [][]zap.Field
 }
 
 func NewMockLogger(base Logger) *MockLogger {
@@ -27,19 +28,49 @@ func NewMockLogger(base Logger) *MockLogger {
 
 var ErrNotObserved = fmt.Errorf("log entry was not observed")
 
-func (l *MockLogger) WasObserved(level string, msg string) error {
+func (l *MockLogger) combinedFields(fields []zap.Field) []zap.Field {
+	for _, with := range l.with {
+		for _, item := range with {
+			fields = append(fields, item)
+		}
+	}
+	return fields
+}
+
+func (l *MockLogger) WasObserved(level string, msg string, fields ...zap.Field) error {
+	l.l.Lock()
+	defer l.l.Unlock()
+	numFields := len(fields)
 	for _, line := range l.lines {
 		if line.level == level && line.message == msg {
-			return nil
+			if numFields != len(line.fields) {
+				continue
+			}
+			allMatch := true
+			for _, field := range fields {
+				for _, other := range line.fields {
+					if !field.Equals(other) {
+						allMatch = false
+						break
+					}
+				}
+				if !allMatch {
+					break
+				}
+			}
+			if allMatch {
+				return nil
+			}
 		}
 	}
 	return ErrNotObserved
 }
 
 func (l *MockLogger) Info(msg string, fields ...zap.Field) {
-	l.base.Info(msg, fields...)
 	l.l.Lock()
 	defer l.l.Unlock()
+	fields = l.combinedFields(fields)
+	l.base.Info(msg, fields...)
 	l.lines = append(l.lines, &logLine{
 		level:   "info",
 		message: msg,
@@ -48,9 +79,10 @@ func (l *MockLogger) Info(msg string, fields ...zap.Field) {
 }
 
 func (l *MockLogger) Error(msg string, fields ...zap.Field) {
-	l.base.Error(msg, fields...)
 	l.l.Lock()
 	defer l.l.Unlock()
+	fields = l.combinedFields(fields)
+	l.base.Error(msg, fields...)
 	l.lines = append(l.lines, &logLine{
 		level:   "error",
 		message: msg,
@@ -59,9 +91,10 @@ func (l *MockLogger) Error(msg string, fields ...zap.Field) {
 }
 
 func (l *MockLogger) Debug(msg string, fields ...zap.Field) {
-	l.base.Debug(msg, fields...)
 	l.l.Lock()
 	defer l.l.Unlock()
+	fields = l.combinedFields(fields)
+	l.base.Debug(msg, fields...)
 	l.lines = append(l.lines, &logLine{
 		level:   "debug",
 		message: msg,
@@ -70,9 +103,10 @@ func (l *MockLogger) Debug(msg string, fields ...zap.Field) {
 }
 
 func (l *MockLogger) Warn(msg string, fields ...zap.Field) {
-	l.base.Warn(msg, fields...)
 	l.l.Lock()
 	defer l.l.Unlock()
+	fields = l.combinedFields(fields)
+	l.base.Warn(msg, fields...)
 	l.lines = append(l.lines, &logLine{
 		level:   "warn",
 		message: msg,
@@ -81,5 +115,8 @@ func (l *MockLogger) Warn(msg string, fields ...zap.Field) {
 }
 
 func (l *MockLogger) With(fields ...zap.Field) Logger {
+	l.l.Lock()
+	defer l.l.Unlock()
+	l.with = append(l.with, fields)
 	return l
 }
