@@ -32,6 +32,22 @@ build:
   #  - name: ARG_NAME
   #    value: ARG_VALUE
 
+  # Default builder will choose docker for building locally and
+  # kaniko for on-cluster. For building architectures not supported
+  # by kaniko (e.g. arm32) specifying `docker` here will mount the
+  # node's docker.sock into the build pod and use that instead.
+  # Note: if a builder preference of `docker` is enforced, invoking
+  # `kindest build --builder kaniko` will raise an error.
+  #builder: "" # "docker", "kaniko"
+
+  # Only schedule the builder pod on nodes with these labels.
+  # In multiarch environments, this is useful for ensuring images
+  # are built only on nodes with compatible architecture. Selector
+  # inversion is supported by prefixing with ~
+  #nodeSelector:
+  # architecture: arm32   # Schedule on nodes labeled with `kubectl label node my-node architecture=arm32`
+  # architecture: ~arm32  # Schedule on any node where architecture != arm32
+
 test:
   # Tests have a `build` section mirroring the module's.
   # Typically, this image will contain source code for all
