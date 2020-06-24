@@ -45,8 +45,8 @@ build:
   # are built only on nodes with compatible architecture. Selector
   # inversion is supported by prefixing with ~
   #nodeSelector:
-  # architecture: arm32   # Schedule on nodes labeled with `kubectl label node my-node architecture=arm32`
-  # architecture: ~arm32  # Schedule on any node where architecture != arm32
+  # arm32: yes    # Schedule on nodes labeled with `kubectl label node my-node arm32=yes`
+  # foo: ~bar     # Schedule on any node where labels.foo != "bar"
 
 test:
   # Tests have a `build` section mirroring the module's.
