@@ -42,11 +42,9 @@ build:
 
   # Only schedule the builder pod on nodes with these labels.
   # In multiarch environments, this is useful for ensuring images
-  # are built only on nodes with compatible architecture. Selector
-  # inversion is supported by prefixing with ~
+  # are built only on nodes with compatible architecture.
   #nodeSelector:
   # arm32: yes    # Schedule on nodes labeled with `kubectl label node my-node arm32=yes`
-  # foo: ~bar     # Schedule on any node where labels.foo != "bar"
 
 test:
   # Tests have a `build` section mirroring the module's.
