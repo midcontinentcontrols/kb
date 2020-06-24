@@ -43,12 +43,13 @@ type BuildArg struct {
 }
 
 type BuildSpec struct {
-	Name       string      `json:"name"`
-	Dockerfile string      `json:"dockerfile,omitempty" yaml:"dockerfile,omitempty"`
-	Context    string      `json:"context,omitempty" yaml:"context,omitempty"`
-	BuildArgs  []*BuildArg `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
-	Target     string      `json:"target,omitempty" yaml:"target,omitempty"`
-	Command    []string    `json:"command,omitempty" yaml:"command,omitempty"`
+	Name         string            `json:"name"`
+	Dockerfile   string            `json:"dockerfile,omitempty" yaml:"dockerfile,omitempty"`
+	Context      string            `json:"context,omitempty" yaml:"context,omitempty"`
+	BuildArgs    []*BuildArg       `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
+	Target       string            `json:"target,omitempty" yaml:"target,omitempty"`
+	Command      []string          `json:"command,omitempty" yaml:"command,omitempty"`
+	NodeSelector map[string]string `json:"nodeSelector,omitempty" yaml:"nodeSelector,omitempty"`
 }
 
 func (b *BuildSpec) verifyDocker(manifestPath string, log logger.Logger) error {
