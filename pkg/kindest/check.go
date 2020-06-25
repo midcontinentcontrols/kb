@@ -177,6 +177,10 @@ func (m *Module) WaitForCompletion() error {
 	return <-done
 }
 
+func runCommands(commands []string) error {
+	return nil
+}
+
 func (m *Module) Build() (err error) {
 	if !m.claim() {
 		switch m.Status() {
@@ -216,7 +220,13 @@ func (m *Module) Build() (err error) {
 		m.log.Info("No files changed", zap.String("digest", cachedDigest))
 		return nil
 	}
+	if err := runCommands(m.Spec.Build.Before); err != nil {
+		return fmt.Errorf("pre-build hook failure: %v", err)
+	}
 	// TODO: actually do the building
+	if err := runCommands(m.Spec.Build.After); err != nil {
+		return fmt.Errorf("post-build hook failure: %v", err)
+	}
 	if err := m.cacheDigest(digest); err != nil {
 		return err
 	}
