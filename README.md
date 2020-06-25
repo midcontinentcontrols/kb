@@ -46,6 +46,12 @@ build:
   #nodeSelector:
   # arm32: yes    # Schedule on nodes labeled with `kubectl label node my-node arm32=yes`
 
+  # Commands to run locally before building
+  #before: []
+
+  # Commands to run locally after building/pushing
+  #after: []
+
 test:
   # Tests have a `build` section mirroring the module's.
   # Typically, this image will contain source code for all
@@ -75,7 +81,7 @@ test:
       charts:
         - releaseName: kindest
           namespace: kindest
-          path: chart # ./chart/Chart.yaml
+          path: path/to/chart # ./path/to/chart/Chart.yaml
           values: {}
 
     # List of environment variables that will be passed to

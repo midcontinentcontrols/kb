@@ -50,6 +50,8 @@ type BuildSpec struct {
 	Target       string            `json:"target,omitempty" yaml:"target,omitempty"`
 	Command      []string          `json:"command,omitempty" yaml:"command,omitempty"`
 	NodeSelector map[string]string `json:"nodeSelector,omitempty" yaml:"nodeSelector,omitempty"`
+	Before       []string          `json:"before,omitempty" yaml:"before,omitempty"`
+	After        []string          `json:"after,omitempty" yaml:"after,omitempty"`
 }
 
 func (b *BuildSpec) verifyDocker(manifestPath string, log logger.Logger) error {
