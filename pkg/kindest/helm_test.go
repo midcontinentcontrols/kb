@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/midcontinentcontrols/kindest/pkg/util"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/kind/pkg/cluster"
@@ -97,7 +99,7 @@ test:
 			Transient:  transient,
 			Kind:       kind,
 		},
-		newTestLogger(),
+		util.NewTestLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing Chart.yaml at ")
@@ -194,7 +196,7 @@ test:
 			Transient:  transient,
 			Kind:       kind,
 		},
-		newTestLogger(),
+		util.NewTestLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing values.yaml at ")
@@ -324,7 +326,7 @@ test:
 			Transient:  transient,
 			Kind:       kind,
 		},
-		newTestLogger(),
+		util.NewTestLogger(),
 	))
 }
 
@@ -464,7 +466,7 @@ test:
 			Transient:  false,
 			Kind:       kind,
 		},
-		newTestLogger(),
+		util.NewTestLogger(),
 	))
 	script = `#!/bin/bash
 set -euo pipefail
@@ -512,6 +514,6 @@ spec:
 			Transient:  false,
 			Kind:       kind,
 		},
-		newTestLogger(),
+		util.NewTestLogger(),
 	))
 }

@@ -13,22 +13,17 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/midcontinentcontrols/kindest/pkg/util"
+
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
 	"go.uber.org/zap"
 	"sigs.k8s.io/kind/pkg/cluster"
 
 	"github.com/Jeffail/tunny"
-	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
-
-func newCLI(t *testing.T) client.APIClient {
-	cli, err := client.NewEnvClient()
-	require.NoError(t, err)
-	return cli
-}
 
 func createBasicTestProject(t *testing.T, path string) string {
 	name := "test-" + uuid.New().String()[:8]
@@ -77,7 +72,7 @@ build:
 	err := Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}, newTestLogger())
+	}, util.util.NewTestLogger())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "dependency 0: missing kindest.yaml")
 }
@@ -90,7 +85,7 @@ func TestBuildErrMissingDockerfile(t *testing.T) {
 	err := Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}, newTestLogger())
+	}, util.util.NewTestLogger())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing Dockerfile")
 }
@@ -115,7 +110,7 @@ func TestBuildErrMissingName(t *testing.T) {
 	require.Equal(t, ErrMissingImageName, Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}, newTestLogger()))
+	}, util.util.NewTestLogger()))
 }
 
 func TestBuildContextPath(t *testing.T) {
@@ -147,7 +142,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}, newTestLogger()))
+	}, util.util.NewTestLogger()))
 }
 
 func TestBuildDependency(t *testing.T) {
@@ -193,7 +188,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}, newTestLogger()))
+	}, util.util.NewTestLogger()))
 }
 
 func TestBuildDependencyModule(t *testing.T) {
@@ -234,7 +229,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}, newTestLogger()))
+	}, util.util.NewTestLogger()))
 }
 
 func TestBuildDockerignore(t *testing.T) {
@@ -288,7 +283,7 @@ build:
 		err := Build(&BuildOptions{
 			File:   specPath,
 			NoPush: true,
-		}, newTestLogger())
+		}, util.util.NewTestLogger())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bar.txt: no such file or directory")
 	})
@@ -374,7 +369,7 @@ build:
 		err := Build(&BuildOptions{
 			File:   specPath,
 			NoPush: true,
-		}, newTestLogger())
+		}, util.util.NewTestLogger())
 		require.NoError(t, err)
 	})
 }
@@ -422,7 +417,7 @@ CMD ["cat", "/message"]`
 				}
 			}
 			return nil
-		}, nil, newTestLogger())
+		}, nil, util.util.NewTestLogger())
 	})
 	defer pool.Close()
 	err, _ := pool.Process(&BuildOptions{
@@ -450,7 +445,7 @@ func testBuilder(t *testing.T, builder string, mutatetOpts func(options interfac
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		require.NoError(t, Build(options, newTestLogger()))
+		require.NoError(t, Build(options, util.util.NewTestLogger()))
 	})
 
 	t.Run("dependency failure", func(t *testing.T) {
@@ -499,7 +494,7 @@ RUN exit 1`
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		err := Build(options, newTestLogger())
+		err := Build(options, util.util.NewTestLogger())
 		require.Error(t, err)
 		switch builder {
 		case "docker":
@@ -542,7 +537,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		require.NoError(t, Build(options, newTestLogger()))
+		require.NoError(t, Build(options, util.util.NewTestLogger()))
 	})
 
 	t.Run("missing build arg", func(t *testing.T) {
@@ -574,7 +569,7 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 3; fi`
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		err := Build(options, newTestLogger())
+		err := Build(options, util.util.NewTestLogger())
 		require.Error(t, err)
 		switch builder {
 		case "docker":
@@ -618,7 +613,7 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 3; fi`
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		require.NoError(t, Build(options, newTestLogger()))
+		require.NoError(t, Build(options, util.util.NewTestLogger()))
 	})
 }
 
@@ -626,7 +621,7 @@ func TestBuildDocker(t *testing.T) {
 	testBuilder(t, "docker", nil)
 
 	t.Run("target", func(t *testing.T) {
-		require.NoError(t, EnsureLocalRegistryRunning(newCLI(t), newTestLogger()))
+		require.NoError(t, EnsureLocalRegistryRunning(util.NewDockerClient(t), util.util.NewTestLogger()))
 		name := "test-" + uuid.New().String()[:8]
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -675,7 +670,7 @@ test:
 			File:    specPath,
 			Builder: "docker",
 		}
-		require.NoError(t, Test(options, newTestLogger()))
+		require.NoError(t, Test(options, util.util.NewTestLogger()))
 	})
 
 	t.Run("dependency context", func(t *testing.T) {
@@ -729,7 +724,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		require.NoError(t, Build(&BuildOptions{
 			File:   specPath,
 			NoPush: true,
-		}, newTestLogger()))
+		}, util.util.NewTestLogger()))
 	})
 
 	t.Run("dependency base image", func(t *testing.T) {
@@ -788,12 +783,12 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			File:   specPath,
 			NoPush: true,
 		}
-		require.NoError(t, Build(options, newTestLogger()))
+		require.NoError(t, Build(options, util.util.NewTestLogger()))
 	})
 }
 
 func TestBuildKaniko(t *testing.T) {
-	log := newTestLogger()
+	log := util.util.NewTestLogger()
 	transient := os.Getenv("KINDEST_PERSISTENT") != "1"
 	kind := "kindest"
 	provider := cluster.NewProvider()
@@ -820,7 +815,7 @@ func TestBuildKaniko(t *testing.T) {
 			require.NoError(t, provider.Delete(kind, ""))
 		}()
 	}
-	require.NoError(t, EnsureLocalRegistryRunning(newCLI(t), log))
+	require.NoError(t, EnsureLocalRegistryRunning(util.NewDockerClient(t), log))
 	client, kubeContext, err := clientForKindCluster(kind, provider)
 	require.NoError(t, err)
 	require.NoError(t, waitForCluster(client, log))
@@ -836,7 +831,7 @@ func TestBuildKaniko(t *testing.T) {
 
 func TestBuildSkipUnchanged(t *testing.T) {
 	message := "No files changed"
-	log := logger.NewMockLogger(newTestLogger())
+	log := logger.NewMockLogger(util.util.NewTestLogger())
 	specPath := createBasicTestProject(t, "tmp")
 	defer os.RemoveAll(filepath.Dir(specPath))
 	options := &BuildOptions{

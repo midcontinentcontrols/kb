@@ -226,9 +226,6 @@ func (m *Module) Build() (err error) {
 	return nil
 }
 
-type CheckOptions struct {
-}
-
-func Check(options *CheckOptions, log logger.Logger) (*Module, error) {
-	return nil, nil
+func runCommands(commands []string) error {
+	return fmt.Errorf("unimplemented")
 }

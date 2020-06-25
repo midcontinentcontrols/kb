@@ -1,4 +1,4 @@
-package kindest
+package registry
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/midcontinentcontrols/kindest/pkg/util"
 
 	"github.com/docker/docker/client"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
@@ -17,7 +19,7 @@ import (
 
 func TestDockerContainerInspect(t *testing.T) {
 	t.Run("ErrNotFound", func(t *testing.T) {
-		cli := newCLI(t)
+		cli := util.NewDockerClient(t)
 		name := "test-" + uuid.New().String()[:8]
 		_, err := cli.ContainerInspect(context.TODO(), name)
 		require.True(t, client.IsErrNotFound(err))
@@ -26,8 +28,8 @@ func TestDockerContainerInspect(t *testing.T) {
 
 func TestLocalRegistryCreateDelete(t *testing.T) {
 	var err error
-	cli := newCLI(t)
-	log := newTestLogger()
+	cli := util.NewDockerClient(t)
+	log := util.NewTestLogger()
 	// Successive calls to EnsureRegistryRunning should do nothing
 	require.NoError(t, EnsureLocalRegistryRunning(cli, log))
 	require.NoError(t, EnsureLocalRegistryRunning(cli, log))
@@ -106,7 +108,7 @@ func TestInClusterRegistryCreateDelete(t *testing.T) {
 		}()
 	}
 	client, _, err := clientForKindCluster(kind, provider)
-	log := newTestLogger()
+	log := util.NewTestLogger()
 	require.NoError(t, err)
 	require.NoError(t, waitForCluster(client, log))
 	require.NoError(t, EnsureInClusterRegistryRunning(client, log))

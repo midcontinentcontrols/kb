@@ -7,18 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/midcontinentcontrols/kindest/pkg/logger"
-
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
-
-func newTestLogger() logger.Logger {
-	if os.Getenv("DEBUG") == "1" {
-		return logger.NewZapLoggerFromEnv()
-	}
-	return logger.NewFakeLogger()
-}
 
 type testEnv struct {
 	files map[string]interface{}

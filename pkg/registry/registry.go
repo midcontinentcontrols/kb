@@ -1,4 +1,4 @@
-package kindest
+package registry
 
 import (
 	"context"
