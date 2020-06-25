@@ -602,7 +602,8 @@ type BuildOptions struct {
 	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
 	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
 	Kind        string `json:"kind,omitempty" yaml:"kind,omitempty"`
-	Force       bool   `json:"force,omitempty"` // If true, will always run docker build regardless of kindest digest
+	Force       bool   `json:"force,omitempty"`     // If true, will always run docker build regardless of kindest digest
+	SkipHooks   bool   `json:"skipHooks,omitempty"` // If true, skip before/after build hooks
 }
 
 func buildDependencies(
