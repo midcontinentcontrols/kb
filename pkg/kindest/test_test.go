@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/midcontinentcontrols/kindest/pkg/util"
+	"github.com/midcontinentcontrols/kindest/pkg/test"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 

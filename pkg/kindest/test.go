@@ -15,6 +15,7 @@ import (
 
 	dockerclient "github.com/docker/docker/client"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"github.com/midcontinentcontrols/kindest/pkg/registry"
 
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/labels"
@@ -971,7 +972,7 @@ func (t *TestSpec) runKubernetes(
 					return err
 				}
 			} else {
-				if err := EnsureLocalRegistryRunning(cli, log); err != nil {
+				if err := registry.EnsureLocalRegistryRunning(cli, log); err != nil {
 					return err
 				}
 				log := log.With(zap.String("image", image))

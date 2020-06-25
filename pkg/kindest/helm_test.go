@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/midcontinentcontrols/kindest/pkg/util"
+	"github.com/midcontinentcontrols/kindest/pkg/test"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

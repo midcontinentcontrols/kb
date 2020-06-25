@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/midcontinentcontrols/kindest/pkg/util"
+	"github.com/midcontinentcontrols/kindest/pkg/test"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
@@ -621,7 +621,7 @@ func TestBuildDocker(t *testing.T) {
 	testBuilder(t, "docker", nil)
 
 	t.Run("target", func(t *testing.T) {
-		require.NoError(t, EnsureLocalRegistryRunning(util.NewDockerClient(t), util.util.NewTestLogger()))
+		require.NoError(t, EnsureLocalRegistryRunning(test.NewDockerClient(t), util.util.NewTestLogger()))
 		name := "test-" + uuid.New().String()[:8]
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -815,7 +815,7 @@ func TestBuildKaniko(t *testing.T) {
 			require.NoError(t, provider.Delete(kind, ""))
 		}()
 	}
-	require.NoError(t, EnsureLocalRegistryRunning(util.NewDockerClient(t), log))
+	require.NoError(t, EnsureLocalRegistryRunning(test.NewDockerClient(t), log))
 	client, kubeContext, err := clientForKindCluster(kind, provider)
 	require.NoError(t, err)
 	require.NoError(t, waitForCluster(client, log))

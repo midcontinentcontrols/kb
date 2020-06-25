@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/midcontinentcontrols/kindest/pkg/util"
+	"github.com/midcontinentcontrols/kindest/pkg/test"
 
 	"github.com/docker/docker/client"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
@@ -19,7 +19,7 @@ import (
 
 func TestDockerContainerInspect(t *testing.T) {
 	t.Run("ErrNotFound", func(t *testing.T) {
-		cli := util.NewDockerClient(t)
+		cli := test.NewDockerClient(t)
 		name := "test-" + uuid.New().String()[:8]
 		_, err := cli.ContainerInspect(context.TODO(), name)
 		require.True(t, client.IsErrNotFound(err))
@@ -28,7 +28,7 @@ func TestDockerContainerInspect(t *testing.T) {
 
 func TestLocalRegistryCreateDelete(t *testing.T) {
 	var err error
-	cli := util.NewDockerClient(t)
+	cli := test.NewDockerClient(t)
 	log := util.NewTestLogger()
 	// Successive calls to EnsureRegistryRunning should do nothing
 	require.NoError(t, EnsureLocalRegistryRunning(cli, log))
@@ -37,7 +37,7 @@ func TestLocalRegistryCreateDelete(t *testing.T) {
 	require.NoError(t, EnsureLocalRegistryRunning(cli, log))
 	_, err = cli.ContainerInspect(context.TODO(), "kind-registry")
 	require.NoError(t, err)
-	require.NoError(t, DeleteRegistry(cli, log))
+	require.NoError(t, DeleteLocalRegistry(cli, log))
 	_, err = cli.ContainerInspect(context.TODO(), "kind-registry")
 	require.True(t, client.IsErrNotFound(err))
 }
@@ -80,41 +80,3 @@ test:
 		logger.NewZapLoggerFromEnv(),
 	))
 }
-
-/*
-func TestInClusterRegistryCreateDelete(t *testing.T) {
-	transient := os.Getenv("KINDEST_PERSISTENT") != "1"
-	kind := "kindest"
-	provider := cluster.NewProvider()
-	exists := false
-	if !transient {
-		clusters, err := provider.List()
-		require.NoError(t, err)
-		for _, cluster := range clusters {
-			if cluster == kind {
-				exists = true
-				break
-			}
-		}
-	} else {
-		kind += "-" + uuid.New().String()[:8]
-	}
-	if !exists {
-		require.NoError(t, provider.Create(kind))
-	}
-	if transient {
-		defer func() {
-			require.NoError(t, provider.Delete(kind, ""))
-		}()
-	}
-	client, _, err := clientForKindCluster(kind, provider)
-	log := util.NewTestLogger()
-	require.NoError(t, err)
-	require.NoError(t, waitForCluster(client, log))
-	require.NoError(t, EnsureInClusterRegistryRunning(client, log))
-	require.NoError(t, EnsureInClusterRegistryRunning(client, log))
-	require.NoError(t, EnsureInClusterRegistryRunning(client, log))
-	require.NoError(t, ensureDeployment(registryDeployment(), client, log))
-	require.NoError(t, ensureService(registryService(), client, log))
-}
-*/

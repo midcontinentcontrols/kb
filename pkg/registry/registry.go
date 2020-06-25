@@ -8,8 +8,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 
 	"github.com/docker/docker/api/types"
-	"github.com/hashicorp/go-multierror"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"github.com/midcontinentcontrols/kindest/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +46,7 @@ func CreateLocalRegistry(regName string, regPort int, cli client.APIClient, log 
 	if err != nil {
 		return err
 	}
-	if err := waitForContainer(regName, cli, log); err != nil {
+	if err := util.WaitForContainer(regName, cli, log); err != nil {
 		return err
 	}
 	log = log.With(zap.String("id", info.ID))
@@ -57,7 +57,7 @@ func CreateLocalRegistry(regName string, regPort int, cli client.APIClient, log 
 	return nil
 }
 
-func DeleteRegistry(cli client.APIClient, log logger.Logger) error {
+func DeleteLocalRegistry(cli client.APIClient, log logger.Logger) error {
 	name := "kind-registry"
 	timeout := 10 * time.Second
 	log = log.With(zap.String("name", name))
@@ -83,12 +83,12 @@ func DeleteRegistry(cli client.APIClient, log logger.Logger) error {
 	return nil
 }
 
-// EnsureRegistryRunning ensures a local docker registry is running,
+// EnsureLocalRegistryRunning ensures a local docker registry is running,
 // as per https://kind.sigs.k8s.io/docs/user/local-registry/
 func EnsureLocalRegistryRunning(cli client.APIClient, log logger.Logger) error {
 	regName := "kind-registry"
 	regPort := 5000
-	if err := waitForContainer(regName, cli, log); err != nil {
+	if err := util.WaitForContainer(regName, cli, log); err != nil {
 		if client.IsErrNotFound(err) {
 			return CreateLocalRegistry(regName, regPort, cli, log)
 		}
@@ -300,28 +300,4 @@ func WaitForDeployment(
 		<-time.After(retryInterval)
 	}
 	return nil
-}
-
-func EnsureInClusterRegistryRunning(cl *kubernetes.Clientset, log logger.Logger) error {
-	if err := ensureNamespace("kindest", cl); err != nil {
-		return err
-	}
-	deploymentDone := make(chan error, 1)
-	serviceDone := make(chan error, 1)
-	go func() {
-		deploymentDone <- ensureDeployment(registryDeployment(), cl, log)
-		close(deploymentDone)
-	}()
-	go func() {
-		serviceDone <- ensureService(registryService(), cl, log)
-		close(serviceDone)
-	}()
-	var multi error
-	if err := <-deploymentDone; err != nil {
-		multi = multierror.Append(multi, fmt.Errorf("deployment: %v", err))
-	}
-	if err := <-serviceDone; err != nil {
-		multi = multierror.Append(multi, fmt.Errorf("service: %v", err))
-	}
-	return multi
 }
