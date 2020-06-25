@@ -126,9 +126,8 @@ func (m *Module) Status() BuildStatus {
 	return BuildStatus(atomic.LoadInt32(&m.status))
 }
 
-func (m *Module) setStatus(status BuildStatus) error {
+func (m *Module) setStatus(status BuildStatus) {
 	atomic.StoreInt32(&m.status, int32(status))
-	return nil
 }
 
 func (m *Module) claim() bool {
@@ -162,7 +161,7 @@ func (m *Module) broadcast(err error) {
 	msg := err.Error()
 	atomic.StorePointer(&m.err, unsafe.Pointer(&msg))
 	if err == nil {
-		err = m.setStatus(BuildStatusSucceeded)
+		m.setStatus(BuildStatusSucceeded)
 	} else {
 		m.setStatus(BuildStatusFailed)
 	}
