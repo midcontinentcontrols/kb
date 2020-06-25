@@ -178,7 +178,7 @@ func (m *Module) WaitForCompletion() error {
 }
 
 func runCommands(commands []string) error {
-	return nil
+	return fmt.Errorf("unimplemented")
 }
 
 func (m *Module) Build() (err error) {
