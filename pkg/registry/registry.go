@@ -23,11 +23,20 @@ import (
 )
 
 func CreateLocalRegistry(regName string, regPort int, cli client.APIClient, log logger.Logger) error {
+	// TODO: pull registry:2 if not present
+	image := "registry:2"
+	if _, err := cli.ImagePull(
+		context.TODO(),
+		image,
+		types.ImagePullOptions{},
+	); err != nil {
+		return err
+	}
 	portStr := fmt.Sprintf("%d/tcp", regPort)
 	info, err := cli.ContainerCreate(
 		context.TODO(),
 		&containertypes.Config{
-			Image: "registry:2",
+			Image: image,
 		},
 		&containertypes.HostConfig{
 			RestartPolicy: containertypes.RestartPolicy{
