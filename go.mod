@@ -60,21 +60,21 @@ require (
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
-	golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980 // indirect
+	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
 	golang.org/x/time v0.0.0-20200416051211-89c76fbcd5d1 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200603110839-e855014d5736 // indirect
 	google.golang.org/grpc v1.29.1 // indirect
 	gopkg.in/yaml.v2 v2.3.0
-	gopkg.in/yaml.v3 v3.0.0-20200603094226-e3079894b1e8
+	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	helm.sh/helm/v3 v3.2.1
 	k8s.io/api v0.18.3
-	k8s.io/apimachinery v0.18.3
+	k8s.io/apimachinery v0.18.5
 	k8s.io/client-go v0.18.0
 	k8s.io/kubernetes v1.13.0
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451 // indirect
 	rsc.io/letsencrypt v0.0.3 // indirect
-	sigs.k8s.io/kind v0.8.2-0.20200531182706-f4df803a1b7a
+	sigs.k8s.io/kind v0.8.1
 	sigs.k8s.io/yaml v1.2.0
 )
 
