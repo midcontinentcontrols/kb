@@ -23,7 +23,6 @@ import (
 )
 
 func CreateLocalRegistry(regName string, regPort int, cli client.APIClient, log logger.Logger) error {
-	// TODO: pull registry:2 if not present
 	image := "registry:2"
 	if _, err := cli.ImagePull(
 		context.TODO(),
