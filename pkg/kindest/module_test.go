@@ -111,4 +111,33 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		require.NoError(t, module.Build(&BuildOptions{}))
 		require.Equal(t, BuildStatusSucceeded, module.Status())
 	})
+	t.Run("dockerignore", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0644))
+		defer func() {
+			require.NoError(t, os.RemoveAll(rootPath))
+		}()
+		specYaml := fmt.Sprintf(`build:
+  name: %s`, name)
+		dockerfile := `FROM alpine:3.11.6
+COPY foo foo
+COPY bar bar
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+		require.NoError(t, createFiles(map[string]interface{}{
+			"kindest.yaml":  specYaml,
+			".dockerignore": "bar",
+			"foo":           "hello, world!",
+			"bar":           "this should be excluded!",
+			"Dockerfile":    dockerfile,
+		}, rootPath))
+		p := NewProcess(logger.NewFakeLogger())
+		module, err := p.GetModule(rootPath)
+		require.NoError(t, err)
+		err = module.Build(&BuildOptions{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "docker: COPY failed: stat ")
+		require.Contains(t, err.Error(), "/bar: no such file or directory")
+		require.Equal(t, BuildStatusFailed, module.Status())
+	})
 }

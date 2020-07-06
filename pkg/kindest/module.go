@@ -125,7 +125,8 @@ func addDirToBuildContext(
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		if rel != resolvedDockerfile && dockerignore.Match(rel, info.IsDir()) {
+		includeFile := rel != resolvedDockerfile && (dockerignore.Match(rel, info.IsDir()) || !include.Match(rel, info.IsDir()))
+		if includeFile {
 			continue
 		} else {
 			if info.IsDir() {
@@ -183,7 +184,24 @@ func createDockerInclude(contextPath string, dockerfilePath string) (gitignore.I
 				if info.IsDir() && !strings.HasSuffix(rel, "/") {
 					rel += "/"
 				}
-				addedPaths = append(addedPaths, rel)
+				parts := strings.Split(rel, "/")
+				for i := range parts {
+					var full string
+					for _, other := range parts[:i+1] {
+						full = filepath.Join(full, other)
+					}
+					found := false
+					for _, item := range addedPaths {
+						if item == full {
+							found = true
+							break
+						}
+					}
+					if !found {
+						addedPaths = append(addedPaths, full)
+						fmt.Println("include " + full)
+					}
+				}
 			}
 		}
 	}
