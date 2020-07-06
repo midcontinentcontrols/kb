@@ -840,7 +840,7 @@ func TestBuildSkipUnchanged(t *testing.T) {
 		NoPush: true,
 	}
 	require.NoError(t, Build(options, log))
-	require.Equal(t, logger.ErrNotObserved, log.WasObservedIgnoreFields("debug", message))
+	require.False(t, log.WasObservedIgnoreFields("debug", message))
 	require.NoError(t, Build(options, log))
-	require.NoError(t, log.WasObservedIgnoreFields("debug", message))
+	require.True(t, log.WasObservedIgnoreFields("debug", message))
 }

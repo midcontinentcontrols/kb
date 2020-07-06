@@ -37,7 +37,7 @@ func (l *MockLogger) combinedFields(fields []zap.Field) []zap.Field {
 	return fields
 }
 
-func (l *MockLogger) WasObserved(level string, msg string, fields ...zap.Field) error {
+func (l *MockLogger) WasObserved(level string, msg string, fields ...zap.Field) bool {
 	l.l.Lock()
 	defer l.l.Unlock()
 	numFields := len(fields)
@@ -59,22 +59,22 @@ func (l *MockLogger) WasObserved(level string, msg string, fields ...zap.Field) 
 				}
 			}
 			if allMatch {
-				return nil
+				return true
 			}
 		}
 	}
-	return ErrNotObserved
+	return false
 }
 
-func (l *MockLogger) WasObservedIgnoreFields(level string, msg string) error {
+func (l *MockLogger) WasObservedIgnoreFields(level string, msg string) bool {
 	l.l.Lock()
 	defer l.l.Unlock()
 	for _, line := range l.lines {
 		if line.level == level && line.message == msg {
-			return nil
+			return true
 		}
 	}
-	return ErrNotObserved
+	return false
 }
 
 func (l *MockLogger) Info(msg string, fields ...zap.Field) {
