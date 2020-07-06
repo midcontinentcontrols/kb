@@ -1,6 +1,8 @@
 package kindest
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,9 +12,15 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	dockertypes "github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/docker/docker/pkg/term"
+
 	"go.uber.org/zap"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"github.com/monochromegane/go-gitignore"
 )
 
 type BuildStatus int32
@@ -46,7 +54,7 @@ type resolver struct {
 
 type Module struct {
 	Spec         *KindestSpec
-	ManifestPath string    // absolute path to manifest
+	Dir          string
 	Dependencies []*Module //
 	status       int32
 	subscribersL sync.Mutex
@@ -58,7 +66,7 @@ type Module struct {
 var ErrModuleNotCached = fmt.Errorf("module is not cached")
 
 func (m *Module) CachedDigest() (string, error) {
-	path, err := digestPathForManifest(m.ManifestPath)
+	path, err := digestPathForManifest(m.Dir)
 	if err != nil {
 		return "", err
 	}
@@ -70,7 +78,7 @@ func (m *Module) CachedDigest() (string, error) {
 }
 
 func (m *Module) cacheDigest(digest string) error {
-	path, err := digestPathForManifest(m.ManifestPath)
+	path, err := digestPathForManifest(m.Dir)
 	if err != nil {
 		return err
 	}
@@ -86,19 +94,99 @@ func (m *Module) cacheDigest(digest string) error {
 	return nil
 }
 
-func (m *Module) buildDependencies() error {
+func (m *Module) buildDependencies(options *BuildOptions) error {
 	for _, dependency := range m.Dependencies {
-		if err := dependency.Build(); err != nil {
-			return fmt.Errorf("%s: %v", dependency.ManifestPath, err)
+		if err := dependency.Build(options); err != nil {
+			return fmt.Errorf("%s: %v", dependency.Dir, err)
 		}
 	}
 	return nil
 }
 
-func (m *Module) loadBuildContext() (BuildContext, error) {
-	c := make(map[string]interface{})
-	// TODO: copy over code with dockerignore, maybe do some refactoring
-	return BuildContext(c), nil
+func addDirToBuildContext(
+	dir string,
+	contextPath string,
+	resolvedDockerfile string,
+	dockerignore gitignore.IgnoreMatcher,
+	c map[string]Entity,
+) error {
+	infos, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, info := range infos {
+		path := filepath.Join(dir, info.Name())
+		rel, err := filepath.Rel(contextPath, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		if rel != resolvedDockerfile && dockerignore.Match(rel, info.IsDir()) {
+			continue
+		} else {
+			if info.IsDir() {
+				contents := make(map[string]Entity)
+				if err := addDirToBuildContext(
+					dir,
+					contextPath,
+					resolvedDockerfile,
+					dockerignore,
+					contents,
+				); err != nil {
+					return err
+				}
+				c[rel] = &Directory{
+					Contents: contents,
+					info:     info,
+				}
+			} else {
+				body, err := ioutil.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				c[rel] = &File{
+					Content: body,
+					info:    info,
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (m *Module) loadBuildContext() (BuildContext, string, error) {
+	dockerignorePath := filepath.Join(m.Dir, ".dockerignore")
+	var dockerignore gitignore.IgnoreMatcher
+	if _, err := os.Stat(dockerignorePath); err == nil {
+		r, err := os.Open(dockerignorePath)
+		if err != nil {
+			return nil, "", err
+		}
+		defer r.Close()
+		dockerignore = gitignore.NewGitIgnoreFromReader("", r)
+	} else {
+		dockerignore = gitignore.NewGitIgnoreFromReader("", bytes.NewReader([]byte("")))
+	}
+	contextPath := filepath.Clean(filepath.Join(m.Dir, m.Spec.Build.Context))
+	resolvedDockerfile, err := resolveDockerfile(
+		m.Dir,
+		m.Spec.Build.Dockerfile,
+		m.Spec.Build.Context,
+	)
+	if err != nil {
+		return nil, "", err
+	}
+	c := make(map[string]Entity)
+	if err := addDirToBuildContext(
+		contextPath,
+		contextPath,
+		resolvedDockerfile,
+		dockerignore,
+		c,
+	); err != nil {
+		return nil, "", err
+	}
+	return BuildContext(c), resolvedDockerfile, nil
 }
 
 func (m *Module) Status() BuildStatus {
@@ -156,7 +244,80 @@ func (m *Module) WaitForCompletion() error {
 	return <-done
 }
 
-func (m *Module) Build() (err error) {
+func buildDocker(
+	m *Module,
+	buildContext []byte,
+	resolvedDockerfile string,
+	options *BuildOptions,
+) error {
+	cli, err := client.NewEnvClient()
+	if err != nil {
+		return err
+	}
+	buildArgs := make(map[string]*string)
+	for _, arg := range m.Spec.Build.BuildArgs {
+		buildArgs[arg.Name] = &arg.Value
+	}
+	tag := m.Spec.Build.Name
+	if options.Repository != "" {
+		tag = options.Repository + "/" + tag
+	}
+	resp, err := cli.ImageBuild(
+		context.TODO(),
+		bytes.NewReader(buildContext),
+		dockertypes.ImageBuildOptions{
+			NoCache:    options.NoCache,
+			Dockerfile: resolvedDockerfile,
+			BuildArgs:  buildArgs,
+			Squash:     options.Squash,
+			Tags:       []string{tag},
+			Target:     m.Spec.Build.Target,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	termFd, isTerm := term.GetFdInfo(os.Stderr)
+	if err := jsonmessage.DisplayJSONMessagesStream(
+		resp.Body,
+		os.Stderr,
+		termFd,
+		isTerm,
+		nil,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+func buildKaniko(
+	m *Module,
+	buildContext []byte,
+	resolvedDockerfile string,
+	options *BuildOptions,
+) error {
+	return fmt.Errorf("kaniko builder unimplemented")
+}
+
+func doBuild(m *Module, buildContext []byte, resolvedDockerfile string, options *BuildOptions) error {
+	switch options.Builder {
+	case "":
+		fallthrough
+	case "docker":
+		if err := buildDocker(m, buildContext, resolvedDockerfile, options); err != nil {
+			return fmt.Errorf("docker: %v", err)
+		}
+	case "kaniko":
+		if err := buildKaniko(m, buildContext, resolvedDockerfile, options); err != nil {
+			return fmt.Errorf("kaniko: %v", err)
+		}
+	default:
+		return fmt.Errorf("unknown builder '%s'", options.Builder)
+	}
+	return nil
+}
+
+func (m *Module) Build(options *BuildOptions) (err error) {
 	if !m.claim() {
 		switch m.Status() {
 		case BuildStatusInProgress:
@@ -176,10 +337,10 @@ func (m *Module) Build() (err error) {
 	defer func() {
 		m.broadcast(err)
 	}()
-	if err := m.buildDependencies(); err != nil {
+	if err := m.buildDependencies(options); err != nil {
 		return err
 	}
-	buildContext, err := m.loadBuildContext()
+	buildContext, resolvedDockerfile, err := m.loadBuildContext()
 	if err != nil {
 		return err
 	}
@@ -198,7 +359,18 @@ func (m *Module) Build() (err error) {
 	if err := runCommands(m.Spec.Build.Before); err != nil {
 		return fmt.Errorf("pre-build hook failure: %v", err)
 	}
-	// TODO: actually do the building
+	tar, err := buildContext.Archive()
+	if err != nil {
+		return err
+	}
+	if err := doBuild(
+		m,
+		tar,
+		resolvedDockerfile,
+		options,
+	); err != nil {
+		return err
+	}
 	if err := runCommands(m.Spec.Build.After); err != nil {
 		return fmt.Errorf("post-build hook failure: %v", err)
 	}

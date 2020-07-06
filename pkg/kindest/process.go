@@ -46,7 +46,7 @@ func (p *Process) GetModule(dir string) (*Module, error) {
 	}
 	m := &Module{
 		Spec:         spec,
-		ManifestPath: manifestPath,
+		Dir:          dir,
 		Dependencies: dependencies,
 		log:          p.log,
 	}

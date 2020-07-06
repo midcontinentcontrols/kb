@@ -304,7 +304,8 @@ func (b *BuildSpec) hashBuildContext(manifestPath string, options *BuildOptions)
 }
 
 func (b *BuildSpec) tarBuildContext(manifestPath string, options *BuildOptions) (string, error) {
-	contextPath := filepath.Clean(filepath.Join(filepath.Dir(manifestPath), filepath.FromSlash(b.Context)))
+	dir := filepath.Dir(manifestPath)
+	contextPath := filepath.Clean(filepath.Join(dir, filepath.FromSlash(b.Context)))
 	u, err := user.Current()
 	if err != nil {
 		return "", err
@@ -315,7 +316,7 @@ func (b *BuildSpec) tarBuildContext(manifestPath string, options *BuildOptions) 
 	}
 	tarPath := filepath.Join(tmpDir, fmt.Sprintf("build-context-%s.tar", uuid.New().String()))
 	resolvedDockerfile, err := resolveDockerfile(
-		manifestPath,
+		dir,
 		b.Dockerfile,
 		b.Context,
 	)
@@ -652,11 +653,10 @@ func locateSpec(file string) (string, error) {
 	return filepath.Join(dir, "kindest.yaml"), nil
 }
 
-func resolveDockerfile(manifestPath string, dockerfilePath string, contextPath string) (string, error) {
+func resolveDockerfile(rootDir string, dockerfilePath string, contextPath string) (string, error) {
 	if dockerfilePath == "" {
 		dockerfilePath = "Dockerfile"
 	}
-	rootDir := filepath.Dir(manifestPath)
 	dockerfilePath = filepath.Clean(filepath.Join(rootDir, dockerfilePath))
 	contextPath = filepath.Clean(filepath.Join(rootDir, contextPath))
 	rel, err := filepath.Rel(contextPath, dockerfilePath)
