@@ -16,6 +16,7 @@ import (
 	"github.com/midcontinentcontrols/kindest/pkg/test"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"github.com/midcontinentcontrols/kindest/pkg/registry"
 
 	"go.uber.org/zap"
 	"sigs.k8s.io/kind/pkg/cluster"
@@ -72,7 +73,7 @@ build:
 	err := Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}, util.util.NewTestLogger())
+	}, test.NewTestLogger())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "dependency 0: missing kindest.yaml")
 }
@@ -85,7 +86,7 @@ func TestBuildErrMissingDockerfile(t *testing.T) {
 	err := Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}, util.util.NewTestLogger())
+	}, test.NewTestLogger())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "missing Dockerfile")
 }
@@ -110,7 +111,7 @@ func TestBuildErrMissingName(t *testing.T) {
 	require.Equal(t, ErrMissingImageName, Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}, util.util.NewTestLogger()))
+	}, test.NewTestLogger()))
 }
 
 func TestBuildContextPath(t *testing.T) {
@@ -142,7 +143,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}, util.util.NewTestLogger()))
+	}, test.NewTestLogger()))
 }
 
 func TestBuildDependency(t *testing.T) {
@@ -188,7 +189,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}, util.util.NewTestLogger()))
+	}, test.NewTestLogger()))
 }
 
 func TestBuildDependencyModule(t *testing.T) {
@@ -229,7 +230,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, Build(&BuildOptions{
 		File:   specPath,
 		NoPush: true,
-	}, util.util.NewTestLogger()))
+	}, test.NewTestLogger()))
 }
 
 func TestBuildDockerignore(t *testing.T) {
@@ -283,7 +284,7 @@ build:
 		err := Build(&BuildOptions{
 			File:   specPath,
 			NoPush: true,
-		}, util.util.NewTestLogger())
+		}, test.NewTestLogger())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bar.txt: no such file or directory")
 	})
@@ -369,7 +370,7 @@ build:
 		err := Build(&BuildOptions{
 			File:   specPath,
 			NoPush: true,
-		}, util.util.NewTestLogger())
+		}, test.NewTestLogger())
 		require.NoError(t, err)
 	})
 }
@@ -417,7 +418,7 @@ CMD ["cat", "/message"]`
 				}
 			}
 			return nil
-		}, nil, util.util.NewTestLogger())
+		}, nil, test.NewTestLogger())
 	})
 	defer pool.Close()
 	err, _ := pool.Process(&BuildOptions{
@@ -445,7 +446,7 @@ func testBuilder(t *testing.T, builder string, mutatetOpts func(options interfac
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		require.NoError(t, Build(options, util.util.NewTestLogger()))
+		require.NoError(t, Build(options, test.NewTestLogger()))
 	})
 
 	t.Run("dependency failure", func(t *testing.T) {
@@ -494,7 +495,7 @@ RUN exit 1`
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		err := Build(options, util.util.NewTestLogger())
+		err := Build(options, test.NewTestLogger())
 		require.Error(t, err)
 		switch builder {
 		case "docker":
@@ -537,7 +538,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		require.NoError(t, Build(options, util.util.NewTestLogger()))
+		require.NoError(t, Build(options, test.NewTestLogger()))
 	})
 
 	t.Run("missing build arg", func(t *testing.T) {
@@ -569,7 +570,7 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 3; fi`
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		err := Build(options, util.util.NewTestLogger())
+		err := Build(options, test.NewTestLogger())
 		require.Error(t, err)
 		switch builder {
 		case "docker":
@@ -613,7 +614,7 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 3; fi`
 		if mutatetOpts != nil {
 			mutatetOpts(options)
 		}
-		require.NoError(t, Build(options, util.util.NewTestLogger()))
+		require.NoError(t, Build(options, test.NewTestLogger()))
 	})
 }
 
@@ -621,7 +622,7 @@ func TestBuildDocker(t *testing.T) {
 	testBuilder(t, "docker", nil)
 
 	t.Run("target", func(t *testing.T) {
-		require.NoError(t, EnsureLocalRegistryRunning(test.NewDockerClient(t), util.util.NewTestLogger()))
+		require.NoError(t, registry.EnsureLocalRegistryRunning(test.NewDockerClient(t), test.NewTestLogger()))
 		name := "test-" + uuid.New().String()[:8]
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -670,7 +671,7 @@ test:
 			File:    specPath,
 			Builder: "docker",
 		}
-		require.NoError(t, Test(options, util.util.NewTestLogger()))
+		require.NoError(t, Test(options, test.NewTestLogger()))
 	})
 
 	t.Run("dependency context", func(t *testing.T) {
@@ -724,7 +725,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		require.NoError(t, Build(&BuildOptions{
 			File:   specPath,
 			NoPush: true,
-		}, util.util.NewTestLogger()))
+		}, test.NewTestLogger()))
 	})
 
 	t.Run("dependency base image", func(t *testing.T) {
@@ -783,12 +784,12 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			File:   specPath,
 			NoPush: true,
 		}
-		require.NoError(t, Build(options, util.util.NewTestLogger()))
+		require.NoError(t, Build(options, test.NewTestLogger()))
 	})
 }
 
 func TestBuildKaniko(t *testing.T) {
-	log := util.util.NewTestLogger()
+	log := test.NewTestLogger()
 	transient := os.Getenv("KINDEST_PERSISTENT") != "1"
 	kind := "kindest"
 	provider := cluster.NewProvider()
@@ -815,7 +816,7 @@ func TestBuildKaniko(t *testing.T) {
 			require.NoError(t, provider.Delete(kind, ""))
 		}()
 	}
-	require.NoError(t, EnsureLocalRegistryRunning(test.NewDockerClient(t), log))
+	require.NoError(t, registry.EnsureLocalRegistryRunning(test.NewDockerClient(t), log))
 	client, kubeContext, err := clientForKindCluster(kind, provider)
 	require.NoError(t, err)
 	require.NoError(t, waitForCluster(client, log))
@@ -831,7 +832,7 @@ func TestBuildKaniko(t *testing.T) {
 
 func TestBuildSkipUnchanged(t *testing.T) {
 	message := "No files changed"
-	log := logger.NewMockLogger(util.util.NewTestLogger())
+	log := logger.NewMockLogger(test.NewTestLogger())
 	specPath := createBasicTestProject(t, "tmp")
 	defer os.RemoveAll(filepath.Dir(specPath))
 	options := &BuildOptions{

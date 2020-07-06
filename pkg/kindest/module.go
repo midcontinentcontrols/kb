@@ -45,7 +45,6 @@ type resolver struct {
 
 type Module struct {
 	Spec         *KindestSpec
-	Relative     string
 	ManifestPath string    // absolute path to manifest
 	Dependencies []*Module //
 	status       int32
@@ -59,14 +58,12 @@ type Module struct {
 // `spec` is expected to be validated.
 func NewModule(
 	spec *KindestSpec,
-	relative string,
 	manifestPath string,
 	dependencies []*Module,
 	log logger.Logger,
 ) *Module {
 	return &Module{
 		Spec:         spec,
-		Relative:     relative,
 		ManifestPath: manifestPath,
 		Dependencies: dependencies,
 		log:          log,
@@ -107,7 +104,7 @@ func (m *Module) cacheDigest(digest string) error {
 func (m *Module) buildDependencies() error {
 	for _, dependency := range m.Dependencies {
 		if err := dependency.Build(); err != nil {
-			return fmt.Errorf("%s: %v", m.Relative, err)
+			return fmt.Errorf("%s: %v", dependency.ManifestPath, err)
 		}
 	}
 	return nil

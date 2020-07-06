@@ -8,9 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/midcontinentcontrols/kindest/pkg/test"
-
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"github.com/midcontinentcontrols/kindest/pkg/test"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -25,7 +24,7 @@ func TestNoTests(t *testing.T) {
 			File:       specPath,
 			NoRegistry: true,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	))
 }
 
@@ -58,7 +57,7 @@ env:
 					File:       filepath.Join(rootPath, "kindest.yaml"),
 					NoRegistry: true,
 				},
-				util.NewTestLogger(),
+				test.NewTestLogger(),
 			))
 		},
 	)
@@ -95,7 +94,7 @@ test:
 			File:       specPath,
 			NoRegistry: true,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	))
 }
 
@@ -133,7 +132,7 @@ test:
 			File:       specPath,
 			NoRegistry: true,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	))
 }
 
@@ -170,7 +169,7 @@ test:
 			File:   specPath,
 			NoPush: true,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "exit code 1"))
@@ -210,7 +209,7 @@ test:
 			NoRegistry: true,
 			Transient:  true,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	)
 	require.NoError(t, err)
 }
@@ -281,7 +280,7 @@ test:
 			NoRegistry: true,
 			Transient:  true,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	))
 }
 
@@ -370,7 +369,7 @@ test:
 			NoRegistry: true,
 			Transient:  true,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "test.yaml' not found")
@@ -409,7 +408,7 @@ test:
 			File:       specPath,
 			NoRegistry: true,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), ErrUnknownCluster.Error())
@@ -449,7 +448,7 @@ test:
 			Context:    name,
 			NoRegistry: true,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), fmt.Sprintf("context \"%s\" does not exist", name))
@@ -503,7 +502,7 @@ test:
 			Kind:       name,
 			NoRegistry: true,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	)
 	require.NoError(t, err)
 }
@@ -557,7 +556,7 @@ test:
 			Kind:       name,
 			NoRegistry: true,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	)
 	require.NoError(t, err)
 }
@@ -598,7 +597,7 @@ test:
 			Transient:  false,
 			NoRegistry: false,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	))
 	defer func() {
 		provider := cluster.NewProvider()
@@ -611,7 +610,7 @@ test:
 			Transient:  false,
 			NoRegistry: false,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	))
 	require.NoError(t, Test(
 		&TestOptions{
@@ -620,6 +619,6 @@ test:
 			Transient:  false,
 			NoRegistry: false,
 		},
-		util.NewTestLogger(),
+		test.NewTestLogger(),
 	))
 }

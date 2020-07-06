@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/midcontinentcontrols/kindest/pkg/test"
-
 	"github.com/google/uuid"
+	util "github.com/midcontinentcontrols/kindest/pkg/test"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/kind/pkg/cluster"
 )
