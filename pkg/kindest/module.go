@@ -54,22 +54,6 @@ type Module struct {
 	log          logger.Logger
 }
 
-// NewModule constructor for the Module type.
-// `spec` is expected to be validated.
-func NewModule(
-	spec *KindestSpec,
-	manifestPath string,
-	dependencies []*Module,
-	log logger.Logger,
-) *Module {
-	return &Module{
-		Spec:         spec,
-		ManifestPath: manifestPath,
-		Dependencies: dependencies,
-		log:          log,
-	}
-}
-
 var ErrModuleNotCached = fmt.Errorf("module is not cached")
 
 func (m *Module) CachedDigest() (string, error) {
@@ -79,9 +63,9 @@ func (m *Module) CachedDigest() (string, error) {
 	}
 	body, err := ioutil.ReadFile(path)
 	if err != nil {
-		return "", errDigestNotCached
+		return "", ErrModuleNotCached
 	}
-	return string(body), ErrModuleNotCached
+	return string(body), nil
 }
 
 func (m *Module) cacheDigest(digest string) error {

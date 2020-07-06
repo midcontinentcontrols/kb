@@ -1,6 +1,7 @@
 package kindest
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,24 +18,21 @@ func createTestModule(t *testing.T) *Module {
 
 func TestModule(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
-	require.NoError(t, os.MkdirAll(name, 0644))
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0644))
 	defer func() {
-		require.NoError(t, os.Remove(name))
+		require.NoError(t, os.RemoveAll(rootPath))
 	}()
-	//	specYaml := fmt.Sprintf(`build:
-	//  name: %s`, name)
-	//	dockerfile := `FROM alpine:3.11.6
-	//CMD ["sh", "-c", "echo \"Hello, world\""]`
-	//createFiles(t, name, map[string]interface{}{
-	//	"kindest.yaml": specYaml,
-	//	"Dockerfile":   dockerfile,
-	//})
-	spec := &KindestSpec{}
-	module := NewModule(
-		spec,
-		filepath.Join(name, "kindest.yaml"),
-		nil,
-		logger.NewFakeLogger(),
-	)
+	specYaml := fmt.Sprintf(`build:
+  name: %s`, name)
+	dockerfile := `FROM alpine:3.11.6
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+	require.NoError(t, createFiles(map[string]interface{}{
+		"kindest.yaml": specYaml,
+		"Dockerfile":   dockerfile,
+	}, rootPath))
+	p := NewProcess(logger.NewFakeLogger())
+	module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+	require.NoError(t, err)
 	require.NoError(t, module.Build())
 }
