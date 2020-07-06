@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -136,12 +137,12 @@ func (m *Module) subscribe(done chan<- error) {
 func (m *Module) broadcast(err error) {
 	m.subscribersL.Lock()
 	defer m.subscribersL.Unlock()
-	msg := err.Error()
-	atomic.StorePointer(&m.err, unsafe.Pointer(&msg))
-	if err == nil {
-		m.setStatus(BuildStatusSucceeded)
-	} else {
+	if err != nil {
+		msg := err.Error()
 		m.setStatus(BuildStatusFailed)
+		atomic.StorePointer(&m.err, unsafe.Pointer(&msg))
+	} else {
+		m.setStatus(BuildStatusSucceeded)
 	}
 	for _, subscriber := range m.subscribers {
 		subscriber <- err
@@ -208,5 +209,13 @@ func (m *Module) Build() (err error) {
 }
 
 func runCommands(commands []string) error {
-	return fmt.Errorf("unimplemented")
+	for _, command := range commands {
+		cmd := exec.Command("sh", "-c", command)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

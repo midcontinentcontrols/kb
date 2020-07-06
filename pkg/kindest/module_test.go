@@ -32,7 +32,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		"Dockerfile":   dockerfile,
 	}, rootPath))
 	p := NewProcess(logger.NewFakeLogger())
-	module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+	module, err := p.GetModule(rootPath)
 	require.NoError(t, err)
 	require.NoError(t, module.Build())
 }

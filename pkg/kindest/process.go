@@ -19,7 +19,8 @@ func NewProcess(log logger.Logger) *Process {
 	}
 }
 
-func (p *Process) GetModule(manifestPath string) (*Module, error) {
+func (p *Process) GetModule(dir string) (*Module, error) {
+	manifestPath := filepath.Join(dir, "kindest.yaml")
 	spec, _, err := loadSpec(manifestPath, p.log)
 	if err != nil {
 		return nil, err
