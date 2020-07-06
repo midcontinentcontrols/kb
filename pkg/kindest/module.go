@@ -118,7 +118,8 @@ func addDirToBuildContext(
 		return err
 	}
 	for _, info := range infos {
-		path := filepath.Join(dir, info.Name())
+		name := info.Name()
+		path := filepath.Join(dir, name)
 		rel, err := filepath.Rel(contextPath, path)
 		if err != nil {
 			return err
@@ -130,7 +131,7 @@ func addDirToBuildContext(
 			if info.IsDir() {
 				contents := make(map[string]Entity)
 				if err := addDirToBuildContext(
-					dir,
+					path,
 					contextPath,
 					resolvedDockerfile,
 					dockerignore,
@@ -139,7 +140,7 @@ func addDirToBuildContext(
 				); err != nil {
 					return err
 				}
-				c[rel] = &Directory{
+				c[name] = &Directory{
 					Contents: contents,
 					info:     info,
 				}
@@ -148,7 +149,7 @@ func addDirToBuildContext(
 				if err != nil {
 					return err
 				}
-				c[rel] = &File{
+				c[name] = &File{
 					Content: body,
 					info:    info,
 				}

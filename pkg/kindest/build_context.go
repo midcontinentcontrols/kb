@@ -81,12 +81,11 @@ func addToArchive(
 	prefix string,
 ) error {
 	for k, v := range c {
-		k = k + prefix
 		header, err := tar.FileInfoHeader(v.Info(), "")
 		if err != nil {
 			return err
 		}
-		header.Name = k
+		header.Name = prefix + k
 		if d, ok := v.(*Directory); ok {
 			header.Name += "/"
 			if err := archive.Writer.WriteHeader(header); err != nil {

@@ -12,10 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createTestModule(t *testing.T) *Module {
-	return nil
-}
-
 func TestModuleBuildStatus(t *testing.T) {
 	t.Run("BuildStatusSucceeded", func(t *testing.T) {
 		name := "test-" + uuid.New().String()[:8]
@@ -49,7 +45,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		specYaml := fmt.Sprintf(`build:
   name: %s`, name)
 		dockerfile := `FROM alpine:3.11.6
-RUN exit 1`
+RUN cat foo`
 		require.NoError(t, createFiles(map[string]interface{}{
 			"kindest.yaml": specYaml,
 			"Dockerfile":   dockerfile,
@@ -59,7 +55,60 @@ RUN exit 1`
 		require.NoError(t, err)
 		err = module.Build(&BuildOptions{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "docker: The command '/bin/sh -c exit 1' returned a non-zero code: 1")
+		require.Contains(t, err.Error(), "docker: The command '/bin/sh -c cat foo' returned a non-zero code: 1")
 		require.Equal(t, BuildStatusFailed, module.Status())
+	})
+}
+
+func TestModuleBuildContext(t *testing.T) {
+	t.Run("basic", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0644))
+		defer func() {
+			require.NoError(t, os.RemoveAll(rootPath))
+		}()
+		specYaml := fmt.Sprintf(`build:
+  name: %s`, name)
+		dockerfile := `FROM alpine:3.11.6
+COPY foo foo
+RUN cat foo
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+		require.NoError(t, createFiles(map[string]interface{}{
+			"kindest.yaml": specYaml,
+			"foo":          "hello, world!",
+			"Dockerfile":   dockerfile,
+		}, rootPath))
+		p := NewProcess(logger.NewFakeLogger())
+		module, err := p.GetModule(rootPath)
+		require.NoError(t, err)
+		require.NoError(t, module.Build(&BuildOptions{}))
+		require.Equal(t, BuildStatusSucceeded, module.Status())
+	})
+	t.Run("subdir", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0644))
+		defer func() {
+			require.NoError(t, os.RemoveAll(rootPath))
+		}()
+		specYaml := fmt.Sprintf(`build:
+  name: %s`, name)
+		dockerfile := `FROM alpine:3.11.6
+COPY subdir/foo subdir/foo
+RUN cat subdir/foo
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+		require.NoError(t, createFiles(map[string]interface{}{
+			"kindest.yaml": specYaml,
+			"subdir": map[string]interface{}{
+				"foo": "hello, world!",
+			},
+			"Dockerfile": dockerfile,
+		}, rootPath))
+		p := NewProcess(logger.NewFakeLogger())
+		module, err := p.GetModule(rootPath)
+		require.NoError(t, err)
+		require.NoError(t, module.Build(&BuildOptions{}))
+		require.Equal(t, BuildStatusSucceeded, module.Status())
 	})
 }
