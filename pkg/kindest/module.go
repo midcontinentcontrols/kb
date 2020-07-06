@@ -158,6 +158,49 @@ func addDirToBuildContext(
 	return nil
 }
 
+func createDockerInclude(contextPath string, dockerfilePath string) (gitignore.IgnoreMatcher, error) {
+	f, err := os.Open(dockerfilePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	var addedPaths []string
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if len(line) == 0 || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "COPY") || strings.HasPrefix(line, "ADD") {
+			fields := strings.Fields(line)
+			if rel := fields[1]; !strings.HasPrefix(rel, "--from") {
+				abs := filepath.Clean(filepath.Join(contextPath, rel))
+				info, err := os.Stat(abs)
+				if err != nil {
+					return nil, fmt.Errorf("failed to stat %v", abs)
+				}
+				if info.IsDir() && !strings.HasSuffix(rel, "/") {
+					rel += "/"
+				}
+				addedPaths = append(addedPaths, rel)
+			}
+		}
+	}
+	return gitignore.NewGitIgnoreFromReader(
+		"",
+		bytes.NewBuffer([]byte(strings.Join(addedPaths, "\n"))),
+	), nil
+}
+
+func getRelativeDockerfilePath(contextPath, dockerfilePath string) (string, error) {
+	relativeDockerfile, err := filepath.Rel(contextPath, dockerfilePath)
+	if err != nil {
+		return "", err
+	}
+	relativeDockerfile = filepath.ToSlash(relativeDockerfile)
+	return relativeDockerfile, nil
+}
+
 func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatcher, error) {
 	dockerignorePath := filepath.Join(m.Dir, ".dockerignore")
 	var dockerignore gitignore.IgnoreMatcher
@@ -177,42 +220,14 @@ func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatch
 		dockerfilePath = "Dockerfile"
 	}
 	dockerfilePath = filepath.Clean(filepath.Join(m.Dir, dockerfilePath))
-	relativeDockerfile, err := filepath.Rel(contextPath, dockerfilePath)
+	relativeDockerfile, err := getRelativeDockerfilePath(contextPath, dockerfilePath)
 	if err != nil {
 		return nil, "", nil, err
 	}
-	relativeDockerfile = filepath.ToSlash(relativeDockerfile)
-	f, err := os.Open(dockerfilePath)
+	include, err := createDockerInclude(contextPath, dockerfilePath)
 	if err != nil {
 		return nil, "", nil, err
 	}
-	defer f.Close()
-	scanner := bufio.NewScanner(f)
-	var addedPaths []string
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if len(line) == 0 || strings.HasPrefix(line, "#") {
-			continue
-		}
-		if strings.HasPrefix(line, "COPY") || strings.HasPrefix(line, "ADD") {
-			fields := strings.Fields(line)
-			if rel := fields[1]; !strings.HasPrefix(rel, "--from") {
-				abs := filepath.Clean(filepath.Join(contextPath, rel))
-				info, err := os.Stat(abs)
-				if err != nil {
-					return nil, "", nil, fmt.Errorf("failed to stat %v", abs)
-				}
-				if info.IsDir() && !strings.HasSuffix(rel, "/") {
-					rel += "/"
-				}
-				addedPaths = append(addedPaths, rel)
-			}
-		}
-	}
-	include := gitignore.NewGitIgnoreFromReader(
-		"",
-		bytes.NewBuffer([]byte(strings.Join(addedPaths, "\n"))),
-	)
 	c := make(map[string]Entity)
 	if err := addDirToBuildContext(
 		contextPath,
