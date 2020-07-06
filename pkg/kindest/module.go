@@ -199,7 +199,6 @@ func createDockerInclude(contextPath string, dockerfilePath string) (gitignore.I
 					}
 					if !found {
 						addedPaths = append(addedPaths, full)
-						fmt.Println("include " + full)
 					}
 				}
 			}
