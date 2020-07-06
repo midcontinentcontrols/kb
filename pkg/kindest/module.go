@@ -1,6 +1,7 @@
 package kindest
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -108,6 +110,7 @@ func addDirToBuildContext(
 	contextPath string,
 	resolvedDockerfile string,
 	dockerignore gitignore.IgnoreMatcher,
+	include gitignore.IgnoreMatcher,
 	c map[string]Entity,
 ) error {
 	infos, err := ioutil.ReadDir(dir)
@@ -131,6 +134,7 @@ func addDirToBuildContext(
 					contextPath,
 					resolvedDockerfile,
 					dockerignore,
+					include,
 					contents,
 				); err != nil {
 					return err
@@ -154,13 +158,13 @@ func addDirToBuildContext(
 	return nil
 }
 
-func (m *Module) loadBuildContext() (BuildContext, string, error) {
+func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatcher, error) {
 	dockerignorePath := filepath.Join(m.Dir, ".dockerignore")
 	var dockerignore gitignore.IgnoreMatcher
 	if _, err := os.Stat(dockerignorePath); err == nil {
 		r, err := os.Open(dockerignorePath)
 		if err != nil {
-			return nil, "", err
+			return nil, "", nil, err
 		}
 		defer r.Close()
 		dockerignore = gitignore.NewGitIgnoreFromReader("", r)
@@ -168,25 +172,62 @@ func (m *Module) loadBuildContext() (BuildContext, string, error) {
 		dockerignore = gitignore.NewGitIgnoreFromReader("", bytes.NewReader([]byte("")))
 	}
 	contextPath := filepath.Clean(filepath.Join(m.Dir, m.Spec.Build.Context))
-	resolvedDockerfile, err := resolveDockerfile(
-		m.Dir,
-		m.Spec.Build.Dockerfile,
-		m.Spec.Build.Context,
-	)
-	if err != nil {
-		return nil, "", err
+
+	dockerfilePath := m.Spec.Build.Dockerfile
+	if dockerfilePath == "" {
+		dockerfilePath = "Dockerfile"
 	}
+	dockerfilePath = filepath.Clean(filepath.Join(m.Dir, dockerfilePath))
+	contextPath = filepath.Clean(filepath.Join(m.Dir, contextPath))
+	rel, err := filepath.Rel(contextPath, dockerfilePath)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	rel = filepath.ToSlash(rel)
+
+	f, err := os.Open(dockerfilePath)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	var addedPaths []string
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if len(line) == 0 || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "COPY") || strings.HasPrefix(line, "ADD") {
+			fields := strings.Fields(line)
+			if rel := fields[1]; !strings.HasPrefix(rel, "--from") {
+				abs := filepath.Clean(filepath.Join(contextPath, rel))
+				info, err := os.Stat(abs)
+				if err != nil {
+					return nil, "", nil, fmt.Errorf("failed to stat %v", abs)
+				}
+				if info.IsDir() && !strings.HasSuffix(rel, "/") {
+					rel += "/"
+				}
+				addedPaths = append(addedPaths, rel)
+			}
+		}
+	}
+	include := gitignore.NewGitIgnoreFromReader(
+		"",
+		bytes.NewBuffer([]byte(strings.Join(addedPaths, "\n"))),
+	)
 	c := make(map[string]Entity)
 	if err := addDirToBuildContext(
 		contextPath,
 		contextPath,
-		resolvedDockerfile,
+		dockerfilePath,
 		dockerignore,
+		include,
 		c,
 	); err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
-	return BuildContext(c), resolvedDockerfile, nil
+	return BuildContext(c), dockerfilePath, include, nil
 }
 
 func (m *Module) Status() BuildStatus {
@@ -340,11 +381,11 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	if err := m.buildDependencies(options); err != nil {
 		return err
 	}
-	buildContext, resolvedDockerfile, err := m.loadBuildContext()
+	buildContext, resolvedDockerfile, include, err := m.loadBuildContext()
 	if err != nil {
 		return err
 	}
-	digest, err := buildContext.Digest()
+	digest, err := buildContext.Digest(include)
 	if err != nil {
 		return err
 	}

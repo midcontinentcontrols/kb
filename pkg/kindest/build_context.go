@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jhoonb/archivex"
+	"github.com/monochromegane/go-gitignore"
 )
 
 type BuildContext map[string]Entity
@@ -66,7 +67,7 @@ func hashContext(
 	return nil
 }
 
-func (c BuildContext) Digest() (string, error) {
+func (c BuildContext) Digest(include gitignore.IgnoreMatcher) (string, error) {
 	h := md5.New()
 	if err := hashContext(map[string]Entity(c), h, ""); err != nil {
 		return "", err
