@@ -3,11 +3,13 @@ package kindest
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 )
 
 type Process struct {
+	l       sync.Mutex
 	modules map[string]*Module
 	log     logger.Logger
 }
@@ -20,6 +22,15 @@ func NewProcess(log logger.Logger) *Process {
 }
 
 func (p *Process) GetModule(dir string) (*Module, error) {
+	dir, err := filepath.Abs(filepath.Clean(dir))
+	if err != nil {
+		return nil, err
+	}
+	p.l.Lock()
+	defer p.l.Unlock()
+	if existing, ok := p.modules[dir]; ok {
+		return existing, nil
+	}
 	manifestPath := filepath.Join(dir, "kindest.yaml")
 	spec, _, err := loadSpec(manifestPath, p.log)
 	if err != nil {
@@ -33,10 +44,12 @@ func (p *Process) GetModule(dir string) (*Module, error) {
 		}
 		dependencies = append(dependencies, dep)
 	}
-	return &Module{
+	m := &Module{
 		Spec:         spec,
 		ManifestPath: manifestPath,
 		Dependencies: dependencies,
 		log:          p.log,
-	}, nil
+	}
+	p.modules[dir] = m
+	return m, nil
 }
