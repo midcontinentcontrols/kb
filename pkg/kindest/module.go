@@ -172,19 +172,16 @@ func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatch
 		dockerignore = gitignore.NewGitIgnoreFromReader("", bytes.NewReader([]byte("")))
 	}
 	contextPath := filepath.Clean(filepath.Join(m.Dir, m.Spec.Build.Context))
-
 	dockerfilePath := m.Spec.Build.Dockerfile
 	if dockerfilePath == "" {
 		dockerfilePath = "Dockerfile"
 	}
 	dockerfilePath = filepath.Clean(filepath.Join(m.Dir, dockerfilePath))
-	contextPath = filepath.Clean(filepath.Join(m.Dir, contextPath))
-	rel, err := filepath.Rel(contextPath, dockerfilePath)
+	relativeDockerfile, err := filepath.Rel(contextPath, dockerfilePath)
 	if err != nil {
 		return nil, "", nil, err
 	}
-	rel = filepath.ToSlash(rel)
-
+	relativeDockerfile = filepath.ToSlash(relativeDockerfile)
 	f, err := os.Open(dockerfilePath)
 	if err != nil {
 		return nil, "", nil, err
@@ -220,14 +217,14 @@ func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatch
 	if err := addDirToBuildContext(
 		contextPath,
 		contextPath,
-		dockerfilePath,
+		relativeDockerfile,
 		dockerignore,
 		include,
 		c,
 	); err != nil {
 		return nil, "", nil, err
 	}
-	return BuildContext(c), dockerfilePath, include, nil
+	return BuildContext(c), relativeDockerfile, include, nil
 }
 
 func (m *Module) Status() BuildStatus {
