@@ -48,13 +48,15 @@ func (l *MockLogger) WasObserved(level string, msg string, fields ...zap.Field) 
 			}
 			allMatch := true
 			for _, field := range fields {
+				found := false
 				for _, other := range line.fields {
-					if !field.Equals(other) {
-						allMatch = false
+					if field.Equals(other) {
+						found = true
 						break
 					}
 				}
-				if !allMatch {
+				if !found {
+					allMatch = false
 					break
 				}
 			}

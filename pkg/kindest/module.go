@@ -358,6 +358,11 @@ func buildDocker(
 	if options.Repository != "" {
 		tag = options.Repository + "/" + tag
 	}
+	if options.Tag != "" {
+		tag += ":" + options.Tag
+	} else {
+		tag += ":latest"
+	}
 	resp, err := cli.ImageBuild(
 		context.TODO(),
 		bytes.NewReader(buildContext),
@@ -383,6 +388,7 @@ func buildDocker(
 	); err != nil {
 		return err
 	}
+	m.log.Info("Successfully built image", zap.String("tag", tag))
 	return nil
 }
 
@@ -395,12 +401,22 @@ func buildKaniko(
 	return fmt.Errorf("kaniko builder unimplemented")
 }
 
-func doBuild(m *Module, buildContext []byte, resolvedDockerfile string, options *BuildOptions) error {
+func doBuild(
+	m *Module,
+	buildContext []byte,
+	resolvedDockerfile string,
+	options *BuildOptions,
+) error {
 	switch options.Builder {
 	case "":
 		fallthrough
 	case "docker":
-		if err := buildDocker(m, buildContext, resolvedDockerfile, options); err != nil {
+		if err := buildDocker(
+			m,
+			buildContext,
+			resolvedDockerfile,
+			options,
+		); err != nil {
 			return fmt.Errorf("docker: %v", err)
 		}
 	case "kaniko":
@@ -431,6 +447,7 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 		}
 	}
 	defer func() {
+		// Inform all subscribers of return value
 		m.broadcast(err)
 	}()
 	if err := m.buildDependencies(options); err != nil {
