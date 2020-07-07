@@ -22,12 +22,16 @@ func NewProcess(log logger.Logger) *Process {
 }
 
 func (p *Process) GetModule(dir string) (*Module, error) {
+	p.l.Lock()
+	defer p.l.Unlock()
+	return p.getModuleNoLock(dir)
+}
+
+func (p *Process) getModuleNoLock(dir string) (*Module, error) {
 	dir, err := filepath.Abs(filepath.Clean(dir))
 	if err != nil {
 		return nil, err
 	}
-	p.l.Lock()
-	defer p.l.Unlock()
 	if existing, ok := p.modules[dir]; ok {
 		return existing, nil
 	}
@@ -38,7 +42,7 @@ func (p *Process) GetModule(dir string) (*Module, error) {
 	}
 	var dependencies []*Module
 	for _, dependency := range spec.Dependencies {
-		dep, err := p.GetModule(filepath.Clean(filepath.Join(dir, dependency)))
+		dep, err := p.getModuleNoLock(filepath.Clean(filepath.Join(dir, dependency)))
 		if err != nil {
 			return nil, fmt.Errorf("dependency '%s': %v", dependency, err)
 		}
