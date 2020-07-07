@@ -214,6 +214,43 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 	require.True(t, log.WasObservedIgnoreFields("info", "No files changed"))
 }
 
+func TestModuleBuildArgs(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0644))
+	defer func() {
+		require.NoError(t, os.RemoveAll(rootPath))
+	}()
+	script := `#!/bin/bash
+set -euo pipefail
+if [ "$foo" -ne "bar" ]; then
+	exit 100
+fi`
+	specYaml := fmt.Sprintf(`build:
+  name: %s
+  buildArgs:
+    - name: foo
+      value: bar`, name)
+	dockerfile := `FROM alpine:3.11.6
+ARG foo
+RUN apk add --no-cache bash
+COPY script .
+RUN echo "foo isss $foo"
+RUN chmod +x ./script && ./script
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+	require.NoError(t, createFiles(map[string]interface{}{
+		"kindest.yaml": specYaml,
+		"Dockerfile":   dockerfile,
+		"script":       script,
+	}, rootPath))
+	p := NewProcess(logger.NewFakeLogger())
+	module, err := p.GetModule(rootPath)
+	require.NoError(t, err)
+	require.Equal(t, BuildStatusPending, module.Status())
+	require.NoError(t, module.Build(&BuildOptions{}))
+	require.Equal(t, BuildStatusSucceeded, module.Status())
+}
+
 func TestModuleBuildOptions(t *testing.T) {
 	t.Run("no cache", func(t *testing.T) {
 		name := "test-" + uuid.New().String()[:8]
