@@ -197,9 +197,18 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 			"Dockerfile":   depDockerfile,
 		},
 	}, rootPath))
-	module, err := NewProcess(logger.NewFakeLogger()).GetModule(rootPath)
+	log := logger.NewMockLogger(logger.NewFakeLogger())
+	module, err := NewProcess(log).GetModule(rootPath)
 	require.NoError(t, err)
 	require.Equal(t, BuildStatusPending, module.Status())
 	require.NoError(t, module.Build(&BuildOptions{}))
 	require.Equal(t, BuildStatusSucceeded, module.Status())
+	require.False(t, log.WasObservedIgnoreFields("info", "No files changed"))
+	// Ensure the dep was cached
+	module, err = NewProcess(log).GetModule(filepath.Join(rootPath, "dep"))
+	require.NoError(t, err)
+	require.Equal(t, BuildStatusPending, module.Status())
+	require.NoError(t, module.Build(&BuildOptions{}))
+	require.Equal(t, BuildStatusSucceeded, module.Status())
+	require.True(t, log.WasObservedIgnoreFields("info", "No files changed"))
 }
