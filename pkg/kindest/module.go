@@ -14,10 +14,12 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/Jeffail/tunny"
 	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/term"
+	"github.com/hashicorp/go-multierror"
 
 	"go.uber.org/zap"
 
@@ -63,6 +65,7 @@ type Module struct {
 	subscribers  []chan<- error
 	err          unsafe.Pointer
 	log          logger.Logger
+	pool         *tunny.Pool
 }
 
 var ErrModuleNotCached = fmt.Errorf("module is not cached")
@@ -96,13 +99,35 @@ func (m *Module) cacheDigest(digest string) error {
 	return nil
 }
 
-func (m *Module) buildDependencies(options *BuildOptions) error {
-	for _, dependency := range m.Dependencies {
-		if err := dependency.Build(options); err != nil {
-			return fmt.Errorf("%s: %v", dependency.Dir, err)
+func collectErrors(dones []chan error) error {
+	var multi error
+	for _, done := range dones {
+		if err := <-done; err != nil {
+			multi = multierror.Append(multi, err)
 		}
 	}
-	return nil
+	return multi
+}
+
+func (m *Module) buildDependencies(options *BuildOptions) error {
+	n := len(m.Dependencies)
+	dones := make([]chan error, n, n)
+	for i, dependency := range m.Dependencies {
+		done := make(chan error, 1)
+		dones[i] = done
+		go func(dependency *Module, done chan<- error) {
+			defer close(done)
+			err, _ := m.pool.Process(&buildJob{
+				m:       dependency,
+				options: options,
+			}).(error)
+			if err != nil {
+				err = fmt.Errorf("%s: %v", dependency.Dir, err)
+			}
+			done <- err
+		}(dependency, done)
+	}
+	return collectErrors(dones)
 }
 
 func addDirToBuildContext(

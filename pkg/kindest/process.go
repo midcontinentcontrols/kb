@@ -3,22 +3,41 @@ package kindest
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"sync"
 
+	"github.com/Jeffail/tunny"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 )
 
+type buildJob struct {
+	m       *Module
+	options *BuildOptions
+}
+
 type Process struct {
+	pool    *tunny.Pool
 	l       sync.Mutex
 	modules map[string]*Module
 	log     logger.Logger
 }
 
 func NewProcess(log logger.Logger) *Process {
+	pool := tunny.NewFunc(runtime.NumCPU(), func(payload interface{}) interface{} {
+		if build, ok := payload.(*buildJob); ok {
+			return build.m.Build(build.options)
+		}
+		panic("unreachable branch detected")
+	})
 	return &Process{
 		modules: make(map[string]*Module),
 		log:     log,
+		pool:    pool,
 	}
+}
+
+func (p *Process) Close() {
+	p.pool.Close()
 }
 
 func (p *Process) GetModule(dir string) (*Module, error) {
@@ -53,6 +72,7 @@ func (p *Process) getModuleNoLock(dir string) (*Module, error) {
 		Dir:          dir,
 		Dependencies: dependencies,
 		log:          p.log,
+		pool:         p.pool,
 	}
 	p.modules[dir] = m
 	return m, nil
