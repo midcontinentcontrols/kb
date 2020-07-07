@@ -423,7 +423,7 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	if err != nil && err != ErrModuleNotCached {
 		return err
 	}
-	if digest == cachedDigest {
+	if digest == cachedDigest && !options.NoCache {
 		m.log.Info("No files changed", zap.String("digest", cachedDigest))
 		return nil
 	}
