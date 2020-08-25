@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -346,6 +348,8 @@ func buildDocker(
 	resolvedDockerfile string,
 	options *BuildOptions,
 ) error {
+	dest := sanitizeImageName(options.Repository, m.Spec.Build.Name, options.Tag)
+	log := m.log.With(zap.String("dest", dest))
 	cli, err := client.NewEnvClient()
 	if err != nil {
 		return err
@@ -353,15 +357,6 @@ func buildDocker(
 	buildArgs := make(map[string]*string)
 	for _, arg := range m.Spec.Build.BuildArgs {
 		buildArgs[arg.Name] = &arg.Value
-	}
-	tag := m.Spec.Build.Name
-	if options.Repository != "" {
-		tag = options.Repository + "/" + tag
-	}
-	if options.Tag != "" {
-		tag += ":" + options.Tag
-	} else {
-		tag += ":latest"
 	}
 	resp, err := cli.ImageBuild(
 		context.TODO(),
@@ -371,7 +366,7 @@ func buildDocker(
 			Dockerfile: resolvedDockerfile,
 			BuildArgs:  buildArgs,
 			Squash:     options.Squash,
-			Tags:       []string{tag},
+			Tags:       []string{dest},
 			Target:     m.Spec.Build.Target,
 		},
 	)
@@ -388,7 +383,42 @@ func buildDocker(
 	); err != nil {
 		return err
 	}
-	m.log.Info("Successfully built image", zap.String("tag", tag))
+	if !options.NoPush {
+		authConfig, err := RegistryAuthFromEnv(dest)
+		if err != nil {
+			return err
+		}
+		log.Info(
+			"Pushing image",
+			zap.String("username", string(authConfig.Username)),
+		)
+		authBytes, err := json.Marshal(authConfig)
+		if err != nil {
+			return err
+		}
+		registryAuth := base64.URLEncoding.EncodeToString(authBytes)
+		resp, err := cli.ImagePush(
+			context.TODO(),
+			dest,
+			dockertypes.ImagePushOptions{
+				RegistryAuth: registryAuth,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		termFd, isTerm := term.GetFdInfo(os.Stderr)
+		if err := jsonmessage.DisplayJSONMessagesStream(
+			resp,
+			os.Stderr,
+			termFd,
+			isTerm,
+			nil,
+		); err != nil {
+			return err
+		}
+	}
+	log.Info("Successfully built image")
 	return nil
 }
 
@@ -420,7 +450,12 @@ func doBuild(
 			return fmt.Errorf("docker: %v", err)
 		}
 	case "kaniko":
-		if err := buildKaniko(m, buildContext, resolvedDockerfile, options); err != nil {
+		if err := buildKaniko(
+			m,
+			buildContext,
+			resolvedDockerfile,
+			options,
+		); err != nil {
 			return fmt.Errorf("kaniko: %v", err)
 		}
 	default:
