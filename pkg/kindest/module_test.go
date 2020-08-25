@@ -188,44 +188,86 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 // This ensures a submodule can be included as a dependency, which is built
 // on change along with the main module.
 func TestModuleDependency(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0644))
-	defer func() {
-		require.NoError(t, os.RemoveAll(rootPath))
-	}()
-	depYaml := fmt.Sprintf(`build:
+	//
+	// Ensure dependencies are cached along with the module being built.
+	t.Run("cache", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0644))
+		defer func() {
+			require.NoError(t, os.RemoveAll(rootPath))
+		}()
+		depYaml := fmt.Sprintf(`build:
   name: %s-dep`, name)
-	specYaml := fmt.Sprintf(`dependencies:
+		specYaml := fmt.Sprintf(`dependencies:
 - dep
 build:
   name: %s`, name)
-	depDockerfile := `FROM alpine:3.11.6
+		depDockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-	dockerfile := fmt.Sprintf(`FROM %s-dep:latest
+		dockerfile := fmt.Sprintf(`FROM %s-dep:latest
 CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
-	require.NoError(t, createFiles(map[string]interface{}{
-		"kindest.yaml": specYaml,
-		"Dockerfile":   dockerfile,
-		"dep": map[string]interface{}{
-			"kindest.yaml": depYaml,
-			"Dockerfile":   depDockerfile,
-		},
-	}, rootPath))
-	log := logger.NewMockLogger(logger.NewFakeLogger())
-	module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
-	require.NoError(t, err)
-	require.Equal(t, BuildStatusPending, module.Status())
-	require.NoError(t, module.Build(&BuildOptions{}))
-	require.Equal(t, BuildStatusSucceeded, module.Status())
-	require.False(t, log.WasObservedIgnoreFields("info", "No files changed"))
-	// Ensure the dep was cached
-	module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "dep", "kindest.yaml"))
-	require.NoError(t, err)
-	require.Equal(t, BuildStatusPending, module.Status())
-	require.NoError(t, module.Build(&BuildOptions{}))
-	require.Equal(t, BuildStatusSucceeded, module.Status())
-	require.True(t, log.WasObservedIgnoreFields("info", "No files changed"))
+		require.NoError(t, createFiles(map[string]interface{}{
+			"kindest.yaml": specYaml,
+			"Dockerfile":   dockerfile,
+			"dep": map[string]interface{}{
+				"kindest.yaml": depYaml,
+				"Dockerfile":   depDockerfile,
+			},
+		}, rootPath))
+		log := logger.NewMockLogger(logger.NewFakeLogger())
+		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+		require.NoError(t, err)
+		require.Equal(t, BuildStatusPending, module.Status())
+		require.NoError(t, module.Build(&BuildOptions{}))
+		require.Equal(t, BuildStatusSucceeded, module.Status())
+		require.False(t, log.WasObservedIgnoreFields("info", "No files changed"))
+		// Ensure the dep was cached
+		module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "dep", "kindest.yaml"))
+		require.NoError(t, err)
+		require.Equal(t, BuildStatusPending, module.Status())
+		require.NoError(t, module.Build(&BuildOptions{}))
+		require.Equal(t, BuildStatusSucceeded, module.Status())
+		require.True(t, log.WasObservedIgnoreFields("info", "No files changed"))
+	})
+
+	//
+	// Ensure errors in building a dependency are correctly propogated.
+	t.Run("error", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0644))
+		defer func() {
+			require.NoError(t, os.RemoveAll(rootPath))
+		}()
+		depYaml := fmt.Sprintf(`build:
+  name: %s-dep`, name)
+		specYaml := fmt.Sprintf(`dependencies:
+- dep
+build:
+  name: %s`, name)
+		depDockerfile := `FROM alpine:3.11.6
+RUN cat /nonexistent
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+		dockerfile := fmt.Sprintf(`FROM %s-dep:latest
+CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
+		require.NoError(t, createFiles(map[string]interface{}{
+			"kindest.yaml": specYaml,
+			"Dockerfile":   dockerfile,
+			"dep": map[string]interface{}{
+				"kindest.yaml": depYaml,
+				"Dockerfile":   depDockerfile,
+			},
+		}, rootPath))
+		log := logger.NewMockLogger(logger.NewFakeLogger())
+		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+		require.NoError(t, err)
+		require.Equal(t, BuildStatusPending, module.Status())
+		err = module.Build(&BuildOptions{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "/dep: docker: The command '/bin/sh -c cat /nonexistent' returned a non-zero code: 1")
+		require.Equal(t, BuildStatusFailed, module.Status())
+	})
 }
 
 //
