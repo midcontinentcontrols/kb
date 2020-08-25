@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
@@ -29,8 +30,8 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			"kindest.yaml": specYaml,
 			"Dockerfile":   dockerfile,
 		}, rootPath))
-		p := NewProcess(logger.NewFakeLogger())
-		module, err := p.GetModule(rootPath)
+		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
 		require.Equal(t, BuildStatusPending, module.Status())
 		require.NoError(t, module.Build(&BuildOptions{}))
@@ -51,8 +52,8 @@ RUN cat foo`
 			"kindest.yaml": specYaml,
 			"Dockerfile":   dockerfile,
 		}, rootPath))
-		p := NewProcess(logger.NewFakeLogger())
-		module, err := p.GetModule(rootPath)
+		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
 		err = module.Build(&BuildOptions{})
 		require.Error(t, err)
@@ -62,6 +63,8 @@ RUN cat foo`
 }
 
 func TestModuleBuildContext(t *testing.T) {
+	//
+	// A basic test with a file copied over.
 	t.Run("basic", func(t *testing.T) {
 		name := "test-" + uuid.New().String()[:8]
 		rootPath := filepath.Join("tmp", name)
@@ -80,12 +83,15 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			"foo":          "hello, world!",
 			"Dockerfile":   dockerfile,
 		}, rootPath))
-		p := NewProcess(logger.NewFakeLogger())
-		module, err := p.GetModule(rootPath)
+		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
 		require.NoError(t, module.Build(&BuildOptions{}))
 		require.Equal(t, BuildStatusSucceeded, module.Status())
 	})
+
+	//
+	// This test ensures subdirectories are copied over correctly.
 	t.Run("subdir", func(t *testing.T) {
 		name := "test-" + uuid.New().String()[:8]
 		rootPath := filepath.Join("tmp", name)
@@ -106,12 +112,15 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			},
 			"Dockerfile": dockerfile,
 		}, rootPath))
-		p := NewProcess(logger.NewFakeLogger())
-		module, err := p.GetModule(rootPath)
+		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
 		require.NoError(t, module.Build(&BuildOptions{}))
 		require.Equal(t, BuildStatusSucceeded, module.Status())
 	})
+
+	//
+	// This test ensure .dockerignore correctly excludes a single file.
 	t.Run("dockerignore", func(t *testing.T) {
 		name := "test-" + uuid.New().String()[:8]
 		rootPath := filepath.Join("tmp", name)
@@ -132,8 +141,8 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			"bar":           "this should be excluded!",
 			"Dockerfile":    dockerfile,
 		}, rootPath))
-		p := NewProcess(logger.NewFakeLogger())
-		module, err := p.GetModule(rootPath)
+		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
 		err = module.Build(&BuildOptions{})
 		require.Error(t, err)
@@ -143,6 +152,8 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	})
 }
 
+//
+// This test ensures the build cache is used when building an unchanged module.
 func TestModuleBuildCache(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -159,13 +170,13 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		"Dockerfile":   dockerfile,
 	}, rootPath))
 	log := logger.NewMockLogger(logger.NewFakeLogger())
-	module, err := NewProcess(log).GetModule(rootPath)
+	module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
 	require.NoError(t, err)
 	require.Equal(t, BuildStatusPending, module.Status())
 	require.NoError(t, module.Build(&BuildOptions{}))
 	require.Equal(t, BuildStatusSucceeded, module.Status())
 	require.False(t, log.WasObservedIgnoreFields("info", "No files changed"))
-	module, err = NewProcess(log).GetModule(rootPath)
+	module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
 	require.NoError(t, err)
 	require.Equal(t, BuildStatusPending, module.Status())
 	require.NoError(t, module.Build(&BuildOptions{}))
@@ -173,6 +184,9 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.True(t, log.WasObservedIgnoreFields("info", "No files changed"))
 }
 
+//
+// This ensures a submodule can be included as a dependency, which is built
+// on change along with the main module.
 func TestModuleDependency(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -199,14 +213,14 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 		},
 	}, rootPath))
 	log := logger.NewMockLogger(logger.NewFakeLogger())
-	module, err := NewProcess(log).GetModule(rootPath)
+	module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
 	require.NoError(t, err)
 	require.Equal(t, BuildStatusPending, module.Status())
 	require.NoError(t, module.Build(&BuildOptions{}))
 	require.Equal(t, BuildStatusSucceeded, module.Status())
 	require.False(t, log.WasObservedIgnoreFields("info", "No files changed"))
 	// Ensure the dep was cached
-	module, err = NewProcess(log).GetModule(filepath.Join(rootPath, "dep"))
+	module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "dep", "kindest.yaml"))
 	require.NoError(t, err)
 	require.Equal(t, BuildStatusPending, module.Status())
 	require.NoError(t, module.Build(&BuildOptions{}))
@@ -214,6 +228,9 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 	require.True(t, log.WasObservedIgnoreFields("info", "No files changed"))
 }
 
+//
+// This ensures the buildArgs: section of kindest.yaml is properly applied
+// when images are built.
 func TestModuleBuildArgs(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -243,15 +260,20 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		"Dockerfile":   dockerfile,
 		"script":       script,
 	}, rootPath))
-	p := NewProcess(logger.NewFakeLogger())
-	module, err := p.GetModule(rootPath)
+	p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+	module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 	require.NoError(t, err)
 	require.Equal(t, BuildStatusPending, module.Status())
 	require.NoError(t, module.Build(&BuildOptions{}))
 	require.Equal(t, BuildStatusSucceeded, module.Status())
 }
 
+//
+// These test ensure the various fields of the BuildOptions struct
+// are correctly applied.
 func TestModuleBuildOptions(t *testing.T) {
+	//
+	// Test the functionality of --no-cache
 	t.Run("no cache", func(t *testing.T) {
 		name := "test-" + uuid.New().String()[:8]
 		rootPath := filepath.Join("tmp", name)
@@ -268,19 +290,23 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			"Dockerfile":   dockerfile,
 		}, rootPath))
 		log := logger.NewMockLogger(logger.NewFakeLogger())
-		module, err := NewProcess(log).GetModule(rootPath)
+		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
 		require.Equal(t, BuildStatusPending, module.Status())
 		require.NoError(t, module.Build(&BuildOptions{}))
 		require.Equal(t, BuildStatusSucceeded, module.Status())
 		require.False(t, log.WasObservedIgnoreFields("info", "No files changed"))
-		module, err = NewProcess(log).GetModule(rootPath)
+		module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
 		require.Equal(t, BuildStatusPending, module.Status())
 		require.NoError(t, module.Build(&BuildOptions{NoCache: true}))
 		require.Equal(t, BuildStatusSucceeded, module.Status())
 		require.False(t, log.WasObservedIgnoreFields("info", "No files changed"))
 	})
+
+	//
+	// Ensure custom tags (--tag or otherwise) are used when specified.
+	// Note: the default tag is "latest"
 	t.Run("tag", func(t *testing.T) {
 		name := "test-" + uuid.New().String()[:8]
 		rootPath := filepath.Join("tmp", name)
@@ -297,12 +323,44 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			"Dockerfile":   dockerfile,
 		}, rootPath))
 		log := logger.NewMockLogger(logger.NewFakeLogger())
-		module, err := NewProcess(log).GetModule(rootPath)
+		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
 		require.Equal(t, BuildStatusPending, module.Status())
 		tag := "foobar"
 		require.NoError(t, module.Build(&BuildOptions{Tag: tag}))
 		require.Equal(t, BuildStatusSucceeded, module.Status())
 		require.True(t, log.WasObserved("info", "Successfully built image", zap.String("tag", fmt.Sprintf("%s:%s", name, tag))))
+	})
+
+	//
+	// Test the functionality of --no-cache
+	t.Run("repository", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0644))
+		defer func() {
+			require.NoError(t, os.RemoveAll(rootPath))
+		}()
+		specYaml := fmt.Sprintf(`build:
+  name: %s`, name)
+		dockerfile := `FROM alpine:3.11.6
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+		require.NoError(t, createFiles(map[string]interface{}{
+			"kindest.yaml": specYaml,
+			"Dockerfile":   dockerfile,
+		}, rootPath))
+		log := logger.NewMockLogger(logger.NewFakeLogger())
+		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+		require.NoError(t, err)
+		require.Equal(t, BuildStatusPending, module.Status())
+		require.NoError(t, module.Build(&BuildOptions{}))
+		require.Equal(t, BuildStatusSucceeded, module.Status())
+		require.False(t, log.WasObservedIgnoreFields("info", "No files changed"))
+		module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+		require.NoError(t, err)
+		require.Equal(t, BuildStatusPending, module.Status())
+		require.NoError(t, module.Build(&BuildOptions{NoCache: true}))
+		require.Equal(t, BuildStatusSucceeded, module.Status())
+		require.False(t, log.WasObservedIgnoreFields("info", "No files changed"))
 	})
 }

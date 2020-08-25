@@ -453,6 +453,8 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	if err := m.buildDependencies(options); err != nil {
 		return err
 	}
+	// Create a docker "include" that lists files included by the build context.
+	// This is necessary for calculating the digest
 	buildContext, resolvedDockerfile, include, err := m.loadBuildContext()
 	if err != nil {
 		return err
@@ -469,8 +471,10 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 		m.log.Info("No files changed", zap.String("digest", cachedDigest))
 		return nil
 	}
-	if err := runCommands(m.Spec.Build.Before); err != nil {
-		return fmt.Errorf("pre-build hook failure: %v", err)
+	if !options.SkipHooks {
+		if err := runCommands(m.Spec.Build.Before); err != nil {
+			return fmt.Errorf("pre-build hook failure: %v", err)
+		}
 	}
 	tar, err := buildContext.Archive()
 	if err != nil {
@@ -484,8 +488,10 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	); err != nil {
 		return err
 	}
-	if err := runCommands(m.Spec.Build.After); err != nil {
-		return fmt.Errorf("post-build hook failure: %v", err)
+	if !options.SkipHooks {
+		if err := runCommands(m.Spec.Build.After); err != nil {
+			return fmt.Errorf("post-build hook failure: %v", err)
+		}
 	}
 	if err := m.cacheDigest(digest); err != nil {
 		return err

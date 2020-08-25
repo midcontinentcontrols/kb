@@ -4,11 +4,8 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
-	"context"
 	"crypto/md5"
-	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"hash"
 	"io"
@@ -16,25 +13,17 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"runtime"
 	"strings"
 
-	"github.com/Jeffail/tunny"
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/types"
 	"github.com/docker/distribution/reference"
-	dockertypes "github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/docker/docker/pkg/term"
 	"github.com/google/uuid"
-	"github.com/hashicorp/go-multierror"
 	"github.com/jhoonb/archivex"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/monochromegane/go-gitignore"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
-	"sigs.k8s.io/kind/pkg/cluster"
 )
 
 type BuildArg struct {
@@ -354,6 +343,7 @@ func (b *BuildSpec) tarBuildContext(manifestPath string, options *BuildOptions) 
 	return tarPath, nil
 }
 
+/*
 func (b *BuildSpec) buildDocker(
 	manifestPath string,
 	options *BuildOptions,
@@ -483,6 +473,7 @@ func (b *BuildSpec) buildDocker(
 	}
 	return nil
 }
+*/
 
 var errDigestNotCached = fmt.Errorf("digest not cached")
 
@@ -528,6 +519,7 @@ func (b *BuildSpec) cacheDigest(manifestPath string, value string) error {
 	return nil
 }
 
+/*
 func (b *BuildSpec) Build(
 	manifestPath string,
 	options *BuildOptions,
@@ -591,22 +583,22 @@ func (b *BuildSpec) Build(
 	log.Debug("Updated cache", zap.String("digest", digest))
 	return nil
 }
+*/
 
 type BuildOptions struct {
-	File        string `json:"file,omitempty" yaml:"file,omitempty"`
-	NoCache     bool   `json:"nocache,omitempty" yaml:"nocache,omitempty"`
-	Squash      bool   `json:"squash,omitempty" yaml:"squash,omitempty"`
-	Tag         string `json:"tag,omitempty" yaml:"tag,omitempty"`
-	Concurrency int    `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
-	Context     string `json:"context,omitempty" yaml:"context,omitempty"`
-	Repository  string `json:"repository,omitempty" yaml:"repository,omitempty"`
-	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
-	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
-	Kind        string `json:"kind,omitempty" yaml:"kind,omitempty"`
-	Force       bool   `json:"force,omitempty"`     // If true, will always run docker build regardless of kindest digest
-	SkipHooks   bool   `json:"skipHooks,omitempty"` // If true, skip before/after build hooks
+	NoCache    bool   `json:"nocache,omitempty" yaml:"nocache,omitempty"`
+	Squash     bool   `json:"squash,omitempty" yaml:"squash,omitempty"`
+	Tag        string `json:"tag,omitempty" yaml:"tag,omitempty"`
+	Builder    string `json:"builder,omitempty" yaml:"builder,omitempty"`
+	NoPush     bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
+	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
+	//Context string `json:"context,omitempty" yaml:"context,omitempty"`
+	//Kind    string `json:"kind,omitempty" yaml:"kind,omitempty"`
+	//Force   bool   `json:"force,omitempty"` // If true, will always run docker build regardless of kindest digest
+	SkipHooks bool `json:"skipHooks,omitempty"` // If true, skip before/after build hooks
 }
 
+/*
 func buildDependencies(
 	spec *KindestSpec,
 	manifestPath string,
@@ -635,7 +627,7 @@ func buildDependencies(
 		}
 	}
 	return multi
-}
+}*/
 
 func locateSpec(file string) (string, error) {
 	if file != "" {
@@ -680,12 +672,13 @@ func loadSpec(file string, log logger.Logger) (*KindestSpec, string, error) {
 	if err := yaml.Unmarshal(docBytes, spec); err != nil {
 		return nil, "", err
 	}
-	if err := spec.Validate(manifestPath, log); err != nil {
+	if err := spec.Verify(manifestPath, log); err != nil {
 		return nil, "", err
 	}
 	return spec, manifestPath, nil
 }
 
+/*
 func Build(options *BuildOptions, log logger.Logger) error {
 	var pool *tunny.Pool
 	concurrency := options.Concurrency
@@ -699,6 +692,7 @@ func Build(options *BuildOptions, log logger.Logger) error {
 	defer pool.Close()
 	return BuildEx(options, pool, nil, nil, log)
 }
+*/
 
 func getAuthConfig(domain string, configs map[string]types.AuthConfig) (*types.AuthConfig, error) {
 	for name, config := range configs {
@@ -731,6 +725,7 @@ func RegistryAuthFromEnv(imageName string) (*types.AuthConfig, error) {
 	return getAuthConfig(domain, cf.GetAuthConfigs())
 }
 
+/*
 func BuildEx(
 	options *BuildOptions,
 	pool *tunny.Pool,
@@ -762,33 +757,6 @@ func BuildEx(
 		}
 		if images != nil {
 			images <- sanitizeImageName(options.Repository, spec.Build.Name, options.Tag)
-		}
-	}
-	return nil
-}
-
-/*
-func detectErrorMessage(in io.Reader) error {
-	dec := json.NewDecoder(in)
-	for {
-		var jm jsonmessage.JSONMessage
-		if err := dec.Decode(&jm); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		log.Info("Push", zap.String("message", fmt.Sprintf("%+v", jm)))
-		// skip progress message
-		//if jm.Progress == nil {
-		//glog.Infof("%v", jm)
-		//}
-		if jm.Error != nil {
-			return jm.Error
-		}
-
-		if len(jm.ErrorMessage) > 0 {
-			return errors.New(jm.ErrorMessage)
 		}
 	}
 	return nil

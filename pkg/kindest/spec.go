@@ -97,7 +97,7 @@ type KindestSpec struct {
 	Test         []*TestSpec `json:"test,omitempty" yaml:"test,omitempty"`
 }
 
-func (s *KindestSpec) Validate(manifestPath string, log logger.Logger) error {
+func (s *KindestSpec) Verify(manifestPath string, log logger.Logger) error {
 	if s.Build != nil {
 		if err := s.Build.Verify(manifestPath, log); err != nil {
 			return err

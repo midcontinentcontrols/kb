@@ -4,33 +4,47 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/Jeffail/tunny"
 	"github.com/midcontinentcontrols/kindest/pkg/kindest"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
 
-var buildOptions kindest.BuildOptions
+type BuildArgs struct {
+	File        string `json:"file,omitempty" yaml:"file,omitempty"`
+	Concurrency int    `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
+	NoCache     bool   `json:"nocache,omitempty" yaml:"nocache,omitempty"`
+	Squash      bool   `json:"squash,omitempty" yaml:"squash,omitempty"`
+	Tag         string `json:"tag,omitempty" yaml:"tag,omitempty"`
+	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
+	Repository  string `json:"repository,omitempty" yaml:"repository,omitempty"`
+	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
+	SkipHooks   bool   `json:"skipHooks,omitempty" yaml:"skipHooks,omitempty"`
+}
+
+var buildArgs BuildArgs
 
 var buildCmd = &cobra.Command{
 	Use: "build",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		log := logger.NewZapLoggerFromEnv()
-		start := time.Now()
-		var pool *tunny.Pool
-		pool = tunny.NewFunc(buildOptions.Concurrency, func(payload interface{}) interface{} {
-			return kindest.BuildEx(
-				payload.(*kindest.BuildOptions),
-				pool,
-				nil,
-				nil,
-				log,
-			)
-		})
-		defer pool.Close()
-		err, _ := pool.Process(&buildOptions).(error)
+		module, err := kindest.NewProcess(
+			buildArgs.Concurrency,
+			log,
+		).GetModule(buildArgs.File)
 		if err != nil {
+			return err
+		}
+		start := time.Now()
+		if err := module.Build(&kindest.BuildOptions{
+			NoCache:    buildArgs.NoCache,
+			Squash:     buildArgs.Squash,
+			Tag:        buildArgs.Tag,
+			Builder:    buildArgs.Builder,
+			Repository: buildArgs.Repository,
+			NoPush:     buildArgs.NoPush,
+			SkipHooks:  buildArgs.SkipHooks,
+		}); err != nil {
 			return err
 		}
 		log.Info("Build successful", zap.String("elapsed", time.Now().Sub(start).String()))
@@ -40,14 +54,15 @@ var buildCmd = &cobra.Command{
 
 func init() {
 	ConfigureCommand(buildCmd)
-	buildCmd.PersistentFlags().StringVarP(&buildOptions.File, "file", "f", "./kindest.yaml", "Path to kindest.yaml file")
-	buildCmd.PersistentFlags().BoolVar(&buildOptions.NoCache, "no-cache", false, "build images from scratch")
-	buildCmd.PersistentFlags().StringVarP(&buildOptions.Tag, "tag", "t", "latest", "docker image tag")
-	buildCmd.PersistentFlags().BoolVar(&buildOptions.Squash, "squash", false, "squashes newly built layers into a single new layer (docker experimental feature)")
-	buildCmd.PersistentFlags().IntVarP(&buildOptions.Concurrency, "concurrency", "c", runtime.NumCPU(), "number of parallel build jobs (defaults to num cpus)")
-	buildCmd.PersistentFlags().StringVar(&buildOptions.Context, "context", "", "kubecontext (on-cluster build)")
-	buildCmd.PersistentFlags().StringVar(&buildOptions.Builder, "builder", "docker", "builder backend (docker or kaniko)")
-	buildCmd.PersistentFlags().BoolVar(&buildOptions.NoPush, "no-push", false, "do not push built images")
-	buildCmd.PersistentFlags().StringVar(&buildOptions.Kind, "kind", "", "copy image to kind cluster instead of pushing")
-	buildCmd.PersistentFlags().StringVar(&buildOptions.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
+	buildCmd.PersistentFlags().StringVarP(&buildArgs.File, "file", "f", "./kindest.yaml", "Path to kindest.yaml file")
+	buildCmd.PersistentFlags().IntVarP(&buildArgs.Concurrency, "concurrency", "c", runtime.NumCPU(), "number of parallel build jobs (defaults to num cpus)")
+	buildCmd.PersistentFlags().BoolVar(&buildArgs.NoCache, "no-cache", false, "build images from scratch")
+	buildCmd.PersistentFlags().StringVarP(&buildArgs.Tag, "tag", "t", "latest", "docker image tag")
+	buildCmd.PersistentFlags().BoolVar(&buildArgs.Squash, "squash", false, "squashes newly built layers into a single new layer (docker experimental feature)")
+	buildCmd.PersistentFlags().StringVar(&buildArgs.Builder, "builder", "docker", "builder backend (docker or kaniko)")
+	buildCmd.PersistentFlags().BoolVar(&buildArgs.NoPush, "no-push", false, "do not push built images")
+	buildCmd.PersistentFlags().StringVar(&buildArgs.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
+	buildCmd.PersistentFlags().BoolVar(&buildArgs.SkipHooks, "skip-hooks", false, "skip before: and after: hooks")
+	//buildCmd.PersistentFlags().StringVar(&buildArgs.Context, "context", "", "kubecontext (on-cluster build)")
+	//buildCmd.PersistentFlags().StringVar(&buildArgs.Kind, "kind", "", "copy image to kind cluster instead of pushing")
 }

@@ -1,8 +1,6 @@
 package kindest
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -243,6 +241,7 @@ func sanitizeImageName(host, image, tag string) string {
 	return fmt.Sprintf("%s/%s:%s", host, image, tag)
 }
 
+/*
 func (b *BuildSpec) buildKaniko(
 	manifestPath string,
 	options *BuildOptions,
@@ -365,6 +364,7 @@ func (b *BuildSpec) buildKaniko(
 	}
 	return nil
 }
+*/
 
 func execCommand(log logger.Logger, command string, args ...interface{}) error {
 	var interpolated string
