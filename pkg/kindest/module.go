@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"go.uber.org/zap"
@@ -500,6 +501,47 @@ func buildDocker(
 	return nil
 }
 
+func copyDockerCredential(
+	client *kubernetes.Clientset,
+	config *restclient.Config,
+	pod *corev1.Pod,
+) error {
+	var dockerconfigjson string
+	home := homeDir()
+	if home == "" {
+		home = "/root"
+	}
+	body, err := ioutil.ReadFile(filepath.Join(home, ".docker", "config.json"))
+	if os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	dockerconfigjson = string(body)
+	if err := execInPod(
+		client,
+		config,
+		pod,
+		&corev1.PodExecOptions{
+			Command: []string{
+				"sh",
+				"-c",
+				fmt.Sprintf("echo '%s' > /kaniko/.docker/config.json", dockerconfigjson),
+			},
+			Stdin:  false,
+			Stdout: true,
+			Stderr: true,
+			TTY:    false,
+		},
+		nil,
+		os.Stdout,
+		os.Stderr,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
 func buildKaniko(
 	m *Module,
 	dest string,
@@ -590,6 +632,11 @@ func buildKaniko(
 	if err := zw.Close(); err != nil {
 		return err
 	}
+
+	if err := copyDockerCredential(clientset, config, pod); err != nil {
+		return err
+	}
+	log.Info("Copied docker credentials to pod")
 
 	// Exec build process in pod
 	stdoutBuf := bytes.NewBuffer(nil)
