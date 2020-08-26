@@ -567,6 +567,11 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	if m.Spec.Build == nil {
 		return nil
 	}
+	if !options.SkipHooks {
+		if err := runCommands(m.Spec.Build.Before); err != nil {
+			return fmt.Errorf("pre-build hook failure: %v", err)
+		}
+	}
 	// Create a docker "include" that lists files included by the build context.
 	// This is necessary for calculating the digest
 	buildContext, resolvedDockerfile, include, err := m.loadBuildContext()
