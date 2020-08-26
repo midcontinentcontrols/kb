@@ -340,7 +340,7 @@ func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatch
 	); err != nil {
 		return nil, "", nil, err
 	}
-	printBuildContext(c, 0)
+	//printBuildContext(c, 0)
 	return BuildContext(c), relativeDockerfile, include, nil
 }
 
@@ -494,7 +494,7 @@ func buildDocker(
 			return err
 		}
 	}
-	log.Info("Successfully built image")
+	log.Info("Successfully built image", zap.Bool("noPush", options.NoPush))
 	return nil
 }
 
@@ -564,6 +564,9 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	if err := m.buildDependencies(options); err != nil {
 		return err
 	}
+	if m.Spec.Build == nil {
+		return nil
+	}
 	// Create a docker "include" that lists files included by the build context.
 	// This is necessary for calculating the digest
 	buildContext, resolvedDockerfile, include, err := m.loadBuildContext()
@@ -581,11 +584,6 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	if digest == cachedDigest && !options.NoCache {
 		m.log.Info("No files changed", zap.String("digest", cachedDigest))
 		return nil
-	}
-	if !options.SkipHooks {
-		if err := runCommands(m.Spec.Build.Before); err != nil {
-			return fmt.Errorf("pre-build hook failure: %v", err)
-		}
 	}
 	tar, err := buildContext.Archive()
 	if err != nil {
