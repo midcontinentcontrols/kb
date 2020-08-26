@@ -500,7 +500,6 @@ func buildDocker(
 			return err
 		}
 	}
-	log.Info("Successfully built image", zap.Bool("noPush", options.NoPush))
 	return nil
 }
 
@@ -677,6 +676,7 @@ func doBuild(
 	default:
 		return fmt.Errorf("unknown builder '%s'", options.Builder)
 	}
+	log.Info("Successfully built image", zap.Bool("noPush", options.NoPush))
 	return nil
 }
 
