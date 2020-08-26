@@ -368,7 +368,7 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 		require.Equal(t, BuildStatusPending, module.Status())
 		err = module.Build(&BuildOptions{NoPush: true})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "/dep: docker: The command '/bin/sh -c cat /nonexistent' returned a non-zero code: 1")
+		require.Contains(t, err.Error(), "The command '/bin/sh -c cat /nonexistent' returned a non-zero code: 1")
 		require.Equal(t, BuildStatusFailed, module.Status())
 	})
 }

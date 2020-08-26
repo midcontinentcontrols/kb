@@ -124,15 +124,8 @@ func (m *Module) buildDependencies(options *BuildOptions) error {
 		done := make(chan error, 1)
 		dones[i] = done
 		go func(dependency *Module, done chan<- error) {
-			defer close(done)
-			err, _ := m.pool.Process(&buildJob{
-				m:       dependency,
-				options: options,
-			}).(error)
-			if err != nil {
-				err = fmt.Errorf("%s: %v", dependency.Dir, err)
-			}
-			done <- err
+			done <- dependency.Build(options)
+			close(done)
 		}(dependency, done)
 	}
 	return collectErrors(dones)
@@ -680,33 +673,7 @@ func doBuild(
 	return nil
 }
 
-func (m *Module) Build(options *BuildOptions) (err error) {
-	if !m.claim() {
-		switch m.Status() {
-		case BuildStatusInProgress:
-			return m.WaitForCompletion()
-		case BuildStatusFailed:
-			box := (*string)(atomic.LoadPointer(&m.err))
-			if box == nil {
-				panic("unreachable")
-			}
-			return fmt.Errorf(*box)
-		case BuildStatusSucceeded:
-			return nil
-		default:
-			panic("unreachable")
-		}
-	}
-	defer func() {
-		// Inform all subscribers of return value
-		m.broadcast(err)
-	}()
-	if err := m.buildDependencies(options); err != nil {
-		return err
-	}
-	if m.Spec.Build == nil {
-		return nil
-	}
+func (m *Module) doBuild(options *BuildOptions) error {
 	if !options.SkipHooks {
 		if err := runCommands(m.Spec.Build.Before); err != nil {
 			return fmt.Errorf("pre-build hook failure: %v", err)
@@ -749,6 +716,43 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 		if err := runCommands(m.Spec.Build.After); err != nil {
 			return fmt.Errorf("post-build hook failure: %v", err)
 		}
+	}
+	return nil
+}
+
+func (m *Module) Build(options *BuildOptions) (err error) {
+	if !m.claim() {
+		switch m.Status() {
+		case BuildStatusInProgress:
+			return m.WaitForCompletion()
+		case BuildStatusFailed:
+			box := (*string)(atomic.LoadPointer(&m.err))
+			if box == nil {
+				panic("unreachable")
+			}
+			return fmt.Errorf(*box)
+		case BuildStatusSucceeded:
+			return nil
+		default:
+			panic("unreachable")
+		}
+	}
+	defer func() {
+		// Inform all subscribers of return value
+		m.broadcast(err)
+	}()
+	if err := m.buildDependencies(options); err != nil {
+		return err
+	}
+	if m.Spec.Build == nil {
+		return nil
+	}
+	err, _ = m.pool.Process(&buildJob{
+		m:       m,
+		options: options,
+	}).(error)
+	if err != nil {
+		return err
 	}
 	return nil
 }

@@ -24,7 +24,7 @@ type Process struct {
 func NewProcess(concurrency int, log logger.Logger) *Process {
 	pool := tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
 		if build, ok := payload.(*buildJob); ok {
-			return build.m.Build(build.options)
+			return build.m.doBuild(build.options)
 		}
 		panic("unreachable branch detected")
 	})
