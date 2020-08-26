@@ -56,7 +56,7 @@ RUN cat foo`
 		require.NoError(t, err)
 		err = module.Build(&BuildOptions{NoPush: true})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "docker: The command '/bin/sh -c cat foo' returned a non-zero code: 1")
+		require.Contains(t, err.Error(), "The command '/bin/sh -c cat foo' returned a non-zero code: 1")
 		require.Equal(t, BuildStatusFailed, module.Status())
 	})
 }

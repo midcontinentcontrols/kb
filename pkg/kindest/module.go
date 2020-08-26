@@ -596,8 +596,9 @@ func buildKaniko(
 	}
 
 	// Exec build process in pod
-	logBuf := bytes.NewBuffer(nil)
-	if err := execInPod(
+	stdoutBuf := bytes.NewBuffer(nil)
+	stderrBuf := bytes.NewBuffer(nil)
+	err = execInPod(
 		clientset,
 		config,
 		pod,
@@ -609,19 +610,28 @@ func buildKaniko(
 			TTY:     false,
 		},
 		bytes.NewReader(buf.Bytes()),
-		logBuf,
-		os.Stdout,
-	); err != nil {
-		return fmt.Errorf("exec: %v", err)
-	}
-	errMsg, _ := ioutil.ReadAll(logBuf)
+		stdoutBuf,
+		stderrBuf,
+	)
+	errMsg, _ := ioutil.ReadAll(stdoutBuf)
 	if len(errMsg) > 0 {
 		os.Stderr.Write(errMsg)
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), "command terminated with exit code 1") {
 			// Retrieve the error message
-			return fmt.Errorf("build container failed: %s", string(errMsg))
+			stderr, _ := ioutil.ReadAll(stderrBuf)
+			if len(stderr) > 0 {
+				parts := strings.Split(string(stderr), "\n")
+				for i := len(parts) - 1; i >= 0; i-- {
+					line := strings.TrimSpace(parts[i])
+					if line != "" {
+						// This is messy but it's the best way to propogate error messages back up.
+						// TODO: test me under wider range of failure circumstances
+						return fmt.Errorf(line)
+					}
+				}
+			}
 		}
 		return err
 	}
