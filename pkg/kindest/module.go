@@ -602,13 +602,13 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	); err != nil {
 		return err
 	}
+	if err := m.cacheDigest(digest); err != nil {
+		return err
+	}
 	if !options.SkipHooks {
 		if err := runCommands(m.Spec.Build.After); err != nil {
 			return fmt.Errorf("post-build hook failure: %v", err)
 		}
-	}
-	if err := m.cacheDigest(digest); err != nil {
-		return err
 	}
 	return nil
 }
