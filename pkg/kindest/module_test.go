@@ -150,6 +150,36 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		require.Contains(t, err.Error(), "/bar: no such file or directory")
 		require.Equal(t, BuildStatusFailed, module.Status())
 	})
+
+	//
+	// This test ensures parent directories can be used as build contexts.
+	t.Run("parent", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0644))
+		defer func() {
+			require.NoError(t, os.RemoveAll(rootPath))
+		}()
+		specYaml := fmt.Sprintf(`build:
+  name: %s
+  context: ../`, name)
+		dockerfile := `FROM alpine:3.11.6
+COPY foo foo
+RUN cat foo
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+		require.NoError(t, createFiles(map[string]interface{}{
+			"subdir": map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"Dockerfile":   dockerfile,
+			},
+			"foo": "hello, world!",
+		}, rootPath))
+		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+		module, err := p.GetModule(filepath.Join(rootPath, "subdir", "kindest.yaml"))
+		require.NoError(t, err)
+		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+		require.Equal(t, BuildStatusSucceeded, module.Status())
+	})
 }
 
 //

@@ -132,10 +132,57 @@ func (m *Module) buildDependencies(options *BuildOptions) error {
 	return collectErrors(dones)
 }
 
+func addFileToBuildContext(
+	dir string,
+	relativePath string,
+	c map[string]Entity,
+) error {
+	parts := strings.Split(relativePath, string(os.PathSeparator))
+	var e Entity
+	var ok bool
+	filePath := dir
+	for i, part := range parts {
+		filePath = filepath.Join(filePath, part)
+		e, ok = c[part]
+		if ok {
+			if i < len(parts)-1 {
+				d := e.(*Directory)
+				c = d.Contents
+			} else {
+				// Already added!
+				return nil
+			}
+		} else {
+			info, err := os.Stat(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to stat '%s': %v", filePath, err)
+			}
+			if i < len(parts)-1 {
+				d := &Directory{
+					info:     info,
+					Contents: map[string]Entity{},
+				}
+				c[part] = d
+				c = d.Contents
+			} else {
+				body, err := ioutil.ReadFile(filePath)
+				if err != nil {
+					return fmt.Errorf("failed to read file: %v", err)
+				}
+				c[part] = &File{
+					info:    info,
+					Content: body,
+				}
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("failed to add file")
+}
+
 func addDirToBuildContext(
 	dir string,
 	contextPath string,
-	resolvedDockerfile string,
 	dockerignore gitignore.IgnoreMatcher,
 	include gitignore.IgnoreMatcher,
 	c map[string]Entity,
@@ -152,8 +199,9 @@ func addDirToBuildContext(
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		includeFile := rel != resolvedDockerfile && (dockerignore.Match(rel, info.IsDir()) || !include.Match(rel, info.IsDir()))
-		if includeFile {
+		isDir := info.IsDir()
+		excludeFile := dockerignore.Match(rel, isDir) || !include.Match(rel, isDir)
+		if excludeFile {
 			continue
 		} else {
 			if info.IsDir() {
@@ -161,7 +209,6 @@ func addDirToBuildContext(
 				if err := addDirToBuildContext(
 					path,
 					contextPath,
-					resolvedDockerfile,
 					dockerignore,
 					include,
 					contents,
@@ -277,9 +324,15 @@ func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatch
 	if err := addDirToBuildContext(
 		contextPath,
 		contextPath,
-		relativeDockerfile,
 		dockerignore,
 		include,
+		c,
+	); err != nil {
+		return nil, "", nil, err
+	}
+	if err := addFileToBuildContext(
+		contextPath,
+		relativeDockerfile,
 		c,
 	); err != nil {
 		return nil, "", nil, err
