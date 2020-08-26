@@ -613,14 +613,17 @@ func buildKaniko(
 		stdoutBuf,
 		stderrBuf,
 	)
-	errMsg, _ := ioutil.ReadAll(stdoutBuf)
-	if len(errMsg) > 0 {
-		os.Stderr.Write(errMsg)
+	stdout, _ := ioutil.ReadAll(stdoutBuf)
+	if len(stdout) > 0 {
+		os.Stderr.Write(stdout)
+	}
+	stderr, _ := ioutil.ReadAll(stderrBuf)
+	if len(stderr) > 0 {
+		os.Stderr.Write(stderr)
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), "command terminated with exit code 1") {
 			// Retrieve the error message
-			stderr, _ := ioutil.ReadAll(stderrBuf)
 			if len(stderr) > 0 {
 				parts := strings.Split(string(stderr), "\n")
 				for i := len(parts) - 1; i >= 0; i-- {
