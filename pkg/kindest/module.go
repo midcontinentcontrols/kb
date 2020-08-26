@@ -200,10 +200,13 @@ func addDirToBuildContext(
 		}
 		rel = filepath.ToSlash(rel)
 		isDir := info.IsDir()
-		excludeFile := dockerignore.Match(rel, isDir) || !include.Match(rel, isDir)
+		excludeFile := dockerignore.Match(rel, isDir) // || !include.Match(rel, isDir)
 		if excludeFile {
 			continue
 		} else {
+			//if name == ".git" {
+			//	panic(".git included in build context")
+			//}
 			if info.IsDir() {
 				contents := make(map[string]Entity)
 				if err := addDirToBuildContext(
@@ -337,7 +340,27 @@ func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatch
 	); err != nil {
 		return nil, "", nil, err
 	}
+	printBuildContext(c, 0)
 	return BuildContext(c), relativeDockerfile, include, nil
+}
+
+func printBuildContext(c map[string]Entity, indent int) {
+	print := func(msg string, args ...interface{}) {
+		for i := 0; i < indent; i++ {
+			fmt.Fprintf(os.Stdout, "\t")
+		}
+		fmt.Fprintf(os.Stdout, msg, args...)
+	}
+	for k, v := range c {
+		if d, ok := v.(*Directory); ok {
+			print("%s\n", k)
+			printBuildContext(d.Contents, indent+1)
+		} else if f, ok := v.(*File); ok {
+			print("%s: %d bytes\n", k, len(f.Content))
+		} else {
+			panic("unreachable branch detected")
+		}
+	}
 }
 
 func (m *Module) Status() BuildStatus {

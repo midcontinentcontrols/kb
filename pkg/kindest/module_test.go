@@ -131,14 +131,13 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		specYaml := fmt.Sprintf(`build:
   name: %s`, name)
 		dockerfile := `FROM alpine:3.11.6
-COPY foo foo
-COPY bar bar
+COPY . .
+RUN cat .git/foo
 CMD ["sh", "-c", "echo \"Hello, world\""]`
 		require.NoError(t, createFiles(map[string]interface{}{
 			"kindest.yaml":  specYaml,
-			".dockerignore": "bar",
-			"foo":           "hello, world!",
-			"bar":           "this should be excluded!",
+			".dockerignore": ".git/",
+			".git":          map[string]interface{}{"foo": "bar"},
 			"Dockerfile":    dockerfile,
 		}, rootPath))
 		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
@@ -146,8 +145,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		require.NoError(t, err)
 		err = module.Build(&BuildOptions{NoPush: true})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "docker: COPY failed: stat ")
-		require.Contains(t, err.Error(), "/bar: no such file or directory")
+		require.Contains(t, err.Error(), "docker: The command '/bin/sh -c cat .git/foo' returned a non-zero code: 1")
 		require.Equal(t, BuildStatusFailed, module.Status())
 	})
 
@@ -180,6 +178,78 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
 		require.Equal(t, BuildStatusSucceeded, module.Status())
 	})
+
+	//
+	// This test ensures the contents of deeply nested directories are copied over.
+	t.Run("deep", func(t *testing.T) {
+		name := "test-" + uuid.New().String()[:8]
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0644))
+		defer func() {
+			require.NoError(t, os.RemoveAll(rootPath))
+		}()
+		specYaml := fmt.Sprintf(`build:
+  name: %s
+  context: ../`, name)
+		dockerfile := `FROM alpine:3.11.6
+COPY subdir subdir
+RUN cat subdir/deep/foo
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+		require.NoError(t, createFiles(map[string]interface{}{
+			"subdir": map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"Dockerfile":   dockerfile,
+				"deep": map[string]interface{}{
+					"foo": "hello, world!",
+				},
+			},
+		}, rootPath))
+		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+		module, err := p.GetModule(filepath.Join(rootPath, "subdir", "kindest.yaml"))
+		require.NoError(t, err)
+		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+		require.Equal(t, BuildStatusSucceeded, module.Status())
+	})
+	/*
+	   	//
+	   	// This test ensures files are properly excuded via dockerignore
+	   	t.Run("dockerignore", func(t *testing.T) {
+	   		name := "test-" + uuid.New().String()[:8]
+	   		rootPath := filepath.Join("tmp", name)
+	   		require.NoError(t, os.MkdirAll(rootPath, 0644))
+	   		defer func() {
+	   			require.NoError(t, os.RemoveAll(rootPath))
+	   		}()
+	   		specYaml := fmt.Sprintf(`build:
+	     name: %s
+	     context: ../`, name)
+	   		dockerfile := `FROM alpine:3.11.6
+	   COPY . .
+	   RUN cat subdir/deep/foo
+	   RUN apk add --no-cache bash
+	   RUN bash -c if [[ -n "$(ls | grep .git)" ]]; then exit 100; fi
+	   CMD ["sh", "-c", "echo \"Hello, world\""]`
+	   		dockerignore := `.git/`
+	   		require.NoError(t, createFiles(map[string]interface{}{
+	   			".dockerignore": dockerignore,
+	   			".git": map[string]interface{}{
+	   				"foo": "bar",
+	   			},
+	   			"subdir": map[string]interface{}{
+	   				"kindest.yaml": specYaml,
+	   				"Dockerfile":   dockerfile,
+	   				"deep": map[string]interface{}{
+	   					"foo": "hello, world!",
+	   				},
+	   			},
+	   		}, rootPath))
+	   		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+	   		module, err := p.GetModule(filepath.Join(rootPath, "subdir", "kindest.yaml"))
+	   		require.NoError(t, err)
+	   		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+	   		require.Equal(t, BuildStatusSucceeded, module.Status())
+	   	})
+	*/
 }
 
 //
