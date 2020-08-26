@@ -426,12 +426,12 @@ func (m *Module) WaitForCompletion() error {
 
 func buildDocker(
 	m *Module,
+	dest string,
 	buildContext []byte,
 	relativeDockerfile string,
 	options *BuildOptions,
+	log logger.Logger,
 ) error {
-	dest := sanitizeImageName(options.Repository, m.Spec.Build.Name, options.Tag)
-	log := m.log.With(zap.String("dest", dest))
 	cli, err := client.NewEnvClient()
 	if err != nil {
 		return err
@@ -506,12 +506,12 @@ func buildDocker(
 
 func buildKaniko(
 	m *Module,
+	dest string,
 	buildContext []byte,
 	relativeDockerfile string,
 	options *BuildOptions,
+	log logger.Logger,
 ) error {
-	dest := sanitizeImageName(options.Repository, m.Spec.Build.Name, options.Tag)
-	log := m.log.With(zap.String("dest", dest))
 	var kubeconfig string
 	if home := homeDir(); home != "" {
 		kubeconfig = filepath.Join(home, ".kube", "config")
@@ -647,24 +647,30 @@ func doBuild(
 	relativeDockerfile string,
 	options *BuildOptions,
 ) error {
+	dest := sanitizeImageName(options.Repository, m.Spec.Build.Name, options.Tag)
+	log := m.log.With(zap.String("dest", dest))
 	switch options.Builder {
 	case "":
 		fallthrough
 	case "docker":
 		if err := buildDocker(
 			m,
+			dest,
 			buildContext,
 			relativeDockerfile,
 			options,
+			log,
 		); err != nil {
 			return fmt.Errorf("docker: %v", err)
 		}
 	case "kaniko":
 		if err := buildKaniko(
 			m,
+			dest,
 			buildContext,
 			relativeDockerfile,
 			options,
+			log,
 		); err != nil {
 			return fmt.Errorf("kaniko: %v", err)
 		}
