@@ -334,7 +334,7 @@ func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatch
 		return nil, "", nil, err
 	}
 	if _, ok := c[".git"]; ok {
-		panic(".git was included")
+		m.log.Warn(".git was included in the build context, which may not be intentional")
 	}
 	if err := addFileToBuildContext(
 		contextPath,
