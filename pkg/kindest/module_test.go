@@ -129,19 +129,22 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			require.NoError(t, os.RemoveAll(rootPath))
 		}()
 		specYaml := fmt.Sprintf(`build:
-  name: %s`, name)
+  name: %s
+  context: ..`, name)
 		dockerfile := `FROM alpine:3.11.6
 COPY . .
 RUN cat .git/foo
 CMD ["sh", "-c", "echo \"Hello, world\""]`
 		require.NoError(t, createFiles(map[string]interface{}{
-			"kindest.yaml":  specYaml,
 			".dockerignore": ".git/",
 			".git":          map[string]interface{}{"foo": "bar"},
-			"Dockerfile":    dockerfile,
+			"dir": map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"Dockerfile":   dockerfile,
+			},
 		}, rootPath))
 		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
-		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+		module, err := p.GetModule(filepath.Join(rootPath, "dir", "kindest.yaml"))
 		require.NoError(t, err)
 		err = module.Build(&BuildOptions{NoPush: true})
 		require.Error(t, err)
@@ -323,6 +326,7 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 		require.Equal(t, BuildStatusSucceeded, module.Status())
 		require.False(t, log.WasObservedIgnoreFields("info", "No files changed"))
 		// Ensure the dep was cached
+		log = logger.NewMockLogger(logger.NewFakeLogger())
 		module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "dep", "kindest.yaml"))
 		require.NoError(t, err)
 		require.Equal(t, BuildStatusPending, module.Status())

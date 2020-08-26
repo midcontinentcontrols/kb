@@ -204,9 +204,6 @@ func addDirToBuildContext(
 		if excludeFile {
 			continue
 		} else {
-			//if name == ".git" {
-			//	panic(".git included in build context")
-			//}
 			if info.IsDir() {
 				contents := make(map[string]Entity)
 				if err := addDirToBuildContext(
@@ -297,7 +294,8 @@ func getRelativeDockerfilePath(contextPath, dockerfilePath string) (string, erro
 }
 
 func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatcher, error) {
-	dockerignorePath := filepath.Join(m.Dir, ".dockerignore")
+	contextPath := filepath.Clean(filepath.Join(m.Dir, m.Spec.Build.Context))
+	dockerignorePath := filepath.Join(contextPath, ".dockerignore")
 	var dockerignore gitignore.IgnoreMatcher
 	if _, err := os.Stat(dockerignorePath); err == nil {
 		r, err := os.Open(dockerignorePath)
@@ -309,7 +307,6 @@ func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatch
 	} else {
 		dockerignore = gitignore.NewGitIgnoreFromReader("", bytes.NewReader([]byte("")))
 	}
-	contextPath := filepath.Clean(filepath.Join(m.Dir, m.Spec.Build.Context))
 	dockerfilePath := m.Spec.Build.Dockerfile
 	if dockerfilePath == "" {
 		dockerfilePath = "Dockerfile"
@@ -332,6 +329,9 @@ func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatch
 		c,
 	); err != nil {
 		return nil, "", nil, err
+	}
+	if _, ok := c[".git"]; ok {
+		panic(".git was included")
 	}
 	if err := addFileToBuildContext(
 		contextPath,
