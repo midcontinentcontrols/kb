@@ -3,6 +3,7 @@ package kindest
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -21,7 +22,12 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/term"
+	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"go.uber.org/zap"
 
@@ -421,7 +427,7 @@ func (m *Module) WaitForCompletion() error {
 func buildDocker(
 	m *Module,
 	buildContext []byte,
-	resolvedDockerfile string,
+	relativeDockerfile string,
 	options *BuildOptions,
 ) error {
 	dest := sanitizeImageName(options.Repository, m.Spec.Build.Name, options.Tag)
@@ -439,7 +445,7 @@ func buildDocker(
 		bytes.NewReader(buildContext),
 		dockertypes.ImageBuildOptions{
 			NoCache:    options.NoCache,
-			Dockerfile: resolvedDockerfile,
+			Dockerfile: relativeDockerfile,
 			BuildArgs:  buildArgs,
 			Squash:     options.Squash,
 			Tags:       []string{dest},
@@ -501,16 +507,131 @@ func buildDocker(
 func buildKaniko(
 	m *Module,
 	buildContext []byte,
-	resolvedDockerfile string,
+	relativeDockerfile string,
 	options *BuildOptions,
 ) error {
-	return fmt.Errorf("kaniko builder unimplemented")
+	dest := sanitizeImageName(options.Repository, m.Spec.Build.Name, options.Tag)
+	log := m.log.With(zap.String("dest", dest))
+	var kubeconfig string
+	if home := homeDir(); home != "" {
+		kubeconfig = filepath.Join(home, ".kube", "config")
+	}
+	log.Info("Building on-cluster", zap.String("kubeconfig", kubeconfig))
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		return err
+	}
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	namespace := "default"
+	// TODO: push secrets
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kaniko-" + uuid.New().String()[:8],
+			Namespace: namespace,
+		},
+		Spec: corev1.PodSpec{
+			RestartPolicy: corev1.RestartPolicyNever,
+			Containers: []corev1.Container{{
+				Name:            "kaniko",
+				Image:           "gcr.io/kaniko-project/executor:debug",
+				ImagePullPolicy: corev1.PullIfNotPresent,
+				Command: []string{
+					"sh",
+					"-c",
+					"tail -f /dev/null",
+				},
+			}},
+		},
+	}
+	pods := clientset.CoreV1().Pods(namespace)
+	if _, err := pods.Create(
+		context.TODO(),
+		pod,
+		metav1.CreateOptions{},
+	); err != nil {
+		return fmt.Errorf("failed to create kaniko pod: %v", err)
+	}
+	defer func() {
+		if err := pods.Delete(
+			context.TODO(),
+			pod.Name,
+			metav1.DeleteOptions{},
+		); err != nil {
+			m.log.Error("failed to delete pod", zap.String("err", err.Error()))
+		}
+	}()
+	if err := waitForPod(pod.Name, pod.Namespace, clientset, log); err != nil {
+		return err
+	}
+	command := []string{
+		"/kaniko/executor",
+		"--dockerfile=" + relativeDockerfile,
+		"--context=tar://stdin",
+	}
+	if options.NoPush {
+		command = append(command, "--no-push")
+	} else {
+		command = append(command, "--destination="+dest)
+	}
+	if m.Spec.Build.Target != "" {
+		command = append(command, "--target="+m.Spec.Build.Target)
+	}
+	for _, buildArg := range m.Spec.Build.BuildArgs {
+		command = append(command, fmt.Sprintf("--build-arg=%s=%s", buildArg.Name, buildArg.Value))
+	}
+
+	// gzip the build context
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	if n, err := zw.Write(buildContext); err != nil {
+		return err
+	} else if n != len(buildContext) {
+		return fmt.Errorf("wrong num bytes")
+	}
+	if err := zw.Close(); err != nil {
+		return err
+	}
+
+	// Exec build process in pod
+	logBuf := bytes.NewBuffer(nil)
+	if err := execInPod(
+		clientset,
+		config,
+		pod,
+		&corev1.PodExecOptions{
+			Command: command,
+			Stdin:   true,
+			Stdout:  true,
+			Stderr:  true,
+			TTY:     false,
+		},
+		bytes.NewReader(buf.Bytes()),
+		logBuf,
+		os.Stdout,
+	); err != nil {
+		return fmt.Errorf("exec: %v", err)
+	}
+	errMsg, _ := ioutil.ReadAll(logBuf)
+	if len(errMsg) > 0 {
+		os.Stderr.Write(errMsg)
+	}
+	if err != nil {
+		if strings.Contains(err.Error(), "command terminated with exit code 1") {
+			// Retrieve the error message
+			return fmt.Errorf("build container failed: %s", string(errMsg))
+		}
+		return err
+	}
+	return nil
 }
 
 func doBuild(
 	m *Module,
 	buildContext []byte,
-	resolvedDockerfile string,
+	relativeDockerfile string,
 	options *BuildOptions,
 ) error {
 	switch options.Builder {
@@ -520,7 +641,7 @@ func doBuild(
 		if err := buildDocker(
 			m,
 			buildContext,
-			resolvedDockerfile,
+			relativeDockerfile,
 			options,
 		); err != nil {
 			return fmt.Errorf("docker: %v", err)
@@ -529,7 +650,7 @@ func doBuild(
 		if err := buildKaniko(
 			m,
 			buildContext,
-			resolvedDockerfile,
+			relativeDockerfile,
 			options,
 		); err != nil {
 			return fmt.Errorf("kaniko: %v", err)
@@ -574,7 +695,7 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	}
 	// Create a docker "include" that lists files included by the build context.
 	// This is necessary for calculating the digest
-	buildContext, resolvedDockerfile, include, err := m.loadBuildContext()
+	buildContext, relativeDockerfile, include, err := m.loadBuildContext()
 	if err != nil {
 		return err
 	}
@@ -597,7 +718,7 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	if err := doBuild(
 		m,
 		tar,
-		resolvedDockerfile,
+		relativeDockerfile,
 		options,
 	); err != nil {
 		return err

@@ -43,7 +43,7 @@ func execInPod(
 	stderr io.Writer,
 ) error {
 	req := client.CoreV1().RESTClient().Post().Resource("pods").Name(pod.Name).
-		Namespace("default").SubResource("exec")
+		Namespace(pod.Namespace).SubResource("exec")
 	req.VersionedParams(
 		options,
 		scheme.ParameterCodec,
