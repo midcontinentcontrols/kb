@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
-	"go.uber.org/zap"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -475,7 +474,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		tag := "foobar"
 		require.NoError(t, module.Build(&BuildOptions{Tag: tag, NoPush: true}))
 		require.Equal(t, BuildStatusSucceeded, module.Status())
-		require.True(t, log.WasObserved("info", "Successfully built image", zap.String("dest", fmt.Sprintf("%s:%s", name, tag))))
+		require.True(t, log.WasObservedIgnoreFields("info", "Successfully built image"))
 	})
 
 	//
