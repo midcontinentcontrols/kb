@@ -124,7 +124,11 @@ func (m *Module) buildDependencies(options *BuildOptions) error {
 		done := make(chan error, 1)
 		dones[i] = done
 		go func(dependency *Module, done chan<- error) {
-			done <- dependency.Build(options)
+			err := dependency.Build(options)
+			if err != nil {
+				err = fmt.Errorf("%s: %v", dependency.Dir, err)
+			}
+			done <- err
 			close(done)
 		}(dependency, done)
 	}

@@ -346,7 +346,7 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 		depYaml := fmt.Sprintf(`build:
   name: %s-dep`, name)
 		specYaml := fmt.Sprintf(`dependencies:
-- dep
+- myDependency
 build:
   name: %s`, name)
 		depDockerfile := `FROM alpine:3.11.6
@@ -357,7 +357,7 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 		require.NoError(t, createFiles(map[string]interface{}{
 			"kindest.yaml": specYaml,
 			"Dockerfile":   dockerfile,
-			"dep": map[string]interface{}{
+			"myDependency": map[string]interface{}{
 				"kindest.yaml": depYaml,
 				"Dockerfile":   depDockerfile,
 			},
@@ -368,6 +368,7 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 		require.Equal(t, BuildStatusPending, module.Status())
 		err = module.Build(&BuildOptions{NoPush: true})
 		require.Error(t, err)
+		require.Contains(t, err.Error(), "myDependency")
 		require.Contains(t, err.Error(), "The command '/bin/sh -c cat /nonexistent' returned a non-zero code: 1")
 		require.Equal(t, BuildStatusFailed, module.Status())
 	})
