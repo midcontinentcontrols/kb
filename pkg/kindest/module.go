@@ -67,7 +67,7 @@ type resolver struct {
 
 type Module struct {
 	Spec         *KindestSpec
-	Dir          string
+	Path         string
 	Dependencies []*Module //
 	status       int32
 	subscribersL sync.Mutex
@@ -77,10 +77,14 @@ type Module struct {
 	pool         *tunny.Pool
 }
 
+func (m *Module) Dir() string {
+	return filepath.Dir(m.Path)
+}
+
 var ErrModuleNotCached = fmt.Errorf("module is not cached")
 
 func (m *Module) CachedDigest() (string, error) {
-	path, err := digestPathForManifest(m.Dir)
+	path, err := digestPathForManifest(m.Dir())
 	if err != nil {
 		return "", err
 	}
@@ -92,7 +96,7 @@ func (m *Module) CachedDigest() (string, error) {
 }
 
 func (m *Module) cacheDigest(digest string) error {
-	path, err := digestPathForManifest(m.Dir)
+	path, err := digestPathForManifest(m.Dir())
 	if err != nil {
 		return err
 	}
@@ -127,7 +131,7 @@ func (m *Module) buildDependencies(options *BuildOptions) error {
 		go func(dependency *Module, done chan<- error) {
 			err := dependency.Build(options)
 			if err != nil {
-				err = fmt.Errorf("%s: %v", dependency.Dir, err)
+				err = fmt.Errorf("%s: %v", dependency.Path, err)
 			}
 			done <- err
 			close(done)
@@ -298,7 +302,7 @@ func getRelativeDockerfilePath(contextPath, dockerfilePath string) (string, erro
 }
 
 func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatcher, error) {
-	contextPath := filepath.Clean(filepath.Join(m.Dir, m.Spec.Build.Context))
+	contextPath := filepath.Clean(filepath.Join(m.Dir(), m.Spec.Build.Context))
 	dockerignorePath := filepath.Join(contextPath, ".dockerignore")
 	var dockerignore gitignore.IgnoreMatcher
 	if _, err := os.Stat(dockerignorePath); err == nil {
@@ -315,7 +319,7 @@ func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatch
 	if dockerfilePath == "" {
 		dockerfilePath = "Dockerfile"
 	}
-	dockerfilePath = filepath.Clean(filepath.Join(m.Dir, dockerfilePath))
+	dockerfilePath = filepath.Clean(filepath.Join(m.Dir(), dockerfilePath))
 	relativeDockerfile, err := getRelativeDockerfilePath(contextPath, dockerfilePath)
 	if err != nil {
 		return nil, "", nil, err
@@ -722,6 +726,43 @@ func doBuild(
 	}
 	log.Info("Successfully built image", zap.Bool("noPush", options.NoPush))
 	return nil
+}
+
+func (m *Module) GetAffectedModules(files []string) ([]*Module, error) {
+	var affected []*Module
+	depends, err := m.DependsOnFiles(files)
+	if err != nil {
+		return nil, err
+	}
+	if depends {
+		affected = append(affected, m)
+	}
+	for _, dep := range m.Dependencies {
+		dependentAffected, err := dep.GetAffectedModules(files)
+		if err != nil {
+			return nil, err
+		}
+		for _, dependent := range dependentAffected {
+			found := false
+			for _, other := range affected {
+				if dependent == other {
+					found = true
+					break
+				}
+			}
+			if !found {
+				affected = append(affected, dependent)
+			}
+		}
+	}
+	return affected, nil
+}
+
+func (m *Module) DependsOnFiles(files []string) (bool, error) {
+	if m.Spec.Build == nil {
+		return false, nil
+	}
+	return m.Spec.Build.DependsOnFiles(files, m.Path)
 }
 
 func (m *Module) doBuild(options *BuildOptions) error {

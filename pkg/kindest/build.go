@@ -43,6 +43,48 @@ type BuildSpec struct {
 	After        []string          `json:"after,omitempty" yaml:"after,omitempty"`
 }
 
+func (b *BuildSpec) DependsOnFiles(files []string, manifestPath string) (bool, error) {
+	dir := filepath.Dir(manifestPath)
+
+	contextPath := dir
+	if b.Context != "" {
+		contextPath = filepath.Clean(filepath.Join(contextPath, b.Context))
+	}
+
+	dockerfilePath := b.Dockerfile
+	if dockerfilePath == "" {
+		dockerfilePath = "Dockerfile"
+	}
+	dockerfilePath = filepath.Clean(filepath.Join(dir, dockerfilePath))
+
+	include, err := createDockerInclude(contextPath, dockerfilePath)
+	if err != nil {
+		return false, err
+	}
+
+	for _, file := range files {
+		rel, err := filepath.Rel(contextPath, file)
+		if err != nil {
+			return false, err
+		}
+		if strings.HasPrefix(rel, "..") {
+			// File is outside of build context
+			continue
+		}
+		// TODO: if a directory is matched, it children might not be matched
+		// TODO: write tests for a matcher that works right
+		if include.Match(rel, false) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func isContainedBy(parent, child string) bool {
+	return false
+}
+
 func (b *BuildSpec) verifyDocker(manifestPath string, log logger.Logger) error {
 	var path string
 	if b.Dockerfile != "" {

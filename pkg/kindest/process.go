@@ -68,7 +68,7 @@ func (p *Process) getModuleNoLock(manifestPath string) (*Module, error) {
 	}
 	m := &Module{
 		Spec:         spec,
-		Dir:          dir,
+		Path:         manifestPath,
 		Dependencies: dependencies,
 		log:          p.log,
 		pool:         p.pool,
