@@ -436,7 +436,7 @@ func buildDocker(
 	options *BuildOptions,
 	log logger.Logger,
 ) error {
-	cli, err := client.NewEnvClient()
+	cli, err := client.NewClientWithOpts()
 	if err != nil {
 		return err
 	}
@@ -476,7 +476,7 @@ func buildDocker(
 		}
 		log.Info(
 			"Pushing image",
-			zap.String("username", string(authConfig.Username)),
+			zap.String("username", authConfig.Username),
 		)
 		authBytes, err := json.Marshal(authConfig)
 		if err != nil {
