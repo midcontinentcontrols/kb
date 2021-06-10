@@ -67,13 +67,14 @@ func (b *BuildSpec) DependsOnFiles(files []string, manifestPath string) (bool, e
 		if err != nil {
 			return false, err
 		}
+		fmt.Printf("Checking %s, rel=%s\n", b.Name, rel)
 		if strings.HasPrefix(rel, "..") {
 			// File is outside of build context
 			continue
 		}
 		// TODO: if a directory is matched, it children might not be matched
 		// TODO: write tests for a matcher that works right
-		if include.Match(rel, false) {
+		if include.MatchesPath(rel) {
 			return true, nil
 		}
 	}

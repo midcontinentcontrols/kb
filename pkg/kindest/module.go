@@ -24,6 +24,7 @@ import (
 	"github.com/docker/docker/pkg/term"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
+	gogitignore "github.com/sabhiram/go-gitignore"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -33,7 +34,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
-	"github.com/monochromegane/go-gitignore"
 )
 
 type BuildStatus int32
@@ -191,8 +191,8 @@ func addFileToBuildContext(
 func addDirToBuildContext(
 	dir string,
 	contextPath string,
-	dockerignore gitignore.IgnoreMatcher,
-	include gitignore.IgnoreMatcher,
+	dockerignore *gogitignore.GitIgnore,
+	include *gogitignore.GitIgnore,
 	c map[string]Entity,
 ) error {
 	infos, err := ioutil.ReadDir(dir)
@@ -207,8 +207,8 @@ func addDirToBuildContext(
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		isDir := info.IsDir()
-		excludeFile := dockerignore.Match(rel, isDir) // || !include.Match(rel, isDir)
+		//isDir := info.IsDir()
+		excludeFile := dockerignore.MatchesPath(rel) // || !include.Match(rel, isDir)
 		if excludeFile {
 			continue
 		} else {
@@ -242,7 +242,7 @@ func addDirToBuildContext(
 	return nil
 }
 
-func createDockerInclude(contextPath string, dockerfilePath string) (gitignore.IgnoreMatcher, error) {
+func createDockerInclude(contextPath string, dockerfilePath string) (*gogitignore.GitIgnore, error) {
 	f, err := os.Open(dockerfilePath)
 	if err != nil {
 		return nil, err
@@ -259,6 +259,7 @@ func createDockerInclude(contextPath string, dockerfilePath string) (gitignore.I
 			fields := strings.Fields(line)
 			if rel := fields[1]; !strings.HasPrefix(rel, "--from") {
 				abs := filepath.Clean(filepath.Join(contextPath, rel))
+				//fmt.Printf("%s, rel=%s, abs=%s\n", line, rel, abs)
 				info, err := os.Stat(abs)
 				if err != nil {
 					return nil, fmt.Errorf("failed to stat %v", abs)
@@ -281,15 +282,18 @@ func createDockerInclude(contextPath string, dockerfilePath string) (gitignore.I
 					}
 					if !found {
 						addedPaths = append(addedPaths, full)
+						//fmt.Printf("%s added %s\n", dockerfilePath, full)
 					}
 				}
 			}
 		}
 	}
-	return gitignore.NewGitIgnoreFromReader(
-		"",
-		bytes.NewBuffer([]byte(strings.Join(addedPaths, "\n"))),
-	), nil
+	fmt.Printf("%s has %v\n", dockerfilePath, addedPaths)
+	return gogitignore.CompileIgnoreLines(addedPaths...), nil
+	//return gitignore.NewGitIgnoreFromReader(
+	//	"",
+	//	bytes.NewBuffer([]byte(strings.Join(addedPaths, "\n"))),
+	//), nil
 }
 
 func getRelativeDockerfilePath(contextPath, dockerfilePath string) (string, error) {
@@ -301,19 +305,17 @@ func getRelativeDockerfilePath(contextPath, dockerfilePath string) (string, erro
 	return relativeDockerfile, nil
 }
 
-func (m *Module) loadBuildContext() (BuildContext, string, gitignore.IgnoreMatcher, error) {
+func (m *Module) loadBuildContext() (BuildContext, string, *gogitignore.GitIgnore, error) {
 	contextPath := filepath.Clean(filepath.Join(m.Dir(), m.Spec.Build.Context))
 	dockerignorePath := filepath.Join(contextPath, ".dockerignore")
-	var dockerignore gitignore.IgnoreMatcher
+	var dockerignore *gogitignore.GitIgnore
 	if _, err := os.Stat(dockerignorePath); err == nil {
-		r, err := os.Open(dockerignorePath)
+		dockerignore, err = gogitignore.CompileIgnoreFile(dockerignorePath)
 		if err != nil {
-			return nil, "", nil, err
+			return nil, "", nil, fmt.Errorf("gogitignore: %v", err)
 		}
-		defer r.Close()
-		dockerignore = gitignore.NewGitIgnoreFromReader("", r)
 	} else {
-		dockerignore = gitignore.NewGitIgnoreFromReader("", bytes.NewReader([]byte("")))
+		dockerignore = gogitignore.CompileIgnoreLines()
 	}
 	dockerfilePath := m.Spec.Build.Dockerfile
 	if dockerfilePath == "" {

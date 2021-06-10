@@ -15,7 +15,9 @@ import (
 
 //
 // This test detects which modules need to be rebuilt based on a list
-// of files that have changed.
+// of files that have changed. All submodules have use the root module's
+// directory as their build context, allowing modules to depend on each
+// other.
 func TestModuleChanged(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -72,5 +74,7 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 	changed, err := module.GetAffectedModules([]string{abs})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(changed))
-	require.Equal(t, filepath.Join(rootPath, "sub"), changed[0])
+	abs, err = filepath.Abs(filepath.Join(rootPath, "sub", "kindest.yaml"))
+	require.NoError(t, err)
+	require.Equal(t, abs, changed[0].Path)
 }

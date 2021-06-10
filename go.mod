@@ -22,11 +22,9 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-openapi/spec v0.19.8 // indirect
 	github.com/go-openapi/swag v0.19.9 // indirect
-	github.com/gobuffalo/logger v1.0.1
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/google/go-cmp v0.4.1 // indirect
-	github.com/google/martian v2.1.0+incompatible
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/gorilla/mux v1.7.4 // indirect
@@ -43,14 +41,15 @@ require (
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200525100937-58356a36e03f
-	github.com/opencontainers/go-digest v1.0.0
+	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/prometheus/client_golang v1.6.0 // indirect
-	github.com/prometheus/common v0.10.0
+	github.com/prometheus/common v0.10.0 // indirect
 	github.com/rubenv/sql-migrate v0.0.0-20200429072036-ae26b214fa43 // indirect
+	github.com/sabhiram/go-gitignore v0.0.0-20201211210132-54b8a0bf510f
 	github.com/sirupsen/logrus v1.6.0 // indirect
 	github.com/spf13/cobra v1.0.0
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.7.0
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	go.opencensus.io v0.22.3 // indirect
@@ -71,7 +70,6 @@ require (
 	k8s.io/api v0.18.3
 	k8s.io/apimachinery v0.18.3
 	k8s.io/client-go v0.18.0
-	k8s.io/kubernetes v1.13.0
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451 // indirect
 	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/kind v0.8.2-0.20200531182706-f4df803a1b7a
