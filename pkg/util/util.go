@@ -21,6 +21,22 @@ import (
 	"go.uber.org/zap"
 )
 
+func EnsureImagePulled(imageName string, cli client.APIClient, log logger.Logger) error {
+	resp, err := cli.ImagePull(context.TODO(), imageName, types.ImagePullOptions{})
+	if err != nil {
+		return fmt.Errorf("docker: %v", err)
+	}
+	body, err := ioutil.ReadAll(resp)
+	if err != nil {
+		return err
+	}
+	log.Info(
+		"Pulled image",
+		zap.String("response", string(body)),
+		zap.String("imageName", imageName))
+	return nil
+}
+
 func WaitForContainer(
 	containerName string,
 	cli client.APIClient,

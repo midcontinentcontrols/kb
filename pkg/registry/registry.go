@@ -22,8 +22,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func CreateLocalRegistry(regName string, regPort int, cli client.APIClient, log logger.Logger) error {
-	image := "registry:2"
+func CreateLocalRegistry(
+	regName string,
+	regPort int,
+	image string,
+	cli client.APIClient,
+	log logger.Logger,
+) error {
 	if _, err := cli.ImagePull(
 		context.TODO(),
 		image,
@@ -42,7 +47,7 @@ func CreateLocalRegistry(regName string, regPort int, cli client.APIClient, log 
 				Name: "always",
 			},
 			PortBindings: nat.PortMap(map[nat.Port][]nat.PortBinding{
-				nat.Port(portStr): []nat.PortBinding{{
+				nat.Port(portStr): {{
 					HostIP:   "127.0.0.1",
 					HostPort: portStr,
 				}},
@@ -94,11 +99,16 @@ func DeleteLocalRegistry(cli client.APIClient, log logger.Logger) error {
 // EnsureLocalRegistryRunning ensures a local docker registry is running,
 // as per https://kind.sigs.k8s.io/docs/user/local-registry/
 func EnsureLocalRegistryRunning(cli client.APIClient, log logger.Logger) error {
+	image := "registry:2"
+	if err := util.EnsureImagePulled(image, cli, log); err != nil {
+		return err
+	}
 	regName := "kind-registry"
 	regPort := 5000
+	// TODO: implement pull if image is not present
 	if err := util.WaitForContainer(regName, cli, log); err != nil {
 		if client.IsErrNotFound(err) {
-			return CreateLocalRegistry(regName, regPort, cli, log)
+			return CreateLocalRegistry(regName, regPort, image, cli, log)
 		}
 		return err
 	}
