@@ -78,8 +78,8 @@ func (m *Module) Dir() string {
 
 var ErrModuleNotCached = fmt.Errorf("module is not cached")
 
-func (m *Module) RunTests(options *TestOptions, log logger.Logger) error {
-	return m.Spec.RunTests(options, m.Dir(), log)
+func (m *Module) RunTests(options *TestOptions, p *Process, log logger.Logger) error {
+	return m.Spec.RunTests(options, m.Path, p, log)
 }
 
 func (m *Module) CachedDigest() (string, error) {

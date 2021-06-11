@@ -64,7 +64,7 @@ test:
 	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
 	test := p.GetModuleFromTestSpec(specPath, module.Spec.Test[0])
 	require.NoError(t, test.Build(&BuildOptions{}))
-	err = module.RunTests(&TestOptions{}, log)
+	err = module.RunTests(&TestOptions{}, p, log)
 	require.NoError(t, err)
 }
 
@@ -104,7 +104,7 @@ test:
 	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
 	test := p.GetModuleFromTestSpec(specPath, module.Spec.Test[0])
 	require.NoError(t, test.Build(&BuildOptions{}))
-	err = module.RunTests(&TestOptions{}, log)
+	err = module.RunTests(&TestOptions{}, p, log)
 	require.Error(t, err)
 	require.Truef(t, strings.Contains(err.Error(), "exit code 1"), "got error '%s'", err.Error())
 }

@@ -104,9 +104,14 @@ type TestSpec struct {
 	Env       EnvSpec     `json:"env,omitempty" yaml:"env,omitempty"`
 }
 
-func (s *KindestSpec) RunTests(options *TestOptions, rootPath string, log logger.Logger) error {
+func (s *KindestSpec) RunTests(
+	options *TestOptions,
+	manifestPath string,
+	p *Process,
+	log logger.Logger,
+) error {
 	for _, test := range s.Test {
-		if err := test.Execute(options, rootPath, log); err != nil {
+		if err := test.Run(options, manifestPath, p, log); err != nil {
 			return err
 		}
 	}

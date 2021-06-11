@@ -19,6 +19,7 @@ import (
 func (t *TestSpec) runKubernetes(
 	options *TestOptions,
 	rootPath string,
+	p *Process,
 	log logger.Logger,
 ) error {
 	client, _, err := clientForContext(options.KubeContext)
@@ -28,21 +29,6 @@ func (t *TestSpec) runKubernetes(
 	start := time.Now()
 	log.Debug("Checking RBAC...")
 	if err := createTestRBAC(client, log); err != nil {
-		return err
-	}
-	// TODO: move to deploy phase
-	if err := applyManifests(
-		options.KubeContext,
-		rootPath,
-		t.Env.Kubernetes.Resources,
-	); err != nil {
-		return err
-	}
-	if err := t.installCharts(
-		rootPath,
-		options.KubeContext,
-		log,
-	); err != nil {
 		return err
 	}
 	image := sanitizeImageName(options.Repository, t.Build.Name, "latest")
