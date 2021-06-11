@@ -9,10 +9,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
 	"github.com/stretchr/testify/require"
 )
+
+var kindestTestImageName = "kindest-example"
 
 func getPushRepository() string {
 	repo, ok := os.LookupEnv("PUSH_REPOSITORY")
@@ -23,8 +26,8 @@ func getPushRepository() string {
 }
 
 func TestTestK8sEnv(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
 	pushRepo := getPushRepository()
-	name := "kindest-example"
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -48,7 +51,7 @@ test:
     build:
       name: %s/%s-test
       dockerfile: Dockerfile
-`, pushRepo, name, pushRepo, name)
+`, pushRepo, kindestTestImageName, pushRepo, kindestTestImageName)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),
@@ -66,8 +69,8 @@ test:
 }
 
 func TestTestK8sError(t *testing.T) {
+	name := "test-" + uuid.New().String()[:8]
 	pushRepo := getPushRepository()
-	name := "kindest-example"
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -88,7 +91,7 @@ test:
     build:
       name: %s/%s-test
       dockerfile: Dockerfile
-`, pushRepo, name, pushRepo, name)
+`, pushRepo, kindestTestImageName, pushRepo, kindestTestImageName)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),

@@ -1,15 +1,67 @@
 package kindest
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func WaitForDeployment(
+	cl client.Client,
+	name string,
+	namespace string,
+) error {
+	return WaitForDeployment2(
+		cl,
+		name,
+		namespace,
+		30*time.Second,
+	)
+}
+
+func WaitForDeployment2(
+	cl client.Client,
+	name string,
+	namespace string,
+	timeout time.Duration,
+) error {
+	delay := 3 * time.Second
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		deployment := &appsv1.Deployment{}
+		if err := cl.Get(
+			context.TODO(),
+			types.NamespacedName{Name: name, Namespace: namespace},
+			deployment,
+		); err == nil {
+			var replicas int32 = 1
+			if deployment.Spec.Replicas != nil {
+				replicas = *deployment.Spec.Replicas
+			}
+			if deployment.Status.AvailableReplicas >= replicas {
+				// All replicas are available
+				return nil
+			}
+		} else if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+		time.Sleep(delay)
+	}
+	return nil
+}
 
 func sanitizeImageName(host, image, tag string) string {
 	if tag == "" {
@@ -63,4 +115,13 @@ func runTest(
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, createFiles(files(name), rootPath))
 	f(t, rootPath)
+}
+
+func CreateKubeClient(t *testing.T) client.Client {
+	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	require.NoError(t, err)
+	cl, err := client.New(config, client.Options{})
+	require.NoError(t, err)
+	return cl
 }

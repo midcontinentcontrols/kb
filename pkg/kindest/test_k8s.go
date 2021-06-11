@@ -41,7 +41,6 @@ func (t *TestSpec) runKubernetes(
 	if err := t.installCharts(
 		rootPath,
 		options.KubeContext,
-		//options,
 		log,
 	); err != nil {
 		return err
@@ -189,10 +188,6 @@ func (t *TestSpec) runKubernetes(
 			continue
 		} else if pod.Status.Phase == corev1.PodSucceeded {
 			return nil
-		} else if pod.Status.Phase == corev1.PodFailed {
-			// This should NOT happen. Container terminated status
-			// should exist if the phase is Failed.
-			return ErrTestFailed
 		} else {
 			return fmt.Errorf("unexpected pod phase '%s'", pod.Status.Phase)
 		}
