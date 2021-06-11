@@ -21,7 +21,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/hashicorp/go-multierror"
-	"github.com/moby/term"
 	gogitignore "github.com/sabhiram/go-gitignore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -452,18 +451,20 @@ func buildDocker(
 	if err != nil {
 		return err
 	}
-
 	// TODO: redirect this output somewhere useful
-	termFd, isTerm := term.GetFdInfo(os.Stderr)
+	//termFd, isTerm := term.GetFdInfo(os.Stderr)
+	isTerm := false
+	output := bytes.NewBuffer(nil)
 	if err := jsonmessage.DisplayJSONMessagesStream(
 		resp.Body,
-		os.Stderr,
-		termFd,
+		output,
+		0,
 		isTerm,
 		nil,
 	); err != nil {
 		return err
 	}
+
 	if !options.NoPush {
 		authConfig, err := RegistryAuthFromEnv(dest)
 		if err != nil {
@@ -488,11 +489,12 @@ func buildDocker(
 		if err != nil {
 			return err
 		}
-		termFd, isTerm := term.GetFdInfo(os.Stderr)
+		// TODO: pipe output somewhere useful
+		//termFd, isTerm := term.GetFdInfo(os.Stderr)
 		if err := jsonmessage.DisplayJSONMessagesStream(
 			resp,
-			os.Stderr,
-			termFd,
+			bytes.NewBuffer(nil),
+			0,
 			isTerm,
 			nil,
 		); err != nil {

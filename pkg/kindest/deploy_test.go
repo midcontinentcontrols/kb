@@ -28,6 +28,7 @@ func TestDeploy(t *testing.T) {
 
 }
 
+// Make sure we encounter an error when Chart.yaml is missing
 func TestDeployErrMissingChartYaml(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	pushRepo := getPushRepository()
@@ -94,6 +95,8 @@ test:
 	require.Contains(t, err.Error(), "Chart.yaml file is missing")
 }
 
+// Try and deploy a basic chart, then ensure the chart resources
+// are created appropriately.
 func TestDeployChart(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	namespace := name
