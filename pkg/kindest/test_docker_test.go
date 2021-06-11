@@ -32,10 +32,10 @@ CMD ["sh", "-c", "set -euo pipefail; echo $MYVARIABLE"]`
   name: test/%s
 test:
   - name: basic
+    variables:
+      - name: MYVARIABLE
+        value: foobarbaz
     env:
-      variables:
-        - name: MYVARIABLE
-          value: foobarbaz
       docker: {}
     build:
       name: test/%s-test

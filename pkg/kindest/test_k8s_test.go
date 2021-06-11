@@ -40,10 +40,10 @@ CMD ["sh", "-c", "set -euo pipefail; echo $MYVARIABLE"]`
   name: %s/%s
 test:
   - name: basic
+    variables:
+      - name: MYVARIABLE
+        value: foobarbaz
     env:
-      variables:
-        - name: MYVARIABLE
-          value: foobarbaz
       kubernetes: {}
     build:
       name: %s/%s-test

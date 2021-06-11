@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 )
 
-type EnvVariable struct {
+type Variable struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
@@ -78,7 +78,6 @@ func (d *DockerEnvSpec) Verify(manifestPath string) error {
 type EnvSpec struct {
 	Kubernetes *KubernetesEnvSpec `json:"kubernetes,omitempty" yaml:"kubernetes,omitempty"`
 	Docker     *DockerEnvSpec     `json:"docker,omitempty" yaml:"docker,omitempty"`
-	Variables  []*EnvVariable     `json:"variables,omitempty" yaml:"variables,omitempty"`
 }
 
 type ChartSpec struct {
@@ -95,6 +94,13 @@ type KindestSpec struct {
 	Dependencies []string    `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
 	Build        *BuildSpec  `json:"build" yaml:"build"`
 	Test         []*TestSpec `json:"test,omitempty" yaml:"test,omitempty"`
+}
+
+type TestSpec struct {
+	Name      string      `json:"name"`
+	Build     BuildSpec   `json:"build"`
+	Variables []*Variable `json:"variables,omitempty" yaml:"variables,omitempty"`
+	Env       EnvSpec     `json:"env,omitempty" yaml:"env,omitempty"`
 }
 
 func (s *KindestSpec) RunTests(options *TestOptions, rootPath string, log logger.Logger) error {

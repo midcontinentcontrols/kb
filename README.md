@@ -118,10 +118,10 @@ test:
     # `{}` is used to make the field non-nil
     docker: {}
 
-    # Environment variables passed to the test container
-    #variables:
-    #- name: FOO
-    #  value: BAR
+  # Environment variables passed to the test container
+  #variables:
+  #- name: FOO
+  #  value: BAR
 ```
 
 Note that tests using the Docker environment can still run as pods on Kubernetes, but they will not have access to the cluster.

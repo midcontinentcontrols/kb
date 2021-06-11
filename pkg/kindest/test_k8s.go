@@ -64,7 +64,7 @@ func (t *TestSpec) runKubernetes(
 	log.Debug("Creating test pod")
 	podName := t.Name + "-" + uuid.New().String()[:8]
 	var env []corev1.EnvVar
-	for _, v := range t.Env.Variables {
+	for _, v := range t.Variables {
 		env = append(env, corev1.EnvVar{
 			Name:  v.Name,
 			Value: v.Value,

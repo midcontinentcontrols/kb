@@ -24,7 +24,7 @@ func (t *TestSpec) runDocker(options *TestOptions, log logger.Logger) error {
 		return err
 	}
 	var env []string
-	for _, v := range t.Env.Variables {
+	for _, v := range t.Variables {
 		env = append(env, fmt.Sprintf("%s=%s", v.Name, v.Value))
 	}
 	var resp containertypes.ContainerCreateCreatedBody

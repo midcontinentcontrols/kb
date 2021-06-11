@@ -50,12 +50,6 @@ type TestOptions struct {
 	Repository  string `json:"repository,omitempty"`
 }
 
-type TestSpec struct {
-	Name  string    `json:"name"`
-	Build BuildSpec `json:"build"`
-	Env   EnvSpec   `json:"env,omitempty" yaml:"env,omitempty"`
-}
-
 var ErrMultipleTestEnv = fmt.Errorf("multiple test environments defined")
 
 var ErrNoTestEnv = fmt.Errorf("no test environment")
@@ -952,7 +946,7 @@ func (t *TestSpec) runKubernetes(
 
 	podName := t.Name + "-" + uuid.New().String()[:8]
 	var env []corev1.EnvVar
-	for _, v := range t.Env.Variables {
+	for _, v := range t.Variables {
 		env = append(env, corev1.EnvVar{
 			Name:  v.Name,
 			Value: v.Value,
