@@ -3,7 +3,6 @@ package kindest
 import (
 	"bufio"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -21,15 +20,12 @@ import (
 	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/docker/docker/pkg/term"
-	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
+	"github.com/moby/term"
 	gogitignore "github.com/sabhiram/go-gitignore"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"go.uber.org/zap"
 
@@ -136,24 +132,6 @@ func (m *Module) buildDependencies(options *BuildOptions) error {
 			done <- err
 			close(done)
 		}(dependency, done)
-	}
-	return collectErrors(dones)
-}
-
-func (m *Module) BuildTests(options *BuildOptions) error {
-	n := len(m.Dependencies)
-	dones := make([]chan error, n)
-	for i, test := range m.Spec.Test {
-		done := make(chan error, 1)
-		dones[i] = done
-		go func(test *TestSpec, done chan<- error) {
-			err, _ := m.pool.Process(&buildJob{
-				m:       m,
-				options: options,
-			}).(error)
-			done <- err
-			close(done)
-		}(test, done)
 	}
 	return collectErrors(dones)
 }
@@ -277,7 +255,6 @@ func createDockerInclude(contextPath string, dockerfilePath string) (*gogitignor
 			fields := strings.Fields(line)
 			if rel := fields[1]; !strings.HasPrefix(rel, "--from") {
 				abs := filepath.Clean(filepath.Join(contextPath, rel))
-				//fmt.Printf("%s, rel=%s, abs=%s\n", line, rel, abs)
 				info, err := os.Stat(abs)
 				if err != nil {
 					return nil, fmt.Errorf("failed to stat %v", abs)
@@ -300,18 +277,12 @@ func createDockerInclude(contextPath string, dockerfilePath string) (*gogitignor
 					}
 					if !found {
 						addedPaths = append(addedPaths, full)
-						//fmt.Printf("%s added %s\n", dockerfilePath, full)
 					}
 				}
 			}
 		}
 	}
-	fmt.Printf("%s has %v\n", dockerfilePath, addedPaths)
 	return gogitignore.CompileIgnoreLines(addedPaths...), nil
-	//return gitignore.NewGitIgnoreFromReader(
-	//	"",
-	//	bytes.NewBuffer([]byte(strings.Join(addedPaths, "\n"))),
-	//), nil
 }
 
 func getRelativeDockerfilePath(contextPath, dockerfilePath string) (string, error) {
@@ -568,6 +539,7 @@ func copyDockerCredential(
 	return nil
 }
 
+/*
 func buildKaniko(
 	m *Module,
 	dest string,
@@ -709,6 +681,7 @@ func buildKaniko(
 	}
 	return nil
 }
+*/
 
 func doBuildModule(
 	m *Module,
@@ -872,9 +845,9 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	return nil
 }
 
-func runCommands(commands []string) error {
+func runCommands(commands []Command) error {
 	for _, command := range commands {
-		cmd := exec.Command("sh", "-c", command)
+		cmd := exec.Command(command.Name, command.Args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {

@@ -31,16 +31,21 @@ type BuildArg struct {
 	Value string `json:"value"`
 }
 
+type Command struct {
+	Name string   `json:"name" yaml:"name"`
+	Args []string `json:"args" yaml:"args"`
+}
+
 type BuildSpec struct {
-	Name         string            `json:"name"`
+	Name         string            `json:"name" yaml:"name"`
 	Dockerfile   string            `json:"dockerfile,omitempty" yaml:"dockerfile,omitempty"`
 	Context      string            `json:"context,omitempty" yaml:"context,omitempty"`
 	BuildArgs    []*BuildArg       `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
 	Target       string            `json:"target,omitempty" yaml:"target,omitempty"`
 	Command      []string          `json:"command,omitempty" yaml:"command,omitempty"`
 	NodeSelector map[string]string `json:"nodeSelector,omitempty" yaml:"nodeSelector,omitempty"`
-	Before       []string          `json:"before,omitempty" yaml:"before,omitempty"`
-	After        []string          `json:"after,omitempty" yaml:"after,omitempty"`
+	Before       []Command         `json:"before,omitempty" yaml:"before,omitempty"`
+	After        []Command         `json:"after,omitempty" yaml:"after,omitempty"`
 }
 
 func (b *BuildSpec) DependsOnFiles(files []string, manifestPath string) (bool, error) {
@@ -67,7 +72,6 @@ func (b *BuildSpec) DependsOnFiles(files []string, manifestPath string) (bool, e
 		if err != nil {
 			return false, err
 		}
-		fmt.Printf("Checking %s, rel=%s\n", b.Name, rel)
 		if strings.HasPrefix(rel, "..") {
 			// File is outside of build context
 			continue

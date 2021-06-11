@@ -1,10 +1,8 @@
 package kindest
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -17,7 +15,6 @@ import (
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"github.com/docker/docker/api/types/strslice"
 	corev1types "k8s.io/client-go/kubernetes/typed/core/v1"
 	restclient "k8s.io/client-go/rest"
 
@@ -37,20 +34,20 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/docker/docker/api/types"
-	containertypes "github.com/docker/docker/api/types/container"
 	"sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/kind/pkg/cluster/nodes"
 	"sigs.k8s.io/kind/pkg/cluster/nodeutils"
 	"sigs.k8s.io/kind/pkg/fs"
 
 	"github.com/Jeffail/tunny"
-	"github.com/docker/docker/client"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 )
 
 type TestOptions struct {
+	KubeContext string `json:"kubeContext,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
+	Repository  string `json:"repository,omitempty"`
 }
 
 type TestSpec struct {
@@ -80,123 +77,12 @@ func (t *TestSpec) Verify(manifestPath string, log logger.Logger) error {
 }
 
 func (t *TestSpec) Execute(options *TestOptions, log logger.Logger) error {
-	// TODO: build test image (but ONLY if necessary)
-
 	if t.Env.Docker != nil {
 		return t.runDocker(options, log)
 	} else if t.Env.Kubernetes != nil {
-		panic("not implemented")
+		return t.runKubernetes(options, log)
 	} else {
 		return ErrNoTestEnv
-	}
-}
-
-func (t *TestSpec) runDocker(options *TestOptions, log logger.Logger) error {
-	cli, err := client.NewClientWithOpts()
-	if err != nil {
-		return err
-	}
-	var env []string
-	for _, v := range t.Env.Variables {
-		env = append(env, fmt.Sprintf("%s=%s", v.Name, v.Value))
-	}
-	var resp containertypes.ContainerCreateCreatedBody
-	resp, err = cli.ContainerCreate(
-		context.TODO(),
-		&containertypes.Config{
-			Image: t.Build.Name + ":latest",
-			Env:   env,
-			Cmd:   strslice.StrSlice(t.Build.Command),
-		},
-		&containertypes.HostConfig{},
-		nil,
-		"",
-	)
-	if err != nil {
-		return fmt.Errorf("error creating container: %v", err)
-	}
-	container := resp.ID
-	log = log.With(zap.String("test.Name", t.Name))
-	defer func() {
-		if rmerr := cli.ContainerRemove(
-			context.TODO(),
-			container,
-			types.ContainerRemoveOptions{},
-		); rmerr != nil {
-			if err == nil {
-				err = rmerr
-			} else {
-				log.Error("error removing container",
-					zap.String("id", container),
-					zap.String("message", rmerr.Error()))
-			}
-		}
-	}()
-	for _, warning := range resp.Warnings {
-		log.Debug("Docker", zap.String("warning", warning))
-	}
-	if err := cli.ContainerStart(
-		context.TODO(),
-		container,
-		types.ContainerStartOptions{},
-	); err != nil {
-		return fmt.Errorf("error starting container: %v", err)
-	}
-	logs, err := cli.ContainerLogs(
-		context.TODO(),
-		container,
-		types.ContainerLogsOptions{
-			Follow:     true,
-			ShowStdout: true,
-			ShowStderr: true,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("error getting logs: %v", err)
-	}
-	rd := bufio.NewReader(logs)
-	for {
-		message, err := rd.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		log.Info(message)
-	}
-	ch, e := cli.ContainerWait(
-		context.TODO(),
-		container,
-		containertypes.WaitConditionNotRunning,
-	)
-	done := make(chan int, 1)
-	go func() {
-		start := time.Now()
-		for {
-			select {
-			case <-time.After(3 * time.Second):
-				log.Info("Still waiting on container", zap.String("elapsed", time.Since(start).String()))
-			case <-done:
-				return
-			}
-		}
-	}()
-	defer func() {
-		done <- 0
-		close(done)
-	}()
-	select {
-	case v := <-ch:
-		if v.Error != nil {
-			return fmt.Errorf("error waiting for container: %v", v.Error.Message)
-		}
-		if v.StatusCode != 0 {
-			return fmt.Errorf("exit code %d", v.StatusCode)
-		}
-		return nil
-	case err := <-e:
-		return fmt.Errorf("error waiting for container: %v", err)
 	}
 }
 
@@ -253,7 +139,7 @@ func createTestRole(client *kubernetes.Clientset, log logger.Logger) error {
 	clusterroles := rbac.ClusterRoles()
 	if _, err := clusterroles.Get(
 		context.TODO(),
-		"test",
+		"kindest-test",
 		metav1.GetOptions{},
 	); err != nil {
 		if errors.IsNotFound(err) {
@@ -262,7 +148,7 @@ func createTestRole(client *kubernetes.Clientset, log logger.Logger) error {
 				context.TODO(),
 				&rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
+						Name: "kindest-test",
 					},
 					Rules: []rbacv1.PolicyRule{{
 						APIGroups: []string{"*"},
@@ -287,7 +173,7 @@ func createTestRole(client *kubernetes.Clientset, log logger.Logger) error {
 func createTestRoleBinding(client *kubernetes.Clientset, log logger.Logger) error {
 	if _, err := client.RbacV1().ClusterRoleBindings().Get(
 		context.TODO(),
-		"test",
+		"kindest-test",
 		metav1.GetOptions{},
 	); err != nil {
 		if errors.IsNotFound(err) {
@@ -296,16 +182,16 @@ func createTestRoleBinding(client *kubernetes.Clientset, log logger.Logger) erro
 				context.TODO(),
 				&rbacv1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
+						Name: "kindest-test",
 					},
 					RoleRef: rbacv1.RoleRef{
-						Name:     "test",
+						Name:     "kindest-test",
 						Kind:     "ClusterRole",
 						APIGroup: "rbac.authorization.k8s.io",
 					},
 					Subjects: []rbacv1.Subject{{
 						Kind:      "ServiceAccount",
-						Name:      "test",
+						Name:      "kindest-test",
 						Namespace: "default",
 					}},
 				},
@@ -326,7 +212,7 @@ func createTestRoleBinding(client *kubernetes.Clientset, log logger.Logger) erro
 func createTestServiceAccount(client *kubernetes.Clientset, log logger.Logger) error {
 	if _, err := client.CoreV1().ServiceAccounts("default").Get(
 		context.TODO(),
-		"test",
+		"kindest-test",
 		metav1.GetOptions{},
 	); err != nil {
 		if errors.IsNotFound(err) {
@@ -335,7 +221,7 @@ func createTestServiceAccount(client *kubernetes.Clientset, log logger.Logger) e
 				context.TODO(),
 				&corev1.ServiceAccount{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test",
+						Name:      "kindest-test",
 						Namespace: "default",
 					},
 				},
@@ -702,6 +588,7 @@ func deleteOldPods(pods corev1types.PodInterface, envName string, log logger.Log
 	return nil
 }
 
+/*
 func restartDeployments(client *kubernetes.Clientset, restartImages []string, log logger.Logger) error {
 	deployments, err := client.AppsV1().Deployments("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
@@ -818,6 +705,7 @@ func restartDeployments(client *kubernetes.Clientset, restartImages []string, lo
 	//}
 	//return multi
 }
+*/
 
 func restartPods(client *kubernetes.Clientset, restartImages []string, log logger.Logger) error {
 	pods, err := client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
@@ -1079,7 +967,7 @@ func (t *TestSpec) runKubernetes(
 			},
 		},
 		Spec: corev1.PodSpec{
-			ServiceAccountName: "test",
+			ServiceAccountName: "kindest-test",
 			RestartPolicy:      corev1.RestartPolicyNever,
 			Containers: []corev1.Container{{
 				Name:            t.Name,

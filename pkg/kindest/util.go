@@ -11,6 +11,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func sanitizeImageName(host, image, tag string) string {
+	if tag == "" {
+		tag = "latest"
+	}
+	n := len(host)
+	if n == 0 {
+		return fmt.Sprintf("%s:%s", image, tag)
+	}
+	if host[n-1] == '/' {
+		host = host[:n-1]
+	}
+	return fmt.Sprintf("%s/%s:%s", host, image, tag)
+}
+
 type testEnv struct {
 	files map[string]interface{}
 }
