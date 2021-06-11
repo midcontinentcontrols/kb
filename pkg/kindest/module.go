@@ -124,7 +124,7 @@ func collectErrors(dones []chan error) error {
 
 func (m *Module) buildDependencies(options *BuildOptions) error {
 	n := len(m.Dependencies)
-	dones := make([]chan error, n, n)
+	dones := make([]chan error, n)
 	for i, dependency := range m.Dependencies {
 		done := make(chan error, 1)
 		dones[i] = done
@@ -136,6 +136,25 @@ func (m *Module) buildDependencies(options *BuildOptions) error {
 			done <- err
 			close(done)
 		}(dependency, done)
+	}
+	return collectErrors(dones)
+}
+
+func (m *Module) buildTests(options *BuildOptions) error {
+	n := len(m.Dependencies)
+	dones := make([]chan error, n)
+	for i, test := range m.Spec.Test {
+		done := make(chan error, 1)
+		dones[i] = done
+		go func(test *TestSpec, done chan<- error) {
+			err, _ := m.pool.Process(&buildJob{
+				m:       m,
+				spec:    &test.Build,
+				options: options,
+			}).(error)
+			done <- err
+			close(done)
+		}(test, done)
 	}
 	return collectErrors(dones)
 }
@@ -429,7 +448,7 @@ func (m *Module) WaitForCompletion() error {
 }
 
 func buildDocker(
-	m *Module,
+	spec *BuildSpec,
 	dest string,
 	buildContext []byte,
 	relativeDockerfile string,
@@ -441,7 +460,7 @@ func buildDocker(
 		return err
 	}
 	buildArgs := make(map[string]*string)
-	for _, arg := range m.Spec.Build.BuildArgs {
+	for _, arg := range spec.BuildArgs {
 		buildArgs[arg.Name] = &arg.Value
 	}
 	resp, err := cli.ImageBuild(
@@ -453,12 +472,14 @@ func buildDocker(
 			BuildArgs:  buildArgs,
 			Squash:     options.Squash,
 			Tags:       []string{dest},
-			Target:     m.Spec.Build.Target,
+			Target:     spec.Target,
 		},
 	)
 	if err != nil {
 		return err
 	}
+
+	// TODO: redirect this output somewhere useful
 	termFd, isTerm := term.GetFdInfo(os.Stderr)
 	if err := jsonmessage.DisplayJSONMessagesStream(
 		resp.Body,
@@ -690,7 +711,7 @@ func buildKaniko(
 	return nil
 }
 
-func doBuild(
+func doBuildModule(
 	m *Module,
 	buildContext []byte,
 	relativeDockerfile string,
@@ -703,7 +724,7 @@ func doBuild(
 		fallthrough
 	case "docker":
 		if err := buildDocker(
-			m,
+			m.Spec.Build,
 			dest,
 			buildContext,
 			relativeDockerfile,
@@ -713,16 +734,17 @@ func doBuild(
 			return fmt.Errorf("docker: %v", err)
 		}
 	case "kaniko":
-		if err := buildKaniko(
-			m,
-			dest,
-			buildContext,
-			relativeDockerfile,
-			options,
-			log,
-		); err != nil {
-			return fmt.Errorf("kaniko: %v", err)
-		}
+		panic("not implemented")
+		//if err := buildKaniko(
+		//	m,
+		//	dest,
+		//	buildContext,
+		//	relativeDockerfile,
+		//	options,
+		//	log,
+		//); err != nil {
+		//	return fmt.Errorf("kaniko: %v", err)
+		//}
 	default:
 		return fmt.Errorf("unknown builder '%s'", options.Builder)
 	}
@@ -795,7 +817,7 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	if err != nil {
 		return err
 	}
-	if err := doBuild(
+	if err := doBuildModule(
 		m,
 		tar,
 		relativeDockerfile,
@@ -814,7 +836,12 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	return nil
 }
 
+func (m *Module) BuildTests(options *BuildOptions) (err error) {
+	return nil
+}
+
 func (m *Module) Build(options *BuildOptions) (err error) {
+	// TODO: make this work for the test build specs
 	if !m.claim() {
 		switch m.Status() {
 		case BuildStatusInProgress:
@@ -843,6 +870,7 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	}
 	err, _ = m.pool.Process(&buildJob{
 		m:       m,
+		spec:    m.Spec.Build,
 		options: options,
 	}).(error)
 	if err != nil {

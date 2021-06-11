@@ -1,11 +1,16 @@
 build:
   name: midcontinentcontrols/kindest
 test:
-- name: e2e
-  build:
-    dockerfile: test/Dockerfile
+- name: local-unit-tests
   env:
-    kubernetes:
-      charts:
-        - path: chart/
-          values: {}
+    bash: -|
+      cd pkg
+      go test -v ./...
+#- name: e2e
+#  build:
+#    dockerfile: test/Dockerfile
+#  env:
+#    kubernetes:
+#      charts:
+#        - path: chart/
+#          values: {}

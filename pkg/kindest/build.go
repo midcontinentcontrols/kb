@@ -562,15 +562,11 @@ func (b *BuildSpec) cacheDigest(manifestPath string, value string) error {
 	return nil
 }
 
-/*
 func (b *BuildSpec) Build(
 	manifestPath string,
 	options *BuildOptions,
-	respHandler func(io.ReadCloser) error,
 	log logger.Logger,
 ) error {
-	// TODO: calculate digest in different ways.
-	// Default is to just use the build context
 	var digest string
 	var err error
 	method := "dockerfile"
@@ -585,7 +581,7 @@ func (b *BuildSpec) Build(
 	if err != nil {
 		return err
 	}
-	if !options.NoCache && !options.Force {
+	if !options.NoCache {
 		// Check to see if files actually changed
 		cachedDigest, err := b.loadCachedDigest(manifestPath)
 		if err != nil && err != errDigestNotCached {
@@ -600,18 +596,21 @@ func (b *BuildSpec) Build(
 	}
 	switch options.Builder {
 	case "kaniko":
-		err = b.buildKaniko(
-			manifestPath,
-			options,
-			log,
-		)
+		panic("not implemented")
+		//err = b.buildKaniko(
+		//	manifestPath,
+		//	options,
+		//	log,
+		//)
 	case "":
 		fallthrough
 	case "docker":
-		err = b.buildDocker(
-			manifestPath,
+		err = buildDocker(
+			b,
+			"",
+			nil,
+			"",
 			options,
-			respHandler,
 			log,
 		)
 	default:
@@ -626,7 +625,6 @@ func (b *BuildSpec) Build(
 	log.Debug("Updated cache", zap.String("digest", digest))
 	return nil
 }
-*/
 
 type BuildOptions struct {
 	NoCache    bool   `json:"nocache,omitempty" yaml:"nocache,omitempty"`

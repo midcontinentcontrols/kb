@@ -10,12 +10,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"time"
 
-	dockerclient "github.com/docker/docker/client"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
-	"github.com/midcontinentcontrols/kindest/pkg/registry"
 
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/labels"
@@ -23,8 +20,6 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	corev1types "k8s.io/client-go/kubernetes/typed/core/v1"
 	restclient "k8s.io/client-go/rest"
-
-	networktypes "github.com/docker/docker/api/types/network"
 
 	"github.com/midcontinentcontrols/kindest/pkg/kubeconfig"
 	"helm.sh/helm/v3/pkg/chart"
@@ -44,9 +39,6 @@ import (
 
 	"github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/docker/docker/pkg/term"
-	"github.com/google/uuid"
 	"sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/kind/pkg/cluster/nodes"
 	"sigs.k8s.io/kind/pkg/cluster/nodeutils"
@@ -59,16 +51,6 @@ import (
 )
 
 type TestOptions struct {
-	File        string `json:"file,omitempty" yaml:"file,omitempty"`
-	Concurrency int    `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
-	Transient   bool   `json:"transient,omitempty" yaml:"transient,omitempty"`
-	Context     string `json:"context,omitempty" yaml:"context,omitempty"`
-	Kind        string `json:"kind,omitempty" yaml:"kind,omitempty"`
-	NoRegistry  bool   `json:"noRegistry,omitempty" yaml:"noRegistry,omitempty"`
-	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
-	SkipBuild   bool   `json:"skipBuild,omitempty" yaml:"skipBuild,omitempty"`
-	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
-	Repository  string `json:"repository,omitempty" yaml:"repository,omitempty"`
 }
 
 type TestSpec struct {
@@ -97,8 +79,20 @@ func (t *TestSpec) Verify(manifestPath string, log logger.Logger) error {
 	}
 }
 
+func (t *TestSpec) Execute(options *TestOptions, log logger.Logger) error {
+	// TODO: build test image (but ONLY if necessary)
+
+	if t.Env.Docker != nil {
+		return t.runDocker(options, log)
+	} else if t.Env.Kubernetes != nil {
+		panic("not implemented")
+	} else {
+		return ErrNoTestEnv
+	}
+}
+
 func (t *TestSpec) runDocker(options *TestOptions, log logger.Logger) error {
-	cli, err := client.NewEnvClient()
+	cli, err := client.NewClientWithOpts()
 	if err != nil {
 		return err
 	}
@@ -182,7 +176,7 @@ func (t *TestSpec) runDocker(options *TestOptions, log logger.Logger) error {
 		for {
 			select {
 			case <-time.After(3 * time.Second):
-				log.Info("Still waiting on container", zap.String("elapsed", time.Now().Sub(start).String()))
+				log.Info("Still waiting on container", zap.String("elapsed", time.Since(start).String()))
 			case <-done:
 				return
 			}
@@ -863,10 +857,7 @@ func restartPods(client *kubernetes.Clientset, restartImages []string, log logge
 	return nil
 }
 
-func waitForFullReady(client *kubernetes.Clientset, log logger.Logger) error {
-	return nil
-}
-
+/*
 func (t *TestSpec) runKubernetes(
 	rootPath string,
 	options *TestOptions,
@@ -1213,7 +1204,7 @@ func (t *TestSpec) runKubernetes(
 	}
 	return ErrPodTimeout
 }
-
+*/
 var ErrNoTests = fmt.Errorf("no tests configured")
 
 type testRun struct {

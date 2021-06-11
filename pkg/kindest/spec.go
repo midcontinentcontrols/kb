@@ -97,6 +97,15 @@ type KindestSpec struct {
 	Test         []*TestSpec `json:"test,omitempty" yaml:"test,omitempty"`
 }
 
+func (s *KindestSpec) RunTests(options *TestOptions, log logger.Logger) error {
+	for _, test := range s.Test {
+		if err := test.Execute(options, log); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *KindestSpec) Verify(manifestPath string, log logger.Logger) error {
 	if s.Build != nil {
 		if err := s.Build.Verify(manifestPath, log); err != nil {

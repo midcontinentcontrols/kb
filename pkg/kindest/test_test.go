@@ -5,17 +5,17 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
-	"github.com/midcontinentcontrols/kindest/pkg/test"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"sigs.k8s.io/kind/pkg/cluster"
 )
 
+/*
 func TestNoTests(t *testing.T) {
 	specPath := createBasicTestProject(t, "tmp")
 	defer os.RemoveAll(filepath.Dir(filepath.Dir(specPath)))
@@ -62,8 +62,9 @@ env:
 		},
 	)
 }
+*/
 
-func TestErrNoTestEnv(t *testing.T) {
+func TestTestErrNoEnv(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -89,16 +90,13 @@ test:
 		[]byte(spec),
 		0644,
 	))
-	require.Equal(t, ErrNoTestEnv, Test(
-		&TestOptions{
-			File:       specPath,
-			NoRegistry: true,
-		},
-		test.NewTestLogger(),
-	))
+	log := logger.NewMockLogger(logger.NewFakeLogger())
+	p := NewProcess(runtime.NumCPU(), log)
+	_, err := p.GetModule(specPath)
+	require.Equal(t, ErrNoTestEnv, err)
 }
 
-func TestErrMultipleTestEnv(t *testing.T) {
+func TestTestErrMultipleEnv(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -127,16 +125,13 @@ test:
 		[]byte(spec),
 		0644,
 	))
-	require.Equal(t, ErrMultipleTestEnv, Test(
-		&TestOptions{
-			File:       specPath,
-			NoRegistry: true,
-		},
-		test.NewTestLogger(),
-	))
+	log := logger.NewMockLogger(logger.NewFakeLogger())
+	p := NewProcess(runtime.NumCPU(), log)
+	_, err := p.GetModule(specPath)
+	require.Equal(t, ErrMultipleTestEnv, err)
 }
 
-func TestTestError(t *testing.T) {
+func TestTestErrorDocker(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -164,17 +159,20 @@ test:
 		[]byte(spec),
 		0644,
 	))
-	err := Test(
-		&TestOptions{
-			File:   specPath,
-			NoPush: true,
-		},
-		test.NewTestLogger(),
-	)
+	log := logger.NewMockLogger(logger.NewFakeLogger())
+	p := NewProcess(runtime.NumCPU(), log)
+	module, err := p.GetModule(specPath)
+	require.NoError(t, err)
+	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+	test, err := p.GetModuleFromBuildSpec(specPath, &module.Spec.Test[0].Build)
+	require.NoError(t, err)
+	require.NoError(t, test.Build(&BuildOptions{NoPush: true}))
+	err = module.Spec.RunTests(&TestOptions{}, log)
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "exit code 1"))
+	require.Truef(t, strings.Contains(err.Error(), "exit code 1"), "got error '%s'", err.Error())
 }
 
+/*
 func TestTestKubernetesTransientKind(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
 	rootPath := filepath.Join("tmp", name)
@@ -622,3 +620,5 @@ test:
 		test.NewTestLogger(),
 	))
 }
+
+*/

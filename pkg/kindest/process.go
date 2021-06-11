@@ -11,6 +11,7 @@ import (
 
 type buildJob struct {
 	m       *Module
+	spec    *BuildSpec
 	options *BuildOptions
 }
 
@@ -24,7 +25,9 @@ type Process struct {
 func NewProcess(concurrency int, log logger.Logger) *Process {
 	pool := tunny.NewFunc(concurrency, func(payload interface{}) interface{} {
 		if build, ok := payload.(*buildJob); ok {
-			return build.m.doBuild(build.options)
+			return build.m.doBuild(
+				build.options,
+			)
 		}
 		panic("unreachable branch detected")
 	})
@@ -43,6 +46,17 @@ func (p *Process) GetModule(manifestPath string) (*Module, error) {
 	p.l.Lock()
 	defer p.l.Unlock()
 	return p.getModuleNoLock(manifestPath)
+}
+
+func (p *Process) GetModuleFromBuildSpec(manifestPath string, b *BuildSpec) (*Module, error) {
+	return &Module{
+		Path: manifestPath,
+		log:  p.log,
+		pool: p.pool,
+		Spec: &KindestSpec{
+			Build: b,
+		},
+	}, nil
 }
 
 func (p *Process) getModuleNoLock(manifestPath string) (*Module, error) {
