@@ -10,12 +10,20 @@ import (
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
+func getPushRepository() string {
+	repo, ok := os.LookupEnv("PUSH_REPOSITORY")
+	if !ok {
+		return "ahemphill"
+	}
+	return repo
+}
+
 func TestTestK8sEnv(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
+	pushRepo := getPushRepository()
+	name := "kindest-example"
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -28,7 +36,7 @@ CMD ["sh", "-c", "set -euo pipefail; echo $MYVARIABLE"]`
 	))
 	specPath := filepath.Join(rootPath, "kindest.yaml")
 	spec := fmt.Sprintf(`build:
-  name: test/%s
+  name: %s/%s
 test:
   - name: basic
     env:
@@ -37,9 +45,9 @@ test:
           value: foobarbaz
       kubernetes: {}
     build:
-      name: test/%s-test
+      name: %s/%s-test
       dockerfile: Dockerfile
-`, name, name)
+`, pushRepo, name, pushRepo, name)
 	require.NoError(t, ioutil.WriteFile(
 		specPath,
 		[]byte(spec),
@@ -51,7 +59,7 @@ test:
 	require.NoError(t, err)
 	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
 	test := p.GetModuleFromBuildSpec(specPath, &module.Spec.Test[0].Build)
-	require.NoError(t, test.Build(&BuildOptions{NoPush: true}))
+	require.NoError(t, test.Build(&BuildOptions{}))
 	err = module.Spec.RunTests(&TestOptions{}, log)
 	require.NoError(t, err)
 }

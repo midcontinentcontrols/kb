@@ -98,7 +98,8 @@ func (t *TestSpec) runKubernetes(options *TestOptions, log logger.Logger) error 
 	delay := time.Second
 	start = time.Now()
 	scheduled := false
-	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline); {
 		pod, err = pods.Get(
 			context.TODO(),
 			podName,
