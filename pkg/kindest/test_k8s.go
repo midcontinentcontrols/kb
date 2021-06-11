@@ -31,7 +31,7 @@ func (t *TestSpec) runKubernetes(
 		return err
 	}
 	// TODO: move to deploy phase
-	if err := applyTestManifests(
+	if err := applyManifests(
 		options.KubeContext,
 		rootPath,
 		t.Env.Kubernetes.Resources,

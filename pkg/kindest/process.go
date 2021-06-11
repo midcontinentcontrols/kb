@@ -45,13 +45,14 @@ func (p *Process) GetModule(manifestPath string) (*Module, error) {
 	return p.getModuleNoLock(manifestPath)
 }
 
-func (p *Process) GetModuleFromBuildSpec(manifestPath string, b *BuildSpec) *Module {
+func (p *Process) GetModuleFromTestSpec(manifestPath string, t *TestSpec) *Module {
 	return &Module{
 		Path: manifestPath,
 		log:  p.log,
 		pool: p.pool,
 		Spec: &KindestSpec{
-			Build: b,
+			Build: t.Build,
+			Env:   t.Env,
 		},
 	}
 }

@@ -743,13 +743,10 @@ func Build(options *BuildOptions, log logger.Logger) error {
 
 func getAuthConfig(domain string, configs map[string]types.AuthConfig) (*types.AuthConfig, error) {
 	for name, config := range configs {
-		fmt.Printf("name=%s\n", name)
 		if strings.Contains(name, domain) {
-			fmt.Printf("Match for %s, config=%#v\n", domain, config)
 			return &config, nil
 		}
 	}
-	panic("nope")
 	return &types.AuthConfig{}, nil
 }
 

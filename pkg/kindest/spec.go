@@ -93,12 +93,13 @@ type ChartSpec struct {
 type KindestSpec struct {
 	Dependencies []string    `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
 	Build        *BuildSpec  `json:"build" yaml:"build"`
+	Env          EnvSpec     `json:"env,omitempty" yaml:"env,omitempty"`
 	Test         []*TestSpec `json:"test,omitempty" yaml:"test,omitempty"`
 }
 
 type TestSpec struct {
 	Name      string      `json:"name"`
-	Build     BuildSpec   `json:"build"`
+	Build     *BuildSpec  `json:"build"`
 	Variables []*Variable `json:"variables,omitempty" yaml:"variables,omitempty"`
 	Env       EnvSpec     `json:"env,omitempty" yaml:"env,omitempty"`
 }

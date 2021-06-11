@@ -246,7 +246,7 @@ func createTestRBAC(client *kubernetes.Clientset, log logger.Logger) error {
 	return nil
 }
 
-func applyTestManifests(
+func applyManifests(
 	kubeContext string,
 	rootPath string,
 	resources []string,
@@ -904,7 +904,7 @@ func (t *TestSpec) runKubernetes(
 		return err
 	}
 
-	if err := applyTestManifests(
+	if err := applyManifests(
 		kubeContext,
 		rootPath,
 		t.Env.Kubernetes.Resources,
