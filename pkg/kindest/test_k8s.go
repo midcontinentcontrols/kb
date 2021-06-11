@@ -99,7 +99,7 @@ func (t *TestSpec) runKubernetes(options *TestOptions, log logger.Logger) error 
 	start = time.Now()
 	scheduled := false
 	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline); {
+	for time.Now().Before(deadline) {
 		pod, err = pods.Get(
 			context.TODO(),
 			podName,
@@ -146,7 +146,7 @@ func (t *TestSpec) runKubernetes(options *TestOptions, log logger.Logger) error 
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.State.Terminated != nil {
 					if strings.Contains(status.State.Terminated.Reason, "Err") {
-						return ErrTestFailed
+						return fmt.Errorf("exit code %d", status.State.Terminated.ExitCode)
 					}
 				}
 			}
