@@ -16,18 +16,6 @@ import (
 )
 
 /*
-func TestNoTests(t *testing.T) {
-	specPath := createBasicTestProject(t, "tmp")
-	defer os.RemoveAll(filepath.Dir(filepath.Dir(specPath)))
-	require.Equal(t, ErrNoTests, Test(
-		&TestOptions{
-			File:       specPath,
-			NoRegistry: true,
-		},
-		test.NewTestLogger(),
-	))
-}
-
 func TestTestDockerEnv(t *testing.T) {
 	files := func(name string) map[string]interface{} {
 		return map[string]interface{}{

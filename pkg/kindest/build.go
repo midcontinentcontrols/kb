@@ -562,6 +562,7 @@ func (b *BuildSpec) cacheDigest(manifestPath string, value string) error {
 	return nil
 }
 
+/*
 func (b *BuildSpec) Build(
 	manifestPath string,
 	options *BuildOptions,
@@ -625,6 +626,7 @@ func (b *BuildSpec) Build(
 	log.Debug("Updated cache", zap.String("digest", digest))
 	return nil
 }
+*/
 
 type BuildOptions struct {
 	NoCache    bool   `json:"nocache,omitempty" yaml:"nocache,omitempty"`

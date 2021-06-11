@@ -11,7 +11,6 @@ import (
 
 type buildJob struct {
 	m       *Module
-	spec    *BuildSpec
 	options *BuildOptions
 }
 

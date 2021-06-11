@@ -140,7 +140,7 @@ func (m *Module) buildDependencies(options *BuildOptions) error {
 	return collectErrors(dones)
 }
 
-func (m *Module) buildTests(options *BuildOptions) error {
+func (m *Module) BuildTests(options *BuildOptions) error {
 	n := len(m.Dependencies)
 	dones := make([]chan error, n)
 	for i, test := range m.Spec.Test {
@@ -149,7 +149,6 @@ func (m *Module) buildTests(options *BuildOptions) error {
 		go func(test *TestSpec, done chan<- error) {
 			err, _ := m.pool.Process(&buildJob{
 				m:       m,
-				spec:    &test.Build,
 				options: options,
 			}).(error)
 			done <- err
@@ -836,12 +835,7 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	return nil
 }
 
-func (m *Module) BuildTests(options *BuildOptions) (err error) {
-	return nil
-}
-
 func (m *Module) Build(options *BuildOptions) (err error) {
-	// TODO: make this work for the test build specs
 	if !m.claim() {
 		switch m.Status() {
 		case BuildStatusInProgress:
@@ -870,7 +864,6 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	}
 	err, _ = m.pool.Process(&buildJob{
 		m:       m,
-		spec:    m.Spec.Build,
 		options: options,
 	}).(error)
 	if err != nil {
