@@ -76,11 +76,11 @@ func (t *TestSpec) Verify(manifestPath string, log logger.Logger) error {
 	}
 }
 
-func (t *TestSpec) Execute(options *TestOptions, log logger.Logger) error {
+func (t *TestSpec) Execute(options *TestOptions, rootPath string, log logger.Logger) error {
 	if t.Env.Docker != nil {
 		return t.runDocker(options, log)
 	} else if t.Env.Kubernetes != nil {
-		return t.runKubernetes(options, log)
+		return t.runKubernetes(options, rootPath, log)
 	} else {
 		return ErrNoTestEnv
 	}

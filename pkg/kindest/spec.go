@@ -97,9 +97,9 @@ type KindestSpec struct {
 	Test         []*TestSpec `json:"test,omitempty" yaml:"test,omitempty"`
 }
 
-func (s *KindestSpec) RunTests(options *TestOptions, log logger.Logger) error {
+func (s *KindestSpec) RunTests(options *TestOptions, rootPath string, log logger.Logger) error {
 	for _, test := range s.Test {
-		if err := test.Execute(options, log); err != nil {
+		if err := test.Execute(options, rootPath, log); err != nil {
 			return err
 		}
 	}

@@ -16,7 +16,11 @@ import (
 	"go.uber.org/zap"
 )
 
-func (t *TestSpec) runKubernetes(options *TestOptions, log logger.Logger) error {
+func (t *TestSpec) runKubernetes(
+	options *TestOptions,
+	rootPath string,
+	log logger.Logger,
+) error {
 	client, _, err := clientForContext(options.KubeContext)
 	if err != nil {
 		return err
@@ -27,21 +31,21 @@ func (t *TestSpec) runKubernetes(options *TestOptions, log logger.Logger) error 
 		return err
 	}
 	// TODO: move to deploy phase
-	//if err := applyTestManifests(
-	//	options.KubeContext,
-	//	rootPath,
-	//	t.Env.Kubernetes.Resources,
-	//); err != nil {
-	//	return err
-	//}
-	//if err := t.installCharts(
-	//	rootPath,
-	//	options.KubeContext,
-	//	options,
-	//	log,
-	//); err != nil {
-	//	return err
-	//}
+	if err := applyTestManifests(
+		options.KubeContext,
+		rootPath,
+		t.Env.Kubernetes.Resources,
+	); err != nil {
+		return err
+	}
+	if err := t.installCharts(
+		rootPath,
+		options.KubeContext,
+		//options,
+		log,
+	); err != nil {
+		return err
+	}
 	image := sanitizeImageName(options.Repository, t.Build.Name, "latest")
 	imagePullPolicy := corev1.PullAlways
 	namespace := options.Namespace

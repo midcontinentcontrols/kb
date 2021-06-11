@@ -59,7 +59,7 @@ func ensureMapKeysAreStrings(m map[interface{}]interface{}) (map[string]interfac
 func (t *TestSpec) installCharts(
 	rootPath string,
 	kubeContext string,
-	options *TestOptions,
+	//options *TestOptions,
 	log logger.Logger,
 ) error {
 	for _, chart := range t.Env.Kubernetes.Charts {
@@ -67,7 +67,7 @@ func (t *TestSpec) installCharts(
 			chart,
 			rootPath,
 			kubeContext,
-			options,
+			//options,
 			log,
 		); err != nil {
 			return fmt.Errorf("failed to install chart '%s': %v", chart.Name, err)
@@ -161,7 +161,7 @@ func (t *TestSpec) installChart(
 	chart *ChartSpec,
 	rootPath string,
 	kubeContext string,
-	options *TestOptions,
+	//options *TestOptions,
 	log logger.Logger,
 ) error {
 	chartPath := filepath.Clean(filepath.Join(rootPath, chart.Name))
