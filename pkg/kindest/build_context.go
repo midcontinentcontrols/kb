@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/jhoonb/archivex"
@@ -25,7 +26,15 @@ func hashContext(
 	h hash.Hash,
 	prefix string,
 ) error {
-	for k, v := range context {
+	keys := make([]string, len(context))
+	i := 0
+	for k := range context {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := context[k]
 		k = prefix + k
 		if file, ok := v.(*File); ok {
 			if _, err := h.Write([]byte(k)); err != nil {
@@ -44,8 +53,7 @@ func hashContext(
 				return err
 			}
 		} else if dir, ok := v.(*Directory); ok {
-			k = k + "?" // impossible to use in most filesystems
-			if _, err := h.Write([]byte(k)); err != nil {
+			if _, err := h.Write([]byte(k + "?")); err != nil {
 				return err
 			}
 			mode := dir.Info().Mode()

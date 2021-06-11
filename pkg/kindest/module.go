@@ -83,7 +83,7 @@ func (m *Module) RunTests(options *TestOptions, log logger.Logger) error {
 }
 
 func (m *Module) CachedDigest() (string, error) {
-	path, err := digestPathForManifest(m.Dir())
+	path, err := digestPathForManifest(m.Path)
 	if err != nil {
 		return "", err
 	}
@@ -95,7 +95,7 @@ func (m *Module) CachedDigest() (string, error) {
 }
 
 func (m *Module) cacheDigest(digest string) error {
-	path, err := digestPathForManifest(m.Dir())
+	path, err := digestPathForManifest(m.Path)
 	if err != nil {
 		return err
 	}
@@ -788,9 +788,11 @@ func (m *Module) doBuild(options *BuildOptions) error {
 		return err
 	}
 	if digest == cachedDigest && !options.NoCache {
+		//fmt.Printf("%s No files changed\n", m.Path)
 		m.log.Info("No files changed", zap.String("digest", cachedDigest))
 		return nil
 	}
+	//fmt.Printf("%s Files changed, cachedDigest=%s, digest=%s\n", m.Path, cachedDigest, digest)
 	tar, err := buildContext.Archive()
 	if err != nil {
 		return err

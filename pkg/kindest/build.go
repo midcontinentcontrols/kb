@@ -546,7 +546,7 @@ func (b *BuildSpec) loadCachedDigest(manifestPath string) (string, error) {
 		// TODO: disambiguate error and fix this
 		return "", errDigestNotCached
 	}
-	return string(body), errDigestNotCached
+	return string(body), nil
 }
 
 func (b *BuildSpec) cacheDigest(manifestPath string, value string) error {

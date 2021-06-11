@@ -325,7 +325,7 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 		require.Equal(t, BuildStatusSucceeded, module.Status())
 		require.False(t, log.WasObservedIgnoreFields("info", "No files changed"))
 		// Ensure the dep was cached
-		log = logger.NewMockLogger(logger.NewFakeLogger())
+		//log = logger.NewMockLogger(logger.NewFakeLogger())
 		module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "dep", "kindest.yaml"))
 		require.NoError(t, err)
 		require.Equal(t, BuildStatusPending, module.Status())
