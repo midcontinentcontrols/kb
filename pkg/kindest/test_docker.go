@@ -5,7 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"time"
+
+	"github.com/docker/docker/api/types/mount"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
@@ -18,14 +21,36 @@ import (
 	"go.uber.org/zap"
 )
 
-func (t *TestSpec) runDocker(log logger.Logger) error {
+func (t *TestSpec) runDocker(rootPath string, log logger.Logger) error {
 	cli, err := client.NewClientWithOpts()
 	if err != nil {
 		return err
 	}
 	var env []string
 	for _, v := range t.Variables {
-		env = append(env, fmt.Sprintf("%s=%s", v.Name, v.Value))
+		env = append(env, v.Name+"="+v.Value)
+	}
+	var mounts []mount.Mount
+	for _, volume := range t.Env.Docker.Volumes {
+		source := volume.Source
+		if !filepath.IsAbs(source) {
+			source = filepath.Clean(filepath.Join(rootPath, source))
+			source, err = filepath.Abs(source)
+			if err != nil {
+				return err
+			}
+		}
+		ty := volume.Type
+		if ty == "" {
+			ty = "bind"
+		}
+		mounts = append(mounts, mount.Mount{
+			Type:        mount.Type(ty),
+			Source:      source,
+			Target:      volume.Target,
+			ReadOnly:    volume.ReadOnly,
+			Consistency: mount.Consistency(volume.Consistency),
+		})
 	}
 	var resp containertypes.ContainerCreateCreatedBody
 	resp, err = cli.ContainerCreate(
@@ -35,7 +60,9 @@ func (t *TestSpec) runDocker(log logger.Logger) error {
 			Env:   env,
 			Cmd:   strslice.StrSlice(t.Build.Command),
 		},
-		&containertypes.HostConfig{},
+		&containertypes.HostConfig{
+			Mounts: mounts,
+		},
 		nil,
 		nil,
 		"",

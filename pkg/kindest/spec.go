@@ -68,7 +68,16 @@ func (k *KubernetesEnvSpec) Verify(manifestPath string, log logger.Logger) error
 	return nil
 }
 
+type DockerVolumeSpec struct {
+	Type        string `json:"type,omitempty"`
+	Source      string `json:"source,omitempty"`
+	Target      string `json:"target,omitempty"`
+	ReadOnly    bool   `json:"readOnly,omitempty"`
+	Consistency string `json:"consistency,omitempty"`
+}
+
 type DockerEnvSpec struct {
+	Volumes []*DockerVolumeSpec `json:"volumes,omitempty"`
 }
 
 func (d *DockerEnvSpec) Verify(manifestPath string) error {
@@ -110,6 +119,7 @@ func (s *KindestSpec) RunTests(
 	p *Process,
 	log logger.Logger,
 ) error {
+	// TODO: execute in parallel
 	for _, test := range s.Test {
 		if err := test.Run(
 			options,

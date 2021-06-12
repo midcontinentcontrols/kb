@@ -73,6 +73,7 @@ func (t *TestSpec) Verify(manifestPath string, log logger.Logger) error {
 }
 
 func (t *TestSpec) Run(options *TestOptions, manifestPath string, p *Process, log logger.Logger) error {
+	rootDir := filepath.Dir(manifestPath)
 	m := p.GetModuleFromTestSpec(manifestPath+":"+t.Name, t)
 	if !options.SkipBuild {
 		if err := m.Build(&BuildOptions{
@@ -83,7 +84,7 @@ func (t *TestSpec) Run(options *TestOptions, manifestPath string, p *Process, lo
 		}
 	}
 	if t.Env.Docker != nil {
-		return t.runDocker(log)
+		return t.runDocker(rootDir, log)
 	} else if t.Env.Kubernetes != nil {
 		if err := m.Deploy(&DeployOptions{
 			KubeContext: options.KubeContext,

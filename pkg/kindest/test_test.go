@@ -19,7 +19,7 @@ func TestTestErrNoEnv(t *testing.T) {
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
-	dockerfile := `FROM alpine:latest
+	dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(rootPath, "Dockerfile"),
@@ -51,7 +51,7 @@ func TestTestErrMultipleEnv(t *testing.T) {
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
-	dockerfile := `FROM alpine:latest
+	dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "echo \"Hello, world\""]`
 	require.NoError(t, ioutil.WriteFile(
 		filepath.Join(rootPath, "Dockerfile"),
