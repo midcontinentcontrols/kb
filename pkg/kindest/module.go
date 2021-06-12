@@ -430,7 +430,7 @@ func buildDocker(
 ) error {
 	cli, err := client.NewClientWithOpts()
 	if err != nil {
-		return err
+		return fmt.Errorf("NewClientWithOpts: %v", err)
 	}
 	buildArgs := make(map[string]*string)
 	for _, arg := range spec.BuildArgs {
@@ -449,7 +449,7 @@ func buildDocker(
 		},
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("ImageBuild: %v", err)
 	}
 	// TODO: redirect this output somewhere useful
 	//termFd, isTerm := term.GetFdInfo(os.Stderr)
@@ -463,17 +463,19 @@ func buildDocker(
 		nil,
 	); err != nil {
 		return err
+		//return fmt.Errorf("DisplayJSONMessagesStream: %v", err)
 	}
 
 	if !options.NoPush {
 		authConfig, err := RegistryAuthFromEnv(dest)
 		if err != nil {
-			return err
+			return fmt.Errorf("RegistryAuthFromEnv: %v", err)
 		}
 		log.Info(
 			"Pushing image",
 			zap.String("username", authConfig.Username),
 		)
+		//fmt.Printf("Pushing image image=%s, username=%s, password=%s\n", dest, authConfig.Username, authConfig.Password)
 		authBytes, err := json.Marshal(authConfig)
 		if err != nil {
 			return err
@@ -487,7 +489,7 @@ func buildDocker(
 			},
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("ImagePush: %v", err)
 		}
 		// TODO: pipe output somewhere useful
 		//termFd, isTerm := term.GetFdInfo(os.Stderr)
@@ -499,6 +501,7 @@ func buildDocker(
 			nil,
 		); err != nil {
 			return err
+			//return fmt.Errorf("DisplayJSONMessagesStream: %v", err)
 		}
 	}
 	return nil

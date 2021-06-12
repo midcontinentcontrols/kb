@@ -1,14 +1,9 @@
 package kindest
 
 import (
-	"archive/tar"
-	"bufio"
-	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"hash"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -18,10 +13,7 @@ import (
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/docker/cli/cli/config/types"
 	"github.com/docker/distribution/reference"
-	"github.com/google/uuid"
-	"github.com/jhoonb/archivex"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
-	"github.com/monochromegane/go-gitignore"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 )
@@ -114,6 +106,7 @@ func (b *BuildSpec) Verify(manifestPath string, log logger.Logger) error {
 	return b.verifyDocker(manifestPath, log)
 }
 
+/*
 func hashDir(
 	dir string,
 	contextPath string,
@@ -388,7 +381,7 @@ func (b *BuildSpec) tarBuildContext(manifestPath string, options *BuildOptions) 
 		return "", err
 	}
 	return tarPath, nil
-}
+}*/
 
 /*
 func (b *BuildSpec) buildDocker(

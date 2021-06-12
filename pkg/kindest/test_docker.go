@@ -18,7 +18,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (t *TestSpec) runDocker(options *TestOptions, log logger.Logger) error {
+func (t *TestSpec) runDocker(log logger.Logger) error {
 	cli, err := client.NewClientWithOpts()
 	if err != nil {
 		return err

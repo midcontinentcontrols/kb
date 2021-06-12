@@ -111,7 +111,12 @@ func (s *KindestSpec) RunTests(
 	log logger.Logger,
 ) error {
 	for _, test := range s.Test {
-		if err := test.Run(options, manifestPath, p, log); err != nil {
+		if err := test.Run(
+			options,
+			manifestPath,
+			p,
+			log,
+		); err != nil {
 			return err
 		}
 	}

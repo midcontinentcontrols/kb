@@ -49,6 +49,7 @@ type TestOptions struct {
 	Namespace   string `json:"namespace,omitempty"`
 	Repository  string `json:"repository,omitempty"`
 	SkipBuild   bool   `json:"skipBuild,omitempty"`
+	NoPush      bool   `json:"noPush,omitempty"`
 }
 
 var ErrMultipleTestEnv = fmt.Errorf("multiple test environments defined")
@@ -72,23 +73,29 @@ func (t *TestSpec) Verify(manifestPath string, log logger.Logger) error {
 }
 
 func (t *TestSpec) Run(options *TestOptions, manifestPath string, p *Process, log logger.Logger) error {
-	m := p.GetModuleFromTestSpec(manifestPath, t)
+	m := p.GetModuleFromTestSpec(manifestPath+":"+t.Name, t)
 	if !options.SkipBuild {
 		if err := m.Build(&BuildOptions{
 			Repository: options.Repository,
+			NoPush:     options.NoPush,
 		}); err != nil {
-			return fmt.Errorf("build: %v", err)
+			return fmt.Errorf("pretest build: %v", err)
 		}
 	}
 	if t.Env.Docker != nil {
-		return t.runDocker(options, log)
+		return t.runDocker(log)
 	} else if t.Env.Kubernetes != nil {
 		if err := m.Deploy(&DeployOptions{
 			KubeContext: options.KubeContext,
 		}); err != nil {
 			return fmt.Errorf("deploy: %v", err)
 		}
-		return t.runKubernetes(options, m.Dir(), p, log)
+		return t.runKubernetes(
+			options.KubeContext,
+			options.Repository,
+			options.Namespace,
+			log,
+		)
 	} else {
 		panic("unreachable branch detected")
 	}

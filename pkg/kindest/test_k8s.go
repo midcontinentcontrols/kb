@@ -17,12 +17,12 @@ import (
 )
 
 func (t *TestSpec) runKubernetes(
-	options *TestOptions,
-	rootPath string,
-	p *Process,
+	kubeContext string,
+	repository string,
+	namespace string,
 	log logger.Logger,
 ) error {
-	client, _, err := clientForContext(options.KubeContext)
+	client, _, err := clientForContext(kubeContext)
 	if err != nil {
 		return err
 	}
@@ -31,9 +31,8 @@ func (t *TestSpec) runKubernetes(
 	if err := createTestRBAC(client, log); err != nil {
 		return err
 	}
-	image := sanitizeImageName(options.Repository, t.Build.Name, "latest")
+	image := sanitizeImageName(repository, t.Build.Name, "latest")
 	imagePullPolicy := corev1.PullAlways
-	namespace := options.Namespace
 	if namespace == "" {
 		namespace = "default"
 	}
