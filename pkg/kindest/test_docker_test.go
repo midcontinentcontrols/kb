@@ -1,7 +1,6 @@
 package kindest
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,19 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/docker/docker/api/types/mount"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
-
-func TestMountUnmarshal(t *testing.T) {
-	code := `{"source":"/root"}`
-	m := mount.Mount{}
-	require.NoError(t, json.Unmarshal([]byte(code), &m))
-	require.Equal(t, m.Source, "/root")
-}
 
 func TestTestDockerEnv(t *testing.T) {
 	name := "test-" + uuid.New().String()[:8]
