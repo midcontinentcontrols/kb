@@ -3,7 +3,6 @@ package kindest
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -30,14 +29,9 @@ func TestTestDockerEnv(t *testing.T) {
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
 	dockerfile := `FROM alpine:3.11.6
-CMD ["sh", "-c", "set -euo pipefail; echo $MYVARIABLE"]`
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "Dockerfile"),
-		[]byte(dockerfile),
-		0644,
-	))
-	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`build:
+RUN apk add --no-cache bash
+CMD ["bash", "-c", "set -euo pipefail; echo $MYVARIABLE"]`
+	specYaml := fmt.Sprintf(`build:
   name: test/%s
 test:
   - name: basic
@@ -50,14 +44,13 @@ test:
       name: test/%s-test
       dockerfile: Dockerfile
 `, name, name)
-	require.NoError(t, ioutil.WriteFile(
-		specPath,
-		[]byte(spec),
-		0644,
-	))
+	require.NoError(t, createFiles(map[string]interface{}{
+		"kindest.yaml": specYaml,
+		"Dockerfile":   dockerfile,
+	}, rootPath))
 	log := logger.NewMockLogger(logger.NewFakeLogger())
 	p := NewProcess(runtime.NumCPU(), log)
-	module, err := p.GetModule(specPath)
+	module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 	require.NoError(t, err)
 	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
 	err = module.RunTests(&TestOptions{NoPush: true}, p, log)
@@ -71,13 +64,7 @@ func TestTestDockerError(t *testing.T) {
 	defer os.RemoveAll(rootPath)
 	dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "exit 1"]`
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "Dockerfile"),
-		[]byte(dockerfile),
-		0644,
-	))
-	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`build:
+	specYaml := fmt.Sprintf(`build:
   name: test/%s
 test:
   - name: basic
@@ -87,14 +74,13 @@ test:
       name: test/%s-test
       dockerfile: Dockerfile
 `, name, name)
-	require.NoError(t, ioutil.WriteFile(
-		specPath,
-		[]byte(spec),
-		0644,
-	))
+	require.NoError(t, createFiles(map[string]interface{}{
+		"kindest.yaml": specYaml,
+		"Dockerfile":   dockerfile,
+	}, rootPath))
 	log := logger.NewMockLogger(logger.NewFakeLogger())
 	p := NewProcess(runtime.NumCPU(), log)
-	module, err := p.GetModule(specPath)
+	module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 	require.NoError(t, err)
 	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
 	err = module.RunTests(&TestOptions{NoPush: true}, p, log)
