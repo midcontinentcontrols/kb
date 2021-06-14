@@ -54,7 +54,7 @@ func (b *BuildSpec) DependsOnFiles(files []string, manifestPath string) (bool, e
 	}
 	dockerfilePath = filepath.Clean(filepath.Join(dir, dockerfilePath))
 
-	include, err := createDockerInclude(contextPath, dockerfilePath)
+	include, _, err := createDockerInclude(contextPath, dockerfilePath)
 	if err != nil {
 		return false, err
 	}

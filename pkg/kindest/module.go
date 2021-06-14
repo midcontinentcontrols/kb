@@ -194,6 +194,7 @@ func addDirToBuildContext(
 	contextPath string,
 	dockerignore *gogitignore.GitIgnore,
 	include *gogitignore.GitIgnore,
+	traverse []string,
 	c map[string]Entity,
 ) error {
 	infos, err := ioutil.ReadDir(dir)
@@ -214,16 +215,35 @@ func addDirToBuildContext(
 			}
 		}
 		excludeFile := dockerignore.MatchesPath(rel)
-		if excludeFile || !include.MatchesPath(rel) {
+		if excludeFile {
 			continue
 		}
 		if info.IsDir() {
+			// How do we know if we need to traverse a directory?
+			// Check if rel is included in the list of directories
+			// to traverse. If it is, we'll need to create it in
+			// the BuildContext structure.
+			if !include.MatchesPath(rel) {
+				found := false
+				withoutTrailingSlash := rel[:len(rel)-1]
+				for _, dir := range traverse {
+					if dir == withoutTrailingSlash {
+						found = true
+						break
+					}
+				}
+				if !found {
+					// This directory is not relevant to the build
+					continue
+				}
+			}
 			contents := make(map[string]Entity)
 			if err := addDirToBuildContext(
 				path,
 				contextPath,
 				dockerignore,
 				include,
+				traverse,
 				contents,
 			); err != nil {
 				return err
@@ -232,7 +252,7 @@ func addDirToBuildContext(
 				Contents: contents,
 				info:     info,
 			}
-		} else {
+		} else if include.MatchesPath(rel) {
 			body, err := ioutil.ReadFile(path)
 			if err != nil {
 				return err
@@ -246,14 +266,15 @@ func addDirToBuildContext(
 	return nil
 }
 
-func createDockerInclude(contextPath string, dockerfilePath string) (*gogitignore.GitIgnore, error) {
+func createDockerInclude(contextPath string, dockerfilePath string) (*gogitignore.GitIgnore, []string, error) {
 	f, err := os.Open(dockerfilePath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
 	var addedPaths []string
+	var traverse []string
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if len(line) == 0 || strings.HasPrefix(line, "#") {
@@ -265,32 +286,54 @@ func createDockerInclude(contextPath string, dockerfilePath string) (*gogitignor
 				abs := filepath.Clean(filepath.Join(contextPath, rel))
 				info, err := os.Stat(abs)
 				if err != nil {
-					return nil, fmt.Errorf("failed to stat %v", abs)
+					return nil, nil, fmt.Errorf("failed to stat %v: %v", abs, err)
 				}
 				if info.IsDir() && !strings.HasSuffix(rel, "/") {
 					rel += "/"
 				}
+
+				// Add it to the explicit dockerinclude
+				found := false
+				for _, item := range addedPaths {
+					if item == rel {
+						found = true
+						break
+					}
+				}
+				if !found {
+					addedPaths = append(addedPaths, rel)
+				}
+
+				// Add all the necessary parent paths to the traversal list
 				parts := strings.Split(rel, "/")
-				for i := range parts {
+				for i := range parts[:len(parts)-1] {
+					if parts[i] == "" {
+						// Trailing slash
+						break
+					}
 					var full string
 					for _, other := range parts[:i+1] {
-						full = filepath.Join(full, other)
+						if full != "" {
+							full += "/"
+						}
+						full += other
 					}
 					found := false
-					for _, item := range addedPaths {
+					for _, item := range traverse {
 						if item == full {
 							found = true
 							break
 						}
 					}
 					if !found {
-						addedPaths = append(addedPaths, full)
+						//fmt.Printf("Added %s\n", full)
+						traverse = append(traverse, full)
 					}
 				}
 			}
 		}
 	}
-	return gogitignore.CompileIgnoreLines(addedPaths...), nil
+	return gogitignore.CompileIgnoreLines(addedPaths...), traverse, nil
 }
 
 func getRelativeDockerfilePath(contextPath, dockerfilePath string) (string, error) {
@@ -323,7 +366,7 @@ func (m *Module) loadBuildContext() (BuildContext, string, *gogitignore.GitIgnor
 	if err != nil {
 		return nil, "", nil, err
 	}
-	include, err := createDockerInclude(contextPath, dockerfilePath)
+	include, traverse, err := createDockerInclude(contextPath, dockerfilePath)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -333,6 +376,7 @@ func (m *Module) loadBuildContext() (BuildContext, string, *gogitignore.GitIgnor
 		contextPath,
 		dockerignore,
 		include,
+		traverse,
 		c,
 	); err != nil {
 		return nil, "", nil, err
