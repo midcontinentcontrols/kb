@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -21,6 +22,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/hashicorp/go-multierror"
+	"github.com/moby/term"
 	gogitignore "github.com/sabhiram/go-gitignore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -212,33 +214,32 @@ func addDirToBuildContext(
 			}
 		}
 		excludeFile := dockerignore.MatchesPath(rel)
-		if excludeFile {
+		if excludeFile || !include.MatchesPath(rel) {
 			continue
+		}
+		if info.IsDir() {
+			contents := make(map[string]Entity)
+			if err := addDirToBuildContext(
+				path,
+				contextPath,
+				dockerignore,
+				include,
+				contents,
+			); err != nil {
+				return err
+			}
+			c[name] = &Directory{
+				Contents: contents,
+				info:     info,
+			}
 		} else {
-			if info.IsDir() {
-				contents := make(map[string]Entity)
-				if err := addDirToBuildContext(
-					path,
-					contextPath,
-					dockerignore,
-					include,
-					contents,
-				); err != nil {
-					return err
-				}
-				c[name] = &Directory{
-					Contents: contents,
-					info:     info,
-				}
-			} else {
-				body, err := ioutil.ReadFile(path)
-				if err != nil {
-					return err
-				}
-				c[name] = &File{
-					Content: body,
-					info:    info,
-				}
+			body, err := ioutil.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			c[name] = &File{
+				Content: body,
+				info:    info,
 			}
 		}
 	}
@@ -459,19 +460,25 @@ func buildDocker(
 	if err != nil {
 		return fmt.Errorf("ImageBuild: %v", err)
 	}
+
 	// TODO: redirect this output somewhere useful
-	//termFd, isTerm := term.GetFdInfo(os.Stderr)
-	isTerm := false
-	output := bytes.NewBuffer(nil)
+	var termFd uintptr
+	var isTerm bool
+	var output io.Writer
+	if options.Verbose {
+		termFd, isTerm = term.GetFdInfo(os.Stderr)
+		output = os.Stderr
+	} else {
+		output = bytes.NewBuffer(nil)
+	}
 	if err := jsonmessage.DisplayJSONMessagesStream(
 		resp.Body,
 		output,
-		0,
+		termFd,
 		isTerm,
 		nil,
 	); err != nil {
 		return err
-		//return fmt.Errorf("DisplayJSONMessagesStream: %v", err)
 	}
 
 	if !options.NoPush {
@@ -500,16 +507,14 @@ func buildDocker(
 			return fmt.Errorf("ImagePush: %v", err)
 		}
 		// TODO: pipe output somewhere useful
-		//termFd, isTerm := term.GetFdInfo(os.Stderr)
 		if err := jsonmessage.DisplayJSONMessagesStream(
 			resp,
-			bytes.NewBuffer(nil),
-			0,
+			output,
+			termFd,
 			isTerm,
 			nil,
 		); err != nil {
 			return err
-			//return fmt.Errorf("DisplayJSONMessagesStream: %v", err)
 		}
 	}
 	return nil
@@ -803,6 +808,9 @@ func (m *Module) doBuild(options *BuildOptions) error {
 		m.log.Debug("No files changed", zap.String("digest", cachedDigest))
 		return nil
 	}
+	m.log.Info(
+		"Digests do not match, building...",
+		zap.String("module", m.Path))
 	//fmt.Printf("%s Files changed, cachedDigest=%s, digest=%s\n", m.Path, cachedDigest, digest)
 	tar, err := buildContext.Archive()
 	if err != nil {
