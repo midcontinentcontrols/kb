@@ -206,8 +206,12 @@ func addDirToBuildContext(
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		//isDir := info.IsDir()
-		excludeFile := dockerignore.MatchesPath(rel) // || !include.Match(rel, isDir)
+		if info.IsDir() {
+			if !strings.HasSuffix(rel, "/") {
+				rel += "/"
+			}
+		}
+		excludeFile := dockerignore.MatchesPath(rel)
 		if excludeFile {
 			continue
 		} else {
@@ -333,7 +337,11 @@ func (m *Module) loadBuildContext() (BuildContext, string, *gogitignore.GitIgnor
 		return nil, "", nil, err
 	}
 	if _, ok := c[".git"]; ok {
-		m.log.Warn(".git was included in the build context, which may not be intentional")
+		m.log.Warn(
+			".git was included in the build context, which may not be intentional",
+			zap.String("contextPath", contextPath),
+			zap.Bool("dockerignore.MatchesPath('.git/')", dockerignore.MatchesPath(".git/")),
+		)
 	}
 	if err := addFileToBuildContext(
 		contextPath,
@@ -792,7 +800,7 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	}
 	if digest == cachedDigest && !options.NoCache {
 		//fmt.Printf("%s No files changed\n", m.Path)
-		m.log.Info("No files changed", zap.String("digest", cachedDigest))
+		m.log.Debug("No files changed", zap.String("digest", cachedDigest))
 		return nil
 	}
 	//fmt.Printf("%s Files changed, cachedDigest=%s, digest=%s\n", m.Path, cachedDigest, digest)

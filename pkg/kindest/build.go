@@ -90,7 +90,7 @@ func (b *BuildSpec) verifyDocker(manifestPath string, log logger.Logger) error {
 		path = filepath.Join(filepath.Dir(manifestPath), "Dockerfile")
 	}
 	path = filepath.Clean(path)
-	log.Info("Resolving Dockerfile", zap.String("name", b.Name), zap.String("path", path))
+	log.Debug("Resolving Dockerfile", zap.String("name", b.Name), zap.String("path", path))
 	if _, err := os.Stat(path); err != nil {
 		return fmt.Errorf("missing Dockerfile at '%s'", path)
 	}
