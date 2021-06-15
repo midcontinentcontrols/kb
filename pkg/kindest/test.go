@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
 	"gopkg.in/yaml.v2"
@@ -46,6 +47,8 @@ import (
 
 type TestOptions struct {
 	KubeContext string `json:"kubeContext,omitempty"`
+	Kind        string `json:"kind,omitempty"`
+	Transient   bool   `json:"transient,omitempty"`
 	Namespace   string `json:"namespace,omitempty"`
 	Repository  string `json:"repository,omitempty"`
 	SkipBuild   bool   `json:"skipBuild,omitempty"`
@@ -72,7 +75,12 @@ func (t *TestSpec) Verify(manifestPath string, log logger.Logger) error {
 	}
 }
 
-func (t *TestSpec) Run(options *TestOptions, manifestPath string, p *Process, log logger.Logger) error {
+func (t *TestSpec) Run(
+	options *TestOptions,
+	manifestPath string,
+	p *Process,
+	log logger.Logger,
+) error {
 	rootDir := filepath.Dir(manifestPath)
 	m := p.GetModuleFromTestSpec(manifestPath+":"+t.Name, t)
 	if !options.SkipBuild {
@@ -86,11 +94,33 @@ func (t *TestSpec) Run(options *TestOptions, manifestPath string, p *Process, lo
 	if t.Env.Docker != nil {
 		return t.runDocker(rootDir, log)
 	} else if t.Env.Kubernetes != nil {
+		kubeContext := options.KubeContext
+
+		if options.Kind != "" {
+			// Ensure cluster is created
+			var err error
+			kubeContext, err = cluster_management.CreateCluster(options.Kind, log)
+			if err != nil {
+				return err
+			}
+			if options.Transient {
+				defer func() {
+					log.Info("Deleting transient cluster")
+					if err := cluster_management.DeleteCluster(
+						options.Kind,
+					); err != nil {
+						log.Error("Error deleting cluster", zap.Error(err))
+					}
+				}()
+			}
+		}
+
 		if err := m.Deploy(&DeployOptions{
-			KubeContext: options.KubeContext,
+			KubeContext: kubeContext,
 		}); err != nil {
 			return fmt.Errorf("deploy: %v", err)
 		}
+
 		return t.runKubernetes(
 			options.KubeContext,
 			options.Repository,

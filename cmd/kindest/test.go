@@ -16,6 +16,8 @@ type TestArgs struct {
 	Repository  string `json:"repository,omitempty" yaml:"repository,omitempty"`
 	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
 	SkipHooks   bool   `json:"skipHooks,omitempty" yaml:"skipHooks,omitempty"`
+	KubeContext string `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
+	Kind        string `json:"kind,omitempty" yaml:"kind,omitempty"`
 }
 
 var testArgs TestArgs
@@ -38,4 +40,6 @@ func init() {
 	testCmd.PersistentFlags().BoolVar(&testArgs.NoPush, "no-push", false, "do not push built images")
 	testCmd.PersistentFlags().StringVar(&testArgs.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
 	testCmd.PersistentFlags().BoolVar(&testArgs.SkipHooks, "skip-hooks", false, "skip before: and after: hooks")
+	testCmd.PersistentFlags().StringVar(&testArgs.KubeContext, "kube-context", "", "kubectl context (uses current by default)")
+	testCmd.PersistentFlags().StringVar(&testArgs.Kind, "kind", "", "Kubernetes-IN-Docker cluster name, for local testing")
 }
