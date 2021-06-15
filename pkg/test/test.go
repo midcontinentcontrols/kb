@@ -11,7 +11,7 @@ import (
 )
 
 func NewDockerClient(t *testing.T) client.APIClient {
-	cli, err := client.NewEnvClient()
+	cli, err := client.NewClientWithOpts(client.FromEnv)
 	require.NoError(t, err)
 	return cli
 }

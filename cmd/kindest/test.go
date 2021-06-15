@@ -66,7 +66,7 @@ func init() {
 	testCmd.PersistentFlags().StringVar(&testArgs.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
 	testCmd.PersistentFlags().BoolVar(&testArgs.SkipHooks, "skip-hooks", false, "skip before: and after: hooks")
 	testCmd.PersistentFlags().BoolVarP(&testArgs.Verbose, "verbose", "v", false, "verbose output (pipe build messages to stdout)")
-	testCmd.PersistentFlags().BoolVarP(&testArgs.Force, "force", "f", false, "build regardless of digest")
+	testCmd.PersistentFlags().BoolVar(&testArgs.Force, "force", false, "build regardless of digest")
 
 	testCmd.PersistentFlags().StringVar(&testArgs.KubeContext, "kube-context", "", "kubectl context (uses current by default)")
 	testCmd.PersistentFlags().StringVar(&testArgs.Kind, "kind", "", "Kubernetes-IN-Docker cluster name, for local testing")

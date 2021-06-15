@@ -102,7 +102,7 @@ func WaitForPod(name, namespace string, client *kubernetes.Clientset, log logger
 		switch pod.Status.Phase {
 		case corev1.PodPending:
 			log.Info("Waiting on pod",
-				zap.String("elapsed", time.Now().Sub(start).String()),
+				zap.String("elapsed", time.Since(start).String()),
 				zap.String("timeout", timeout.String()))
 			time.Sleep(delay)
 			continue

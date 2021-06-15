@@ -68,5 +68,5 @@ func init() {
 	buildCmd.PersistentFlags().StringVar(&buildArgs.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.SkipHooks, "skip-hooks", false, "skip before: and after: hooks")
 	buildCmd.PersistentFlags().BoolVarP(&buildArgs.Verbose, "verbose", "v", false, "verbose output (pipe build messages to stdout)")
-	buildCmd.PersistentFlags().BoolVarP(&buildArgs.Force, "force", "f", false, "build regardless of digest")
+	buildCmd.PersistentFlags().BoolVar(&buildArgs.Force, "force", false, "build regardless of digest")
 }

@@ -45,6 +45,12 @@ containerdConfigPatches:
 - |-
     [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:%d"]
     endpoint = ["http://%s:%d"]`, regPort, regName, regPort)
+	//	return fmt.Sprintf(`kind: Cluster
+	//apiVersion: kind.x-k8s.io/v1alpha4
+	//containerdConfigPatches:
+	//- |-
+	//    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:%d"]
+	//    endpoint = ["http://%s:%d"]`, regPort, regName, regPort)
 }
 
 func WaitForCluster(client *kubernetes.Clientset, log logger.Logger) error {
@@ -78,7 +84,7 @@ func WaitForCluster(client *kubernetes.Clientset, log logger.Logger) error {
 		log.Info("Waiting on pods in kube-system",
 			zap.Int("numReady", total-count),
 			zap.Int("numPods", total),
-			zap.String("elapsed", time.Now().Sub(start).String()),
+			zap.String("elapsed", time.Since(start).String()),
 			zap.String("timeout", timeout.String()))
 		time.Sleep(delay)
 	}
@@ -95,7 +101,7 @@ func WaitForCluster(client *kubernetes.Clientset, log logger.Logger) error {
 		); err != nil {
 			if errors.IsNotFound(err) {
 				log.Info("Waiting on default serviceaccount",
-					zap.String("elapsed", time.Now().Sub(start).String()),
+					zap.String("elapsed", time.Since(start).String()),
 					zap.String("timeout", timeout.String()))
 				time.Sleep(delay)
 				continue
@@ -108,17 +114,14 @@ func WaitForCluster(client *kubernetes.Clientset, log logger.Logger) error {
 	if !good {
 		return fmt.Errorf("default serviceaccount failed to appear within %v", timeout.String())
 	}
-	log.Info("Cluster is running", zap.String("elapsed", time.Now().Sub(start).String()))
+	log.Info("Cluster is running", zap.String("elapsed", time.Since(start).String()))
 	return nil
 }
 
 func CreateCluster(name string, log logger.Logger) (string, error) {
-	cli, err := client.NewEnvClient()
+	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
-		return "", err
-	}
-	if err := registry.EnsureLocalRegistryRunning(cli, log); err != nil {
-		return "", fmt.Errorf("registry: %v", err)
+		return "", fmt.Errorf("docker: %v", err)
 	}
 	p := cluster.NewProvider()
 	kindConfig := GenerateKindConfig("kind-registry", 5000)
@@ -134,6 +137,9 @@ func CreateCluster(name string, log logger.Logger) (string, error) {
 	}
 	if err := WaitForCluster(client, log); err != nil {
 		return "", err
+	}
+	if err := registry.EnsureLocalRegistryRunning(cli, true, log); err != nil {
+		return "", fmt.Errorf("registry: %v", err)
 	}
 	return kubeContext, nil
 }

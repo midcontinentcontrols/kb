@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	containertypes "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"go.uber.org/zap"
@@ -99,7 +101,7 @@ func DeleteLocalRegistry(cli client.APIClient, log logger.Logger) error {
 
 // EnsureLocalRegistryRunning ensures a local docker registry is running,
 // as per https://kind.sigs.k8s.io/docs/user/local-registry/
-func EnsureLocalRegistryRunning(cli client.APIClient, log logger.Logger) error {
+func EnsureLocalRegistryRunning(cli client.APIClient, connect bool, log logger.Logger) error {
 	image := "registry:2"
 	if err := util.EnsureImagePulled(image, cli, log); err != nil {
 		return err
@@ -108,9 +110,44 @@ func EnsureLocalRegistryRunning(cli client.APIClient, log logger.Logger) error {
 	regPort := 5000
 	if err := util.WaitForContainer(regName, cli, log); err != nil {
 		if client.IsErrNotFound(err) {
-			return CreateLocalRegistry(regName, regPort, image, cli, log)
+			if err := CreateLocalRegistry(regName, regPort, image, cli, log); err != nil {
+				return err
+			}
+		} else {
+			return err
 		}
-		return err
+	}
+	if connect {
+		if err := cli.NetworkConnect(
+			context.TODO(),
+			"kind",
+			regName,
+			&network.EndpointSettings{},
+		); err != nil {
+			if strings.Contains(err.Error(), "endpoint with name kind-registry already exists in network kind") {
+				// Already connected
+				return nil
+			}
+			return fmt.Errorf("docker: %v", err)
+		}
+	}
+	return nil
+}
+
+// ConnectRegistry connects the local registry to the kind network.
+// This is necessary so the pods can access the registry.
+func ConnectRegistry(cli client.APIClient) error {
+	if err := cli.NetworkConnect(
+		context.TODO(),
+		"kind",
+		"kind-registry",
+		&network.EndpointSettings{},
+	); err != nil {
+		if strings.Contains(err.Error(), "endpoint with name kind-registry already exists in network kind") {
+			// Already connected
+			return nil
+		}
+		return fmt.Errorf("docker: %v", err)
 	}
 	return nil
 }

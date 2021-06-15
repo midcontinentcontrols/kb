@@ -390,7 +390,7 @@ func (b *BuildSpec) buildDocker(
 	respHandler func(io.ReadCloser) error,
 	log logger.Logger,
 ) error {
-	cli, err := client.NewEnvClient()
+	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return err
 	}

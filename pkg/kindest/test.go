@@ -402,7 +402,7 @@ func loadImagesOnCluster(
 			for {
 				select {
 				case <-time.After(time.Second):
-					log.Info("Still copying image onto cluster", zap.String("elapsed", time.Now().Sub(start).String()))
+					log.Info("Still copying image onto cluster", zap.String("elapsed", time.Since(start).String()))
 				case <-stop:
 					return
 				}
@@ -411,7 +411,7 @@ func loadImagesOnCluster(
 		if err := loadImageOnCluster(imageName, name, provider); err != nil {
 			return err
 		}
-		log.Info("Copied image onto cluster", zap.String("elapsed", time.Now().Sub(start).String()))
+		log.Info("Copied image onto cluster", zap.String("elapsed", time.Since(start).String()))
 		return nil
 	})
 	defer pool.Close()
@@ -524,7 +524,7 @@ func waitForCluster(client *kubernetes.Clientset, log logger.Logger) error {
 		log.Info("Waiting on pods in kube-system",
 			zap.Int("numReady", total-count),
 			zap.Int("numPods", total),
-			zap.String("elapsed", time.Now().Sub(start).String()),
+			zap.String("elapsed", time.Since(start).String()),
 			zap.String("timeout", timeout.String()))
 		time.Sleep(delay)
 	}
@@ -541,7 +541,7 @@ func waitForCluster(client *kubernetes.Clientset, log logger.Logger) error {
 		); err != nil {
 			if errors.IsNotFound(err) {
 				log.Info("Waiting on default serviceaccount",
-					zap.String("elapsed", time.Now().Sub(start).String()),
+					zap.String("elapsed", time.Since(start).String()),
 					zap.String("timeout", timeout.String()))
 				time.Sleep(delay)
 				continue
@@ -554,7 +554,7 @@ func waitForCluster(client *kubernetes.Clientset, log logger.Logger) error {
 	if !good {
 		return fmt.Errorf("default serviceaccount failed to appear within %v", timeout.String())
 	}
-	log.Info("Cluster is running", zap.String("elapsed", time.Now().Sub(start).String()))
+	log.Info("Cluster is running", zap.String("elapsed", time.Since(start).String()))
 	return nil
 }
 
@@ -599,7 +599,7 @@ func deleteOldPods(pods corev1types.PodInterface, envName string, log logger.Log
 		for {
 			select {
 			case <-time.After(5 * time.Second):
-				log.Info("Still deleting old test pods", zap.String("elapsed", time.Now().Sub(start).String()))
+				log.Info("Still deleting old test pods", zap.String("elapsed", time.Since(start).String()))
 			case <-stop:
 				return
 			}
@@ -799,7 +799,7 @@ func (t *TestSpec) runKubernetes(
 	image := sanitizeImageName(options.Repository, t.Build.Name, "latest")
 	imagePullPolicy := corev1.PullAlways
 	if isKind {
-		cli, err := dockerclient.NewEnvClient()
+		cli, err := dockerclient.NewClientWithOpts(client.FromEnv)
 		if err != nil {
 			return err
 		}
@@ -835,7 +835,7 @@ func (t *TestSpec) runKubernetes(
 				for {
 					select {
 					case <-time.After(5 * time.Second):
-						log.Info("Still creating cluster", zap.String("elapsed", time.Now().Sub(start).String()))
+						log.Info("Still creating cluster", zap.String("elapsed", time.Since(start).String()))
 					case <-ready:
 						return
 					}
@@ -1071,7 +1071,7 @@ func (t *TestSpec) runKubernetes(
 			log.Info("Still waiting on pod",
 				zap.String("phase", string(pod.Status.Phase)),
 				zap.Bool("scheduled", scheduled),
-				zap.String("elapsed", time.Now().Sub(start).String()),
+				zap.String("elapsed", time.Since(start).String()),
 				zap.String("timeout", timeout.String()))
 			time.Sleep(delay)
 			continue
