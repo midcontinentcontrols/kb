@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/midcontinentcontrols/kindest/pkg/test"
+	"github.com/midcontinentcontrols/kindest/pkg/util"
 
 	"github.com/docker/docker/client"
 
@@ -14,7 +15,7 @@ import (
 func TestDockerContainerInspect(t *testing.T) {
 	t.Run("ErrNotFound", func(t *testing.T) {
 		cli := test.NewDockerClient(t)
-		name := RandomTestName()
+		name := util.RandomTestName()
 		_, err := cli.ContainerInspect(context.TODO(), name)
 		require.True(t, client.IsErrNotFound(err))
 	})
@@ -38,7 +39,7 @@ func TestLocalRegistryCreateDelete(t *testing.T) {
 
 /*
 func TestLocalRegistryPullImage(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)

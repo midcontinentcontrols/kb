@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +21,10 @@ import (
 	"github.com/docker/docker/client"
 	"go.uber.org/zap"
 )
+
+func RandomTestName() string {
+	return "test-" + uuid.New().String()[:8]
+}
 
 func EnsureImagePulled(imageName string, cli client.APIClient, log logger.Logger) error {
 	resp, err := cli.ImagePull(context.TODO(), imageName, types.ImagePullOptions{})

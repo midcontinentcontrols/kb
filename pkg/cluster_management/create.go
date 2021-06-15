@@ -8,10 +8,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/docker/docker/client"
 	"github.com/midcontinentcontrols/kindest/pkg/kubeconfig"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/midcontinentcontrols/kindest/pkg/registry"
-	"github.com/moby/moby/client"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"

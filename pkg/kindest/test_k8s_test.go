@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/midcontinentcontrols/kindest/pkg/util"
+
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
 	"github.com/stretchr/testify/require"
@@ -24,7 +26,7 @@ func getPushRepository() string {
 }
 
 func TestTestK8sEnv(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	pushRepo := getPushRepository()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -61,7 +63,7 @@ test:
 }
 
 func TestTestK8sError(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	pushRepo := getPushRepository()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -96,7 +98,7 @@ test:
 }
 
 func TestTestK8sKindEnv(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	pushRepo := getPushRepository()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))

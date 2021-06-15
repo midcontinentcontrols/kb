@@ -19,7 +19,7 @@ func TestModuleBuildKaniko(t *testing.T) {
 	//
 	//
 	t.Run("BuildStatusSucceeded", func(t *testing.T) {
-		name := RandomTestName()
+		name := util.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -41,7 +41,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		require.Equal(t, BuildStatusSucceeded, module.Status())
 	})
 	t.Run("BuildStatusFailed", func(t *testing.T) {
-		name := RandomTestName()
+		name := util.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {

@@ -8,13 +8,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/midcontinentcontrols/kindest/pkg/util"
+
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestTestDockerEnv(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -48,7 +50,7 @@ test:
 }
 
 func TestTestDockerError(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -79,7 +81,7 @@ test:
 }
 
 func TestTestDockerMount(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)

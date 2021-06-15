@@ -8,7 +8,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/google/uuid"
+	"github.com/midcontinentcontrols/kindest/pkg/util"
+
 	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/stretchr/testify/require"
@@ -26,10 +27,6 @@ maintainers:
     email: thavlik@midcontinentcontrols.com
     url: https://midcontinentcontrols.com`
 
-func RandomTestName() string {
-	return "test-" + uuid.New().String()[:8]
-}
-
 func WithTemporaryCluster(name string, t *testing.T, log logger.Logger, f func(cl client.Client)) {
 	_, err := cluster_management.CreateCluster(name, log)
 	require.NoError(t, err)
@@ -40,7 +37,7 @@ func WithTemporaryCluster(name string, t *testing.T, log logger.Logger, f func(c
 
 // Make sure we encounter an error when Chart.yaml is missing
 func TestDeployErrMissingChartYaml(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	log := logger.NewMockLogger(logger.NewFakeLogger())
 	pushRepo := getPushRepository()
 	rootPath := filepath.Join("tmp", name)
@@ -110,7 +107,7 @@ test:
 // Try and deploy a basic chart, then ensure the chart resources
 // are created appropriately.
 func TestDeployChart(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	namespace := name
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))

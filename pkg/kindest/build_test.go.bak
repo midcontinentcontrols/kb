@@ -27,7 +27,7 @@ import (
 )
 
 func createBasicTestProject(t *testing.T, path string) string {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	rootPath := filepath.Join(path, name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	dockerfile := `FROM alpine:3.11.6
@@ -50,7 +50,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 }
 
 func TestBuildErrMissingDependencySpec(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -92,7 +92,7 @@ func TestBuildErrMissingDockerfile(t *testing.T) {
 }
 
 func TestBuildErrMissingName(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -115,7 +115,7 @@ func TestBuildErrMissingName(t *testing.T) {
 }
 
 func TestBuildContextPath(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	subdir := filepath.Join(rootPath, "subdir")
 	otherdir := filepath.Join(rootPath, "other")
@@ -147,8 +147,8 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 }
 
 func TestBuildDependency(t *testing.T) {
-	depname := RandomTestName()
-	name := RandomTestName()
+	depname := util.RandomTestName()
+	name := util.RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	// Use the dependency as a base image
@@ -193,8 +193,8 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 }
 
 func TestBuildDependencyModule(t *testing.T) {
-	depname := RandomTestName()
-	name := RandomTestName()
+	depname := util.RandomTestName()
+	name := util.RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	// Use the dependency as a base image
@@ -235,7 +235,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 
 func TestBuildDockerignore(t *testing.T) {
 	t.Run("file", func(t *testing.T) {
-		name := RandomTestName()
+		name := util.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
 		defer os.Remove(rootPath)
@@ -289,7 +289,7 @@ build:
 		require.Contains(t, err.Error(), "bar.txt: no such file or directory")
 	})
 	t.Run("dir", func(t *testing.T) {
-		name := RandomTestName()
+		name := util.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(filepath.Join(rootPath, ".git"), 0766))
 		require.NoError(t, os.MkdirAll(filepath.Join(rootPath, "subdir", "nested"), 0766))
@@ -376,7 +376,7 @@ build:
 }
 
 func TestBuildDockerCache(t *testing.T) {
-	name := RandomTestName()
+	name := util.RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -450,7 +450,7 @@ func testBuilder(t *testing.T, builder string, mutatetOpts func(options interfac
 	})
 
 	t.Run("dependency failure", func(t *testing.T) {
-		name := RandomTestName()
+		name := util.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
 		defer os.RemoveAll(rootPath)
@@ -508,7 +508,7 @@ RUN exit 1`
 	})
 
 	t.Run("dockerfile", func(t *testing.T) {
-		name := RandomTestName()
+		name := util.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
 		defer os.RemoveAll(rootPath)
@@ -542,7 +542,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	})
 
 	t.Run("missing build arg", func(t *testing.T) {
-		name := RandomTestName()
+		name := util.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
 		defer os.RemoveAll(rootPath)
@@ -583,7 +583,7 @@ RUN if [ -z "$HAS_BUILD_ARG" ]; then exit 3; fi`
 	})
 
 	t.Run("build arg", func(t *testing.T) {
-		name := RandomTestName()
+		name := util.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
 		defer os.RemoveAll(rootPath)
@@ -623,7 +623,7 @@ func TestBuildDocker(t *testing.T) {
 
 	t.Run("target", func(t *testing.T) {
 		require.NoError(t, registry.EnsureLocalRegistryRunning(test.NewDockerClient(t), test.NewTestLogger()))
-		name := RandomTestName()
+		name := util.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
 		defer os.RemoveAll(rootPath)
@@ -675,8 +675,8 @@ test:
 	})
 
 	t.Run("dependency context", func(t *testing.T) {
-		depname := RandomTestName()
-		name := RandomTestName()
+		depname := util.RandomTestName()
+		name := util.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
 		// Use the dependency as a base image
@@ -729,8 +729,8 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	})
 
 	t.Run("dependency base image", func(t *testing.T) {
-		depname := RandomTestName()
-		name := RandomTestName()
+		depname := util.RandomTestName()
+		name := util.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0766))
 		defer os.Remove(rootPath)
