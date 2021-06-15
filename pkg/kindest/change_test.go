@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +18,7 @@ import (
 // directory as their build context, allowing modules to depend on each
 // other.
 func TestModuleChanged(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
+	name := RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0644))
 	defer func() {

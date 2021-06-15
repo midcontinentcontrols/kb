@@ -10,6 +10,8 @@ import (
 
 	"github.com/midcontinentcontrols/kindest/pkg/kubeconfig"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"github.com/midcontinentcontrols/kindest/pkg/registry"
+	"github.com/moby/moby/client"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
@@ -111,10 +113,19 @@ func WaitForCluster(client *kubernetes.Clientset, log logger.Logger) error {
 }
 
 func CreateCluster(name string, log logger.Logger) (string, error) {
+	cli, err := client.NewEnvClient()
+	if err != nil {
+		return "", err
+	}
+	if err := registry.EnsureLocalRegistryRunning(cli, log); err != nil {
+		return "", fmt.Errorf("registry: %v", err)
+	}
 	p := cluster.NewProvider()
 	kindConfig := GenerateKindConfig("kind-registry", 5000)
-	err := p.Create(name, cluster.CreateWithRawConfig([]byte(kindConfig)))
-	if err != nil {
+	if err := p.Create(
+		name,
+		cluster.CreateWithRawConfig([]byte(kindConfig)),
+	); err != nil {
 		return "", fmt.Errorf("kind: %v", err)
 	}
 	client, kubeContext, err := ClientForKindCluster(name, p)

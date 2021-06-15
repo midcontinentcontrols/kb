@@ -54,6 +54,7 @@ func CreateLocalRegistry(
 			}),
 		},
 		nil,
+		nil,
 		regName,
 	)
 	if err != nil {
@@ -105,7 +106,6 @@ func EnsureLocalRegistryRunning(cli client.APIClient, log logger.Logger) error {
 	}
 	regName := "kind-registry"
 	regPort := 5000
-	// TODO: implement pull if image is not present
 	if err := util.WaitForContainer(regName, cli, log); err != nil {
 		if client.IsErrNotFound(err) {
 			return CreateLocalRegistry(regName, regPort, image, cli, log)

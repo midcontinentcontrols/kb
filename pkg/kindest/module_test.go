@@ -9,13 +9,12 @@ import (
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
 func TestModuleBuildStatus(t *testing.T) {
 	t.Run("BuildStatusSucceeded", func(t *testing.T) {
-		name := "test-" + uuid.New().String()[:8]
+		name := RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -37,7 +36,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		require.Equal(t, BuildStatusSucceeded, module.Status())
 	})
 	t.Run("BuildStatusFailed", func(t *testing.T) {
-		name := "test-" + uuid.New().String()[:8]
+		name := RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -65,7 +64,7 @@ func TestModuleBuildContext(t *testing.T) {
 	//
 	// A basic test with a file copied over.
 	t.Run("basic", func(t *testing.T) {
-		name := "test-" + uuid.New().String()[:8]
+		name := RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -92,7 +91,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	//
 	// This test ensures subdirectories are copied over correctly.
 	t.Run("subdir", func(t *testing.T) {
-		name := "test-" + uuid.New().String()[:8]
+		name := RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -121,7 +120,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	//
 	// This test ensure .dockerignore correctly excludes a single file.
 	t.Run("dockerignore", func(t *testing.T) {
-		name := "test-" + uuid.New().String()[:8]
+		name := RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -154,7 +153,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	//
 	// This test ensures parent directories can be used as build contexts.
 	t.Run("parent", func(t *testing.T) {
-		name := "test-" + uuid.New().String()[:8]
+		name := RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -184,7 +183,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	//
 	// This test ensures the contents of deeply nested directories are copied over.
 	t.Run("deep", func(t *testing.T) {
-		name := "test-" + uuid.New().String()[:8]
+		name := RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -216,7 +215,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	   	//
 	   	// This test ensures files are properly excuded via dockerignore
 	   	t.Run("dockerignore", func(t *testing.T) {
-	   		name := "test-" + uuid.New().String()[:8]
+	   		name := RandomTestName()
 	   		rootPath := filepath.Join("tmp", name)
 	   		require.NoError(t, os.MkdirAll(rootPath, 0644))
 	   		defer func() {
@@ -257,7 +256,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 //
 // This test ensures the build cache is used when building an unchanged module.
 func TestModuleBuildCache(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
+	name := RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0644))
 	defer func() {
@@ -293,7 +292,7 @@ func TestModuleDependency(t *testing.T) {
 	//
 	// Ensure dependencies are cached along with the module being built.
 	t.Run("cache", func(t *testing.T) {
-		name := "test-" + uuid.New().String()[:8]
+		name := RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -338,7 +337,7 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 	//
 	// Ensure errors in building a dependency are correctly propogated.
 	t.Run("error", func(t *testing.T) {
-		name := "test-" + uuid.New().String()[:8]
+		name := RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -379,7 +378,7 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 // This ensures the buildArgs: section of kindest.yaml is properly applied
 // when images are built.
 func TestModuleBuildArgs(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
+	name := RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0644))
 	defer func() {
@@ -422,7 +421,7 @@ func TestModuleBuildOptions(t *testing.T) {
 	//
 	// Test the functionality of --no-cache
 	t.Run("no cache", func(t *testing.T) {
-		name := "test-" + uuid.New().String()[:8]
+		name := RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -455,7 +454,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	// Ensure custom tags (--tag or otherwise) are used when specified.
 	// Note: the default tag is "latest"
 	t.Run("tag", func(t *testing.T) {
-		name := "test-" + uuid.New().String()[:8]
+		name := RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -482,7 +481,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	//
 	// Test the functionality of --no-cache
 	t.Run("repository", func(t *testing.T) {
-		name := "test-" + uuid.New().String()[:8]
+		name := RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {

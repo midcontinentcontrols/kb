@@ -19,7 +19,7 @@ func TestHelmErrMissingChartYaml(t *testing.T) {
 	if !transient {
 		kind = "kindest"
 	}
-	name := "test-" + uuid.New().String()[:8]
+	name := RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -110,7 +110,7 @@ func TestHelmErrMissingValuesYaml(t *testing.T) {
 	if !transient {
 		kind = "kindest-helm"
 	}
-	name := "test-" + uuid.New().String()[:8]
+	name := RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -207,7 +207,7 @@ func TestHelmLocalChartInstall(t *testing.T) {
 	if !transient {
 		kind = "kindest-helm"
 	}
-	name := "test-" + uuid.New().String()[:8]
+	name := RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -340,7 +340,7 @@ func TestHelmLocalChartUpgrade(t *testing.T) {
 	} else {
 		kind = "kindest-helm"
 	}
-	name := "test-" + uuid.New().String()[:8]
+	name := RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)

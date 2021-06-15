@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -111,7 +110,7 @@ func runTest(
 	files func(name string) map[string]interface{},
 	f func(t *testing.T, rootPath string),
 ) {
-	name := "test-" + uuid.New().String()[:8]
+	name := RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, createFiles(files(name), rootPath))
 	f(t, rootPath)

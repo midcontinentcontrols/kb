@@ -9,10 +9,12 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var chartYaml = `apiVersion: v2
@@ -24,13 +26,22 @@ maintainers:
     email: thavlik@midcontinentcontrols.com
     url: https://midcontinentcontrols.com`
 
-func TestDeploy(t *testing.T) {
+func RandomTestName() string {
+	return "test-" + uuid.New().String()[:8]
+}
 
+func WithTemporaryCluster(name string, t *testing.T, log logger.Logger, f func(cl client.Client)) {
+	_, err := cluster_management.CreateCluster(name, log)
+	require.NoError(t, err)
+	defer cluster_management.DeleteCluster(name)
+	cl := CreateKubeClient(t)
+	f(cl)
 }
 
 // Make sure we encounter an error when Chart.yaml is missing
 func TestDeployErrMissingChartYaml(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
+	name := RandomTestName()
+	log := logger.NewMockLogger(logger.NewFakeLogger())
 	pushRepo := getPushRepository()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -86,32 +97,25 @@ test:
 			"values.yaml": valuesYaml,
 		},
 	}, rootPath))
-	log := logger.NewMockLogger(logger.NewFakeLogger())
 	module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
 	require.NoError(t, err)
 	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-	err = module.Deploy(&DeployOptions{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "Chart.yaml file is missing")
+	WithTemporaryCluster(name, t, log, func(cl client.Client) {
+		err = module.Deploy(&DeployOptions{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Chart.yaml file is missing")
+	})
 }
 
 // Try and deploy a basic chart, then ensure the chart resources
 // are created appropriately.
 func TestDeployChart(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
+	name := RandomTestName()
 	namespace := name
-	cl := CreateKubeClient(t)
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-		},
-	}
-	require.NoError(t, cl.Create(context.TODO(), ns))
-	defer cl.Delete(context.TODO(), ns)
-	pushRepo := getPushRepository()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
+	pushRepo := getPushRepository()
 	dockerfile := `FROM alpine:3.11.6
 CMD ["tail", "-f", "/dev/null"]`
 	deploymentYaml := `apiVersion: apps/v1
@@ -161,7 +165,13 @@ env:
 	module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
 	require.NoError(t, err)
 	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-	err = module.Deploy(&DeployOptions{})
-	require.NoError(t, err)
-	require.NoError(t, WaitForDeployment(cl, "foo-busybox", namespace))
+	WithTemporaryCluster(name, t, log, func(cl client.Client) {
+		require.NoError(t, cl.Create(context.TODO(), &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		}))
+		require.NoError(t, module.Deploy(&DeployOptions{}))
+		require.NoError(t, WaitForDeployment(cl, "foo-busybox", namespace))
+	})
 }

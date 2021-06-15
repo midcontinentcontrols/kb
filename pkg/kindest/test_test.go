@@ -10,12 +10,11 @@ import (
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTestErrNoEnv(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
+	name := RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
@@ -47,7 +46,7 @@ test:
 }
 
 func TestTestErrMultipleEnv(t *testing.T) {
-	name := "test-" + uuid.New().String()[:8]
+	name := RandomTestName()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
 	defer os.RemoveAll(rootPath)
