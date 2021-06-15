@@ -49,7 +49,7 @@ var buildCmd = &cobra.Command{
 		}); err != nil {
 			return err
 		}
-		log.Info("Build successful", zap.String("elapsed", time.Now().Sub(start).String()))
+		log.Info("Build successful", zap.String("elapsed", time.Since(start).String()))
 		return nil
 	},
 }
@@ -66,6 +66,4 @@ func init() {
 	buildCmd.PersistentFlags().StringVar(&buildArgs.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.SkipHooks, "skip-hooks", false, "skip before: and after: hooks")
 	buildCmd.PersistentFlags().BoolVarP(&buildArgs.Verbose, "verbose", "v", false, "verbose output (pipe build messages to stdout)")
-	//buildCmd.PersistentFlags().StringVar(&buildArgs.Context, "context", "", "kubecontext (on-cluster build)")
-	//buildCmd.PersistentFlags().StringVar(&buildArgs.Kind, "kind", "", "copy image to kind cluster instead of pushing")
 }

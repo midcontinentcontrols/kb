@@ -2,8 +2,12 @@ package main
 
 import (
 	"runtime"
+	"time"
 
+	"github.com/midcontinentcontrols/kindest/pkg/kindest"
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 type TestArgs struct {
@@ -25,6 +29,20 @@ var testArgs TestArgs
 var testCmd = &cobra.Command{
 	Use: "test",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		log := logger.NewZapLoggerFromEnv()
+		p := kindest.NewProcess(
+			buildArgs.Concurrency,
+			log,
+		)
+		module, err := p.GetModule(buildArgs.File)
+		if err != nil {
+			return err
+		}
+		start := time.Now()
+		if err := module.RunTests(&kindest.TestOptions{}, p, log); err != nil {
+			return err
+		}
+		log.Info("Build successful", zap.String("elapsed", time.Since(start).String()))
 		return nil
 	},
 }
