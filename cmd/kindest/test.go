@@ -11,15 +11,8 @@ import (
 )
 
 type TestArgs struct {
-	File        string `json:"file,omitempty" yaml:"file,omitempty"`
-	Concurrency int    `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
-	NoCache     bool   `json:"nocache,omitempty" yaml:"nocache,omitempty"`
-	Squash      bool   `json:"squash,omitempty" yaml:"squash,omitempty"`
-	Tag         string `json:"tag,omitempty" yaml:"tag,omitempty"`
-	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
-	Repository  string `json:"repository,omitempty" yaml:"repository,omitempty"`
-	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
-	SkipHooks   bool   `json:"skipHooks,omitempty" yaml:"skipHooks,omitempty"`
+	BuildArgs
+
 	KubeContext string `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
 	Kind        string `json:"kind,omitempty" yaml:"kind,omitempty"`
 }
@@ -31,15 +24,29 @@ var testCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		log := logger.NewZapLoggerFromEnv()
 		p := kindest.NewProcess(
-			buildArgs.Concurrency,
+			testArgs.Concurrency,
 			log,
 		)
-		module, err := p.GetModule(buildArgs.File)
+		module, err := p.GetModule(testArgs.File)
 		if err != nil {
 			return err
 		}
 		start := time.Now()
-		if err := module.RunTests(&kindest.TestOptions{}, p, log); err != nil {
+		if err := module.RunTests(&kindest.TestOptions{
+			BuildOptions: kindest.BuildOptions{
+				NoCache:    testArgs.NoCache,
+				Squash:     testArgs.Squash,
+				Tag:        testArgs.Tag,
+				Builder:    testArgs.Builder,
+				Repository: testArgs.Repository,
+				NoPush:     testArgs.NoPush,
+				SkipHooks:  testArgs.SkipHooks,
+				Verbose:    testArgs.Verbose,
+				Force:      testArgs.Force,
+			},
+			KubeContext: testArgs.KubeContext,
+			Kind:        testArgs.Kind,
+		}, p, log); err != nil {
 			return err
 		}
 		log.Info("Build successful", zap.String("elapsed", time.Since(start).String()))
@@ -58,6 +65,9 @@ func init() {
 	testCmd.PersistentFlags().BoolVar(&testArgs.NoPush, "no-push", false, "do not push built images")
 	testCmd.PersistentFlags().StringVar(&testArgs.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
 	testCmd.PersistentFlags().BoolVar(&testArgs.SkipHooks, "skip-hooks", false, "skip before: and after: hooks")
+	testCmd.PersistentFlags().BoolVarP(&testArgs.Verbose, "verbose", "v", false, "verbose output (pipe build messages to stdout)")
+	testCmd.PersistentFlags().BoolVarP(&testArgs.Force, "force", "f", false, "build regardless of digest")
+
 	testCmd.PersistentFlags().StringVar(&testArgs.KubeContext, "kube-context", "", "kubectl context (uses current by default)")
 	testCmd.PersistentFlags().StringVar(&testArgs.Kind, "kind", "", "Kubernetes-IN-Docker cluster name, for local testing")
 }

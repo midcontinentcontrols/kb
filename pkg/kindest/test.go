@@ -46,13 +46,13 @@ import (
 )
 
 type TestOptions struct {
+	BuildOptions
+
 	KubeContext string `json:"kubeContext,omitempty"`
 	Kind        string `json:"kind,omitempty"`
 	Transient   bool   `json:"transient,omitempty"`
 	Namespace   string `json:"namespace,omitempty"`
-	Repository  string `json:"repository,omitempty"`
 	SkipBuild   bool   `json:"skipBuild,omitempty"`
-	NoPush      bool   `json:"noPush,omitempty"`
 }
 
 var ErrMultipleTestEnv = fmt.Errorf("multiple test environments defined")
@@ -84,10 +84,7 @@ func (t *TestSpec) Run(
 	rootDir := filepath.Dir(manifestPath)
 	m := p.GetModuleFromTestSpec(manifestPath+":"+t.Name, t)
 	if !options.SkipBuild {
-		if err := m.Build(&BuildOptions{
-			Repository: options.Repository,
-			NoPush:     options.NoPush,
-		}); err != nil {
+		if err := m.Build(&options.BuildOptions); err != nil {
 			return fmt.Errorf("pretest build: %v", err)
 		}
 	}
@@ -122,7 +119,7 @@ func (t *TestSpec) Run(
 		}
 
 		return t.runKubernetes(
-			options.KubeContext,
+			kubeContext,
 			options.Repository,
 			options.Namespace,
 			log,

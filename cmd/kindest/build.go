@@ -21,6 +21,7 @@ type BuildArgs struct {
 	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
 	SkipHooks   bool   `json:"skipHooks,omitempty" yaml:"skipHooks,omitempty"`
 	Verbose     bool   `json:"verbose,omitempty" yaml:"verbose,omitempty"`
+	Force       bool   `json:"force,omitempty" yaml:"force,omitempty"`
 }
 
 var buildArgs BuildArgs
@@ -46,6 +47,7 @@ var buildCmd = &cobra.Command{
 			NoPush:     buildArgs.NoPush,
 			SkipHooks:  buildArgs.SkipHooks,
 			Verbose:    buildArgs.Verbose,
+			Force:      buildArgs.Force,
 		}); err != nil {
 			return err
 		}
@@ -66,4 +68,5 @@ func init() {
 	buildCmd.PersistentFlags().StringVar(&buildArgs.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.SkipHooks, "skip-hooks", false, "skip before: and after: hooks")
 	buildCmd.PersistentFlags().BoolVarP(&buildArgs.Verbose, "verbose", "v", false, "verbose output (pipe build messages to stdout)")
+	buildCmd.PersistentFlags().BoolVarP(&buildArgs.Force, "force", "f", false, "build regardless of digest")
 }

@@ -633,8 +633,7 @@ type BuildOptions struct {
 	NoPush     bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
 	//Context string `json:"context,omitempty" yaml:"context,omitempty"`
-	//Kind    string `json:"kind,omitempty" yaml:"kind,omitempty"`
-	//Force   bool   `json:"force,omitempty"` // If true, will always run docker build regardless of kindest digest
+	Force     bool `json:"force,omitempty"`     // If true, will always run docker build regardless of kindest digest
 	SkipHooks bool `json:"skipHooks,omitempty"` // If true, skip before/after build hooks
 	Verbose   bool `json:"verbose,omitempty" yaml:"verbose,omitempty"`
 }
