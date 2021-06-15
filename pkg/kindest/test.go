@@ -92,7 +92,6 @@ func (t *TestSpec) Run(
 		return t.runDocker(rootDir, log)
 	} else if t.Env.Kubernetes != nil {
 		kubeContext := options.KubeContext
-
 		if options.Kind != "" {
 			// Ensure cluster is created
 			var err error
@@ -111,13 +110,11 @@ func (t *TestSpec) Run(
 				}()
 			}
 		}
-
 		if err := m.Deploy(&DeployOptions{
 			KubeContext: kubeContext,
 		}); err != nil {
 			return fmt.Errorf("deploy: %v", err)
 		}
-
 		return t.runKubernetes(
 			kubeContext,
 			options.Repository,
