@@ -3,6 +3,7 @@ package cluster_management
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -45,12 +46,6 @@ containerdConfigPatches:
 - |-
     [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:%d"]
     endpoint = ["http://%s:%d"]`, regPort, regName, regPort)
-	//	return fmt.Sprintf(`kind: Cluster
-	//apiVersion: kind.x-k8s.io/v1alpha4
-	//containerdConfigPatches:
-	//- |-
-	//    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:%d"]
-	//    endpoint = ["http://%s:%d"]`, regPort, regName, regPort)
 }
 
 func WaitForCluster(client *kubernetes.Clientset, log logger.Logger) error {
@@ -128,7 +123,7 @@ func CreateCluster(name string, log logger.Logger) (string, error) {
 	if err := p.Create(
 		name,
 		cluster.CreateWithRawConfig([]byte(kindConfig)),
-	); err != nil {
+	); err != nil && !strings.Contains(err.Error(), fmt.Sprintf(`node(s) already exist for a cluster with the name "%s"`, name)) {
 		return "", fmt.Errorf("kind: %v", err)
 	}
 	client, kubeContext, err := ClientForKindCluster(name, p)

@@ -90,6 +90,33 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 	})
 
 	//
+	// Make sure dot syntax works for COPY/ADD directives
+	t.Run("dot", func(t *testing.T) {
+		name := util.RandomTestName()
+		rootPath := filepath.Join("tmp", name)
+		require.NoError(t, os.MkdirAll(rootPath, 0644))
+		defer func() {
+			require.NoError(t, os.RemoveAll(rootPath))
+		}()
+		specYaml := fmt.Sprintf(`build:
+  name: %s`, name)
+		dockerfile := `FROM alpine:3.11.6
+COPY . .
+RUN cat foo
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+		require.NoError(t, createFiles(map[string]interface{}{
+			"kindest.yaml": specYaml,
+			"foo":          "hello, world!",
+			"Dockerfile":   dockerfile,
+		}, rootPath))
+		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+		require.NoError(t, err)
+		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+		require.Equal(t, BuildStatusSucceeded, module.Status())
+	})
+
+	//
 	// This test ensures subdirectories are copied over correctly.
 	t.Run("subdir", func(t *testing.T) {
 		name := util.RandomTestName()

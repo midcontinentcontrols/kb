@@ -301,6 +301,11 @@ func createDockerInclude(contextPath string, dockerfilePath string) (*gogitignor
 					}
 				}
 				if !found {
+					if rel == "./" {
+						// Fix issue where `COPY . .` doesn't work by
+						// adding all files to the include matcher.
+						rel = "*"
+					}
 					addedPaths = append(addedPaths, rel)
 				}
 
