@@ -13,12 +13,13 @@ import (
 type TestArgs struct {
 	BuildArgs
 
-	Namespace   string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
-	KubeContext string `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
-	Kind        string `json:"kind,omitempty" yaml:"kind,omitempty"`
-	Transient   bool   `json:"transient,omitempty" yaml:"transient,omitempty"`
-	SkipBuild   bool   `json:"skipBuild,omitempty" yaml:"skipBuild,omitempty"`
-	SkipDeploy  bool   `json:"skipDeploy,omitempty" yaml:"skipDeploy,omitempty"`
+	Namespace     string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	KubeContext   string `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
+	Kind          string `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Transient     bool   `json:"transient,omitempty" yaml:"transient,omitempty"`
+	SkipBuild     bool   `json:"skipBuild,omitempty" yaml:"skipBuild,omitempty"`
+	SkipTestBuild bool   `json:"skipTestBuild,omitempty" yaml:"skipTestBuild,omitempty"`
+	SkipDeploy    bool   `json:"skipDeploy,omitempty" yaml:"skipDeploy,omitempty"`
 }
 
 var testArgs TestArgs
@@ -82,6 +83,7 @@ var testCmd = &cobra.Command{
 				Kind:        testArgs.Kind,
 				Transient:   testArgs.Transient,
 				Namespace:   testArgs.Namespace,
+				SkipBuild:   testArgs.SkipTestBuild,
 			},
 			p,
 			log,
@@ -113,5 +115,6 @@ func init() {
 	testCmd.PersistentFlags().StringVar(&testArgs.Kind, "kind", "", "Kubernetes-IN-Docker cluster name, for local testing")
 	testCmd.PersistentFlags().BoolVar(&testArgs.Transient, "transient", false, "Delete kind cluster on exit")
 	testCmd.PersistentFlags().BoolVar(&testArgs.SkipBuild, "skip-build", false, "Skip automatic build")
+	testCmd.PersistentFlags().BoolVar(&testArgs.SkipTestBuild, "skip-test-build", false, "Skip building test images")
 	testCmd.PersistentFlags().BoolVar(&testArgs.SkipDeploy, "skip-deploy", false, "Skip automatic deploy")
 }
