@@ -72,10 +72,27 @@ type Module struct {
 	err          unsafe.Pointer
 	log          logger.Logger
 	pool         *tunny.Pool
+	builtImagesL sync.Mutex
+	BuiltImages  []string
 }
 
 func (m *Module) Dir() string {
 	return filepath.Dir(m.Path)
+}
+
+func (m *Module) builtImage(imageName string) {
+	m.builtImagesL.Lock()
+	defer m.builtImagesL.Unlock()
+	found := false
+	for _, image := range m.BuiltImages {
+		if image == imageName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		m.BuiltImages = append(m.BuiltImages, imageName)
+	}
 }
 
 var ErrModuleNotCached = fmt.Errorf("module is not cached")
@@ -791,6 +808,7 @@ func doBuildModule(
 	default:
 		return fmt.Errorf("unknown builder '%s'", options.Builder)
 	}
+	m.builtImage(dest)
 	log.Info("Successfully built image", zap.Bool("noPush", options.NoPush))
 	return nil
 }

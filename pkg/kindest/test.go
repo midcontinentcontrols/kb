@@ -92,8 +92,10 @@ func (t *TestSpec) Run(
 		return t.runDocker(rootDir, log)
 	} else if t.Env.Kubernetes != nil {
 		kubeContext, err := m.Deploy(&DeployOptions{
-			KubeContext: options.KubeContext,
-			Kind:        options.Kind,
+			KubeContext:   options.KubeContext,
+			Kind:          options.Kind,
+			RestartImages: m.BuiltImages,
+			Wait:          true,
 		})
 		if err != nil {
 			return fmt.Errorf("deploy: %v", err)
