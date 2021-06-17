@@ -36,6 +36,6 @@ var registryCmd = &cobra.Command{
 }
 
 func init() {
-	ConfigureCommand(deployCmd)
+	ConfigureCommand(registryCmd)
 	registryCmd.PersistentFlags().BoolVar(&registryArgs.NoConnect, "NoConnect", false, "Do not connect to kind network")
 }

@@ -852,15 +852,15 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	if err != nil && err != ErrModuleNotCached {
 		return err
 	}
-	if digest == cachedDigest && !options.NoCache {
-		//fmt.Printf("%s No files changed\n", m.Path)
+	if digest == cachedDigest && !options.NoCache && !options.Force {
 		m.log.Debug("No files changed", zap.String("digest", cachedDigest))
 		return nil
 	}
-	m.log.Info(
-		"Digests do not match, building...",
-		zap.String("module", m.Path))
-	//fmt.Printf("%s Files changed, cachedDigest=%s, digest=%s\n", m.Path, cachedDigest, digest)
+	if digest != cachedDigest {
+		m.log.Debug(
+			"Digests do not match, building...",
+			zap.String("module", m.Path))
+	}
 	tar, err := buildContext.Archive()
 	if err != nil {
 		return err
