@@ -772,45 +772,34 @@ func buildKaniko(
 */
 
 func doBuildModule(
-	m *Module,
+	spec *BuildSpec,
 	buildContext []byte,
 	relativeDockerfile string,
 	options *BuildOptions,
-) error {
-	dest := sanitizeImageName(options.Repository, m.Spec.Build.Name, options.Tag)
-	log := m.log.With(zap.String("dest", dest))
+	log logger.Logger,
+) (string, error) {
+	dest := sanitizeImageName(options.Repository, spec.Name, options.Tag)
+	log = log.With(zap.String("dest", dest))
 	switch options.Builder {
 	case "":
 		fallthrough
 	case "docker":
 		if err := buildDocker(
-			m.Spec.Build,
+			spec,
 			dest,
 			buildContext,
 			relativeDockerfile,
 			options,
 			log,
 		); err != nil {
-			return fmt.Errorf("docker: %v", err)
+			return "", fmt.Errorf("docker: %v", err)
 		}
 	case "kaniko":
 		panic("not implemented")
-		//if err := buildKaniko(
-		//	m,
-		//	dest,
-		//	buildContext,
-		//	relativeDockerfile,
-		//	options,
-		//	log,
-		//); err != nil {
-		//	return fmt.Errorf("kaniko: %v", err)
-		//}
 	default:
-		return fmt.Errorf("unknown builder '%s'", options.Builder)
+		return "", fmt.Errorf("unknown builder '%s'", options.Builder)
 	}
-	m.builtImage(dest)
-	log.Info("Successfully built image", zap.Bool("noPush", options.NoPush))
-	return nil
+	return dest, nil
 }
 
 func (m *Module) GetAffectedModules(files []string) ([]*Module, error) {
@@ -883,14 +872,21 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	if err != nil {
 		return err
 	}
-	if err := doBuildModule(
-		m,
+	dest, err := doBuildModule(
+		m.Spec.Build,
 		tar,
 		relativeDockerfile,
 		options,
-	); err != nil {
+		m.log,
+	)
+	if err != nil {
 		return err
 	}
+	m.log.Info(
+		"Successfully built image",
+		zap.String("dest", dest),
+		zap.Bool("noPush", options.NoPush))
+	m.builtImage(dest)
 	if err := m.cacheDigest(digest); err != nil {
 		return err
 	}

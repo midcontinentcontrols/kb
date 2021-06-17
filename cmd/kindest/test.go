@@ -28,15 +28,14 @@ var testCmd = &cobra.Command{
 	Use: "test",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		start := time.Now()
-
 		log := logger.NewZapLoggerFromEnv()
 		p := kindest.NewProcess(testArgs.Concurrency, log)
 		module, err := p.GetModule(testArgs.File)
 		if err != nil {
 			return err
 		}
-
 		if !testArgs.SkipBuild {
+			start := time.Now()
 			if err := module.Build(&kindest.BuildOptions{
 				NoCache:    testArgs.NoCache,
 				Squash:     testArgs.Squash,
@@ -50,11 +49,11 @@ var testCmd = &cobra.Command{
 			}); err != nil {
 				return err
 			}
+			log.Debug("Module built", zap.String("elapsed", time.Since(start).String()))
 		}
-
 		kubeContext := testArgs.KubeContext
-
 		if !testArgs.SkipDeploy {
+			start := time.Now()
 			kubeContext, err = module.Deploy(&kindest.DeployOptions{
 				Kind:          testArgs.Kind,
 				KubeContext:   kubeContext,
@@ -64,8 +63,8 @@ var testCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
+			log.Debug("Module deployed", zap.String("elapsed", time.Since(start).String()))
 		}
-
 		if err := module.RunTests(
 			&kindest.TestOptions{
 				BuildOptions: kindest.BuildOptions{
@@ -90,8 +89,7 @@ var testCmd = &cobra.Command{
 		); err != nil {
 			return err
 		}
-
-		log.Info("Build successful", zap.String("elapsed", time.Since(start).String()))
+		log.Info("Test completed", zap.String("elapsed", time.Since(start).String()))
 		return nil
 	},
 }
