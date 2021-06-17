@@ -30,6 +30,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 )
 
@@ -97,6 +98,35 @@ func (m *Module) builtImage(imageName string) {
 
 var ErrModuleNotCached = fmt.Errorf("module is not cached")
 
+func (m *Module) RunTests2(options *TestOptions, p *Process, log logger.Logger) error {
+	if !options.SkipBuild {
+		if options.Kind != "" {
+			var err error
+			options.KubeContext, err = cluster_management.CreateCluster(options.Kind, log)
+			if err != nil {
+				return err
+			}
+		}
+		if err := m.Build(&options.BuildOptions); err != nil {
+			return err
+		}
+	}
+	if !options.SkipDeploy {
+		if _, err := m.Deploy(&DeployOptions{
+			Kind:          options.Kind,
+			KubeContext:   options.KubeContext,
+			RestartImages: m.BuiltImages,
+			Wait:          true,
+		}); err != nil {
+			return err
+		}
+	}
+	if err := m.RunTests(options, p, log); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *Module) RunTests(options *TestOptions, p *Process, log logger.Logger) error {
 	return m.Spec.RunTests(options, m.Path, p, log)
 }
@@ -150,6 +180,10 @@ func (m *Module) buildDependencies(options *BuildOptions) error {
 			err := dependency.Build(options)
 			if err != nil {
 				err = fmt.Errorf("%s: %v", dependency.Path, err)
+			} else {
+				for _, dest := range dependency.BuiltImages {
+					m.builtImage(dest)
+				}
 			}
 			done <- err
 			close(done)

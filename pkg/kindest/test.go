@@ -48,11 +48,13 @@ import (
 type TestOptions struct {
 	BuildOptions
 
-	KubeContext string `json:"kubeContext,omitempty"`
-	Kind        string `json:"kind,omitempty"`
-	Transient   bool   `json:"transient,omitempty"`
-	Namespace   string `json:"namespace,omitempty"`
-	SkipBuild   bool   `json:"skipBuild,omitempty"`
+	KubeContext   string `json:"kubeContext,omitempty"`
+	Kind          string `json:"kind,omitempty"`
+	Transient     bool   `json:"transient,omitempty"`
+	Namespace     string `json:"namespace,omitempty"`
+	SkipBuild     bool   `json:"skipBuild,omitempty"`
+	SkipTestBuild bool   `json:"skipTestBuild,omitempty"`
+	SkipDeploy    bool   `json:"skipDeploy,omitempty"`
 }
 
 var ErrMultipleTestEnv = fmt.Errorf("multiple test environments defined")

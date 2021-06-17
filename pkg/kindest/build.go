@@ -78,10 +78,6 @@ func (b *BuildSpec) DependsOnFiles(files []string, manifestPath string) (bool, e
 	return false, nil
 }
 
-func isContainedBy(parent, child string) bool {
-	return false
-}
-
 func (b *BuildSpec) verifyDocker(manifestPath string, log logger.Logger) error {
 	var path string
 	if b.Dockerfile != "" {
@@ -515,8 +511,6 @@ func (b *BuildSpec) buildDocker(
 }
 */
 
-var errDigestNotCached = fmt.Errorf("digest not cached")
-
 func digestPathForManifest(manifestPath string) (string, error) {
 	h := md5.New()
 	h.Write([]byte(manifestPath))
@@ -528,6 +522,9 @@ func digestPathForManifest(manifestPath string) (string, error) {
 	path := filepath.Join(u.HomeDir, ".kindest", "digest", name)
 	return path, nil
 }
+
+/*
+var errDigestNotCached = fmt.Errorf("digest not cached")
 
 func (b *BuildSpec) loadCachedDigest(manifestPath string) (string, error) {
 	path, err := digestPathForManifest(manifestPath)
@@ -557,7 +554,7 @@ func (b *BuildSpec) cacheDigest(manifestPath string, value string) error {
 		return err
 	}
 	return nil
-}
+}*/
 
 /*
 func (b *BuildSpec) Build(
