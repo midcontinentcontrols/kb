@@ -4,6 +4,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
+
 	"github.com/midcontinentcontrols/kindest/pkg/kindest"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/spf13/cobra"
@@ -27,6 +29,7 @@ var testArgs TestArgs
 var testCmd = &cobra.Command{
 	Use: "test",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		kubeContext := testArgs.KubeContext
 		start := time.Now()
 		log := logger.NewZapLoggerFromEnv()
 		p := kindest.NewProcess(testArgs.Concurrency, log)
@@ -35,6 +38,12 @@ var testCmd = &cobra.Command{
 			return err
 		}
 		if !testArgs.SkipBuild {
+			if testArgs.Kind != "" {
+				kubeContext, err = cluster_management.CreateCluster(testArgs.Kind, log)
+				if err != nil {
+					return err
+				}
+			}
 			start := time.Now()
 			if err := module.Build(&kindest.BuildOptions{
 				NoCache:    testArgs.NoCache,
@@ -51,7 +60,6 @@ var testCmd = &cobra.Command{
 			}
 			log.Debug("Module built", zap.String("elapsed", time.Since(start).String()))
 		}
-		kubeContext := testArgs.KubeContext
 		if !testArgs.SkipDeploy {
 			start := time.Now()
 			kubeContext, err = module.Deploy(&kindest.DeployOptions{
