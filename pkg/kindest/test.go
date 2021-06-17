@@ -91,29 +91,22 @@ func (t *TestSpec) Run(
 	if t.Env.Docker != nil {
 		return t.runDocker(rootDir, log)
 	} else if t.Env.Kubernetes != nil {
-		kubeContext := options.KubeContext
-		if options.Kind != "" {
-			// Ensure cluster is created
-			var err error
-			kubeContext, err = cluster_management.CreateCluster(options.Kind, log)
-			if err != nil {
-				return err
-			}
-			if options.Transient {
-				defer func() {
-					log.Info("Deleting transient cluster")
-					if err := cluster_management.DeleteCluster(
-						options.Kind,
-					); err != nil {
-						log.Error("Error deleting cluster", zap.Error(err))
-					}
-				}()
-			}
-		}
-		if err := m.Deploy(&DeployOptions{
-			KubeContext: kubeContext,
-		}); err != nil {
+		kubeContext, err := m.Deploy(&DeployOptions{
+			KubeContext: options.KubeContext,
+			Kind:        options.Kind,
+		})
+		if err != nil {
 			return fmt.Errorf("deploy: %v", err)
+		}
+		if options.Kind != "" && options.Transient {
+			defer func() {
+				log.Info("Deleting transient cluster")
+				if err := cluster_management.DeleteCluster(
+					options.Kind,
+				); err != nil {
+					log.Error("error deleting cluster", zap.Error(err))
+				}
+			}()
 		}
 		return t.runKubernetes(
 			kubeContext,

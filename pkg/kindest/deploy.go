@@ -1,9 +1,14 @@
 package kindest
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+
+	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/action"
@@ -14,19 +19,88 @@ import (
 )
 
 type DeployOptions struct {
-	KubeContext string `json:"kubeContext"`
+	Kind          string   `json:"kind"`
+	KubeContext   string   `json:"kubeContext"`
+	RestartImages []string `json:"restartImages"`
+	Wait          bool     `json:"wait"`
 }
 
-func (m *Module) Deploy(options *DeployOptions) error {
+func (m *Module) Deploy(options *DeployOptions) (string, error) {
+	kubeContext := options.KubeContext
+	if options.Kind != "" {
+		// Ensure cluster is created
+		var err error
+		kubeContext, err = cluster_management.CreateCluster(options.Kind, m.log)
+		if err != nil {
+			return "", err
+		}
+	}
 	if err := applyManifests(
-		options.KubeContext,
+		kubeContext,
 		m.Dir(),
 		m.Spec.Env.Kubernetes.Resources,
 	); err != nil {
+		return "", err
+	}
+	if err := m.installCharts(kubeContext); err != nil {
+		return "", err
+	}
+	if err := restartDeployments(
+		kubeContext,
+		options.RestartImages,
+	); err != nil {
+		return "", err
+	}
+	if options.Wait {
+		if err := m.WaitForReady(kubeContext); err != nil {
+			return "", err
+		}
+	}
+	return kubeContext, nil
+}
+
+func (m *Module) WaitForReady(kubeContext string) error {
+	// TODO: wait for all deployments to be ready
+	return nil
+}
+
+func restartDeployments(kubeContext string, images []string) error {
+	client, _, err := clientForContext(kubeContext)
+	if err != nil {
 		return err
 	}
-	if err := m.installCharts(options.KubeContext); err != nil {
+	ds, err := client.AppsV1().
+		Deployments("").
+		List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
 		return err
+	}
+	for _, d := range ds.Items {
+		for _, c := range d.Spec.Template.Spec.Containers {
+			match := false
+			for _, img := range images {
+				if img == c.Image {
+					match = true
+					break
+				}
+			}
+			if match {
+				cmd := exec.Command(
+					"kubectl",
+					"rollout",
+					"restart",
+					"deployment",
+					"--context", kubeContext,
+					"-n", d.Namespace,
+					d.Name,
+				)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err := cmd.Run(); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

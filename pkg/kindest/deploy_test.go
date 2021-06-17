@@ -98,7 +98,7 @@ test:
 	require.NoError(t, err)
 	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
 	WithTemporaryCluster(name, t, log, func(cl client.Client) {
-		err = module.Deploy(&DeployOptions{})
+		_, err = module.Deploy(&DeployOptions{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Chart.yaml file is missing")
 	})
@@ -168,7 +168,48 @@ env:
 				Name: namespace,
 			},
 		}))
-		require.NoError(t, module.Deploy(&DeployOptions{}))
+		_, err = module.Deploy(&DeployOptions{})
+		require.NoError(t, err)
 		require.NoError(t, WaitForDeployment(cl, "foo-busybox", namespace))
 	})
 }
+
+/*
+func TestDeployChartRestartImages(t *testing.T) {
+	name := util.RandomTestName()
+	pushRepo := getPushRepository()
+	rootPath := filepath.Join("tmp", name)
+	require.NoError(t, os.MkdirAll(rootPath, 0766))
+	defer os.RemoveAll(rootPath)
+	dockerfile := `FROM alpine:3.11.6
+CMD ["sh", "-c", "set -euo pipefail; echo $MYVARIABLE"]`
+	specYaml := fmt.Sprintf(`build:
+  name: %s/%s
+env:
+  kubernetes: {}
+test:
+  - name: basic
+    variables:
+      - name: MYVARIABLE
+        value: foobarbaz
+    env:
+      kubernetes: {}
+    build:
+      name: %s/%s-test
+      dockerfile: Dockerfile
+`, pushRepo, kindestTestImageName, pushRepo, kindestTestImageName)
+	require.NoError(t, createFiles(map[string]interface{}{
+		"kindest.yaml": specYaml,
+		"Dockerfile":   dockerfile,
+	}, rootPath))
+	log := logger.NewMockLogger(logger.NewFakeLogger())
+	p := NewProcess(runtime.NumCPU(), log)
+	module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+	require.NoError(t, err)
+	err = module.RunTests(&TestOptions{
+		Kind:      name,
+		Transient: true,
+	}, p, log)
+	require.NoError(t, err)
+}
+*/
