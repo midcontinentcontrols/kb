@@ -1,7 +1,10 @@
 package kindest
 
 import (
+	"bufio"
 	"fmt"
+	"io/ioutil"
+	"strings"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 
@@ -111,6 +114,87 @@ type TestSpec struct {
 	Build     *BuildSpec  `json:"build"`
 	Variables []*Variable `json:"variables,omitempty" yaml:"variables,omitempty"`
 	Env       EnvSpec     `json:"env,omitempty" yaml:"env,omitempty"`
+}
+
+func (b *BuildSpec) GetDockerfilePath(rootPath string) string {
+	dockerfilePath := b.Dockerfile
+	if dockerfilePath == "" {
+		dockerfilePath = "Dockerfile"
+	}
+	dockerfilePath = filepath.Clean(filepath.Join(rootPath, dockerfilePath))
+	return dockerfilePath
+}
+
+func (b *BuildSpec) ReadDockerfile(rootPath string) (string, error) {
+	body, err := ioutil.ReadFile(b.GetDockerfilePath(rootPath))
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
+}
+
+func tokenize(x string) []string {
+	x = strings.ReplaceAll(x, "\t", " ")
+	x = strings.ReplaceAll(x, "\r\n", " ")
+	x = strings.ReplaceAll(x, "\n", " ")
+	parts := strings.Split(x, " ")
+	var result []string
+	for _, part := range parts {
+		if len(part) > 0 {
+			result = append(result, part)
+		}
+	}
+	return result
+}
+
+func (b *BuildSpec) GetBaseImage(rootPath string) (string, error) {
+	dockerfilePath := b.GetDockerfilePath(rootPath)
+	f, err := os.Open(dockerfilePath)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	lineno := 0
+	variables := make(map[string]string)
+	for scanner.Scan() {
+		lineno++
+		line := strings.TrimSpace(scanner.Text())
+		tokens := tokenize(line)
+		numTokens := len(tokens)
+		if numTokens == 0 {
+			continue
+		}
+		switch tokens[0] {
+		case "ARG":
+			key := tokens[1]
+			var value string
+			if len(tokens) == 4 {
+				// default value
+				value = tokens[3]
+			}
+			for _, buildArg := range b.BuildArgs {
+				if buildArg.Name == key {
+					value = buildArg.Value
+				}
+			}
+			variables[key] = value
+		case "FROM":
+			// This is assumed to be the base image
+			// It could contain a build arg, in which
+			// case we will have to interpolate.
+			baseImage := strings.TrimSpace(tokens[1])
+			for k, v := range variables {
+				baseImage = strings.ReplaceAll(
+					baseImage,
+					fmt.Sprintf("${%s}", k),
+					v,
+				)
+			}
+			return baseImage, nil
+		}
+	}
+	return "", fmt.Errorf("cannot find appropriate FROM directive in %s", dockerfilePath)
 }
 
 func (s *KindestSpec) RunTests(

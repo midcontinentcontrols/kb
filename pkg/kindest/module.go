@@ -561,6 +561,11 @@ func buildDocker(
 	for _, arg := range spec.BuildArgs {
 		buildArgs[arg.Name] = &arg.Value
 	}
+	tag := options.Tag
+	if tag == "" {
+		tag = "latest"
+	}
+	buildArgs["KINDEST_TAG"] = &tag
 	resp, err := cli.ImageBuild(
 		context.TODO(),
 		bytes.NewReader(buildContext),
@@ -854,13 +859,6 @@ func doBuildModule(
 
 func (m *Module) GetAffectedModules(files []string) ([]*Module, error) {
 	var affected []*Module
-	depends, err := m.DependsOnFiles(files)
-	if err != nil {
-		return nil, err
-	}
-	if depends {
-		affected = append(affected, m)
-	}
 	for _, dep := range m.Dependencies {
 		dependentAffected, err := dep.GetAffectedModules(files)
 		if err != nil {
@@ -876,6 +874,39 @@ func (m *Module) GetAffectedModules(files []string) ([]*Module, error) {
 			}
 			if !found {
 				affected = append(affected, dependent)
+			}
+		}
+	}
+	// TODO: there is a situation where a module will
+	// require rebuilding without any of its files
+	// being affected, such as when it uses a base image
+	// that is affected by the files changed.
+	depends, err := m.DependsOnFiles(files)
+	if err != nil {
+		return nil, err
+	}
+	if depends {
+		affected = append(affected, m)
+	} else if m.Spec.Build != nil {
+		baseImage, err := m.Spec.Build.GetBaseImage(m.Dir())
+		if err != nil {
+			return nil, err
+		}
+		// ignore tag for now
+		parts := strings.Split(baseImage, ":")
+		baseImage = parts[0]
+		for _, dep := range affected {
+			affectedImages, err := dep.ListImages()
+			if err != nil {
+				return nil, fmt.Errorf("ListImages: %v", err)
+			}
+			for _, affectedImage := range affectedImages {
+				//fmt.Printf("Checking %s == %s, %v\n", affectedImage, baseImage, affectedImage == baseImage)
+				if affectedImage == baseImage {
+					// Affected module builds a base image
+					affected = append(affected, m)
+					break
+				}
 			}
 		}
 	}
@@ -909,6 +940,9 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	if err != nil && err != ErrModuleNotCached {
 		return err
 	}
+
+	// TODO: rebuild if any of the base images were rebuilt
+
 	if digest == cachedDigest && !options.NoCache && !options.Force {
 		m.log.Debug("No files changed", zap.String("digest", cachedDigest))
 		return nil
@@ -975,9 +1009,21 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	if m.Spec.Build == nil {
 		return nil
 	}
+	baseImage, err := m.Spec.Build.GetBaseImage(m.Dir())
+	if err != nil {
+		return err
+	}
+	baseImage = strings.Split(baseImage, ":")[0]
+	//fmt.Printf("baseImage=%s, builtImages=%#v\n", baseImage, m.BuiltImages)
+	newOptions := *options
+	for _, builtImage := range m.BuiltImages {
+		if baseImage == strings.Split(builtImage, ":")[0] {
+			newOptions.Force = true
+		}
+	}
 	err, _ = m.pool.Process(&buildJob{
 		m:       m,
-		options: options,
+		options: &newOptions,
 	}).(error)
 	if err != nil {
 		return err

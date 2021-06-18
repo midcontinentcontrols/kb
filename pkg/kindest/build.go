@@ -40,6 +40,7 @@ type BuildSpec struct {
 	After        []Command         `json:"after,omitempty" yaml:"after,omitempty"`
 }
 
+// DependsOnFiles all inputs are absolute paths
 func (b *BuildSpec) DependsOnFiles(files []string, manifestPath string) (bool, error) {
 	dir := filepath.Dir(manifestPath)
 
@@ -60,6 +61,10 @@ func (b *BuildSpec) DependsOnFiles(files []string, manifestPath string) (bool, e
 	}
 
 	for _, file := range files {
+		if file == dockerfilePath {
+			return true, nil
+		}
+
 		rel, err := filepath.Rel(contextPath, file)
 		if err != nil {
 			return false, err

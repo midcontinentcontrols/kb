@@ -294,20 +294,18 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 			specYaml := fmt.Sprintf(`dependencies:
 - dep
 build:
-  name: %s
-  buildArgs:
-  - name: tag
-    value: %s`,
-				name,
-				tag)
+  name: %s`,
+				name)
 			depDockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-			dockerfile := fmt.Sprintf(`ARG tag
-FROM %s-dep:${tag}
-CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
+			dockerfile := fmt.Sprintf(`ARG KINDEST_TAG
+FROM %s-dep:${KINDEST_TAG}
+COPY foo foo
+CMD ["sh", "-c", "cat foo"]`, name)
 			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
 				"kindest.yaml": specYaml,
 				"Dockerfile":   dockerfile,
+				"foo":          "hello world",
 				"dep": map[string]interface{}{
 					"kindest.yaml": depYaml,
 					"Dockerfile":   depDockerfile,
@@ -334,20 +332,43 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 			require.NotEqual(t, images[0], images[1])
 			require.Contains(t, images, name+":"+tag)
 			require.Contains(t, images, name+"-dep:"+tag)
-			dockerfile = `FROM alpine:3.11.6
-CMD ["sh", "-c", "echo now we are updated"]`
 			require.NoError(t, ioutil.WriteFile(
-				filepath.Join(rootPath, "Dockerfile"),
-				[]byte(dockerfile),
+				filepath.Join(rootPath, "foo"),
+				[]byte("this is updated"),
 				0644,
 			))
 			module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
 			require.NoError(t, err)
 			require.NoError(t, module.Build(&BuildOptions{
 				NoPush: true,
+				Tag:    tag,
 			}))
 			require.Len(t, module.BuiltImages, 1)
-			require.Equal(t, name+":latest", module.BuiltImages[0])
+			require.Equal(t, name+":"+tag, module.BuiltImages[0])
+
+			// Update dep dockerfile and ensure BOTH are rebuilt
+			// because the dep is the base for the main dockerfile
+			depDockerfilePath, err := filepath.Abs(filepath.Join(rootPath, "dep", "Dockerfile"))
+			require.NoError(t, err)
+			depDockerfile = `FROM alpine:3.11.6
+CMD ["sh", "-c", "echo \"it is updated, hooray\""]`
+			require.NoError(t, ioutil.WriteFile(
+				depDockerfilePath,
+				[]byte(depDockerfile),
+				0644,
+			))
+			module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			affected, err := module.GetAffectedModules([]string{depDockerfilePath})
+			require.NoError(t, err)
+			require.Len(t, affected, 2)
+			require.NoError(t, module.Build(&BuildOptions{
+				NoPush: true,
+				Tag:    tag,
+			}))
+			require.Len(t, module.BuiltImages, 2)
+			require.Contains(t, module.BuiltImages, name+":"+tag)
+			require.Contains(t, module.BuiltImages, name+"-dep:"+tag)
 		})
 	})
 
