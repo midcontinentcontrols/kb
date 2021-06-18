@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -107,19 +106,13 @@ func (t *TestSpec) runKubernetes(
 					}
 				}
 			}
-			for _, status := range pod.Status.ContainerStatuses {
-				if status.State.Terminated != nil {
-					if code := status.State.Terminated.ExitCode; code != 0 {
-						return fmt.Errorf("pod failed with exit code '%d'", code)
-					}
-					return nil
-				}
-				if status.State.Waiting != nil {
-					if strings.Contains(status.State.Waiting.Reason, "Err") {
-						return fmt.Errorf("pod failed with '%s'", status.State.Waiting.Reason)
-					}
-				}
-			}
+			//for _, status := range pod.Status.ContainerStatuses {
+			//	if status.State.Waiting != nil {
+			//		if strings.Contains(status.State.Waiting.Reason, "Err") {
+			//			return fmt.Errorf("pod failed with waiting status '%s'", status.State.Waiting.Reason)
+			//		}
+			//	}
+			//}
 			log.Info("Still waiting on pod",
 				zap.String("phase", string(pod.Status.Phase)),
 				zap.Bool("scheduled", scheduled),
@@ -134,9 +127,23 @@ func (t *TestSpec) runKubernetes(
 		case corev1.PodFailed:
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.State.Terminated != nil {
-					if strings.Contains(status.State.Terminated.Reason, "Err") {
-						return fmt.Errorf("exit code %d", status.State.Terminated.ExitCode)
+					if status.State.Terminated.ExitCode == 0 { // && status.State.Terminated.Reason == "Completed" {
+						// Success condition
+						return nil
 					}
+					//req := pods.GetLogs(pod.Name, &corev1.PodLogOptions{
+					//	Follow: true,
+					//})
+					//r, err := req.Stream(context.TODO())
+					//if err != nil {
+					//	return err
+					//}
+					//body, err := ioutil.ReadAll(r)
+					//if err != nil {
+					//	return err
+					//}
+					//fmt.Println(string(body))
+					return fmt.Errorf("exit code %d", status.State.Terminated.ExitCode)
 				}
 			}
 			req := pods.GetLogs(pod.Name, &corev1.PodLogOptions{
@@ -148,35 +155,22 @@ func (t *TestSpec) runKubernetes(
 			}
 			rd := bufio.NewReader(r)
 			for {
-				_, err := rd.ReadString('\n')
+				message, err := rd.ReadString('\n')
 				if err != nil {
 					if err == io.EOF {
 						break
 					}
 					return err
 				}
+				// TODO: redirect somewhere useful
 				//log.Info("Test output", zap.String("message", message))
-				//fmt.Println(message)
+				fmt.Println(message)
 			}
 		default:
 			return fmt.Errorf("unexpected phase '%s'", pod.Status.Phase)
 		}
-		if pod, err = pods.Get(
-			context.TODO(),
-			pod.Name,
-			metav1.GetOptions{},
-		); err != nil {
-			return err
-		}
-		if pod.Status.Phase == corev1.PodRunning {
-			time.Sleep(delay)
-			log.Warn("Log stream terminated prematurely. Retailing logs...")
-			continue
-		} else if pod.Status.Phase == corev1.PodSucceeded {
-			return nil
-		} else {
-			return fmt.Errorf("unexpected pod phase '%s'", pod.Status.Phase)
-		}
+		time.Sleep(delay)
+		continue
 	}
 	return ErrPodTimeout
 	//kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")

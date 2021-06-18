@@ -78,6 +78,21 @@ type Module struct {
 	BuiltImages  []string
 }
 
+func (m *Module) ListImages() ([]string, error) {
+	var images []string
+	for _, dep := range m.Dependencies {
+		depImages, err := dep.ListImages()
+		if err != nil {
+			return nil, fmt.Errorf("dependency '%s': %v", dep.Path, err)
+		}
+		images = append(images, depImages...)
+	}
+	if m.Spec.Build != nil {
+		images = append(images, m.Spec.Build.Name)
+	}
+	return images, nil
+}
+
 func (m *Module) Dir() string {
 	return filepath.Dir(m.Path)
 }

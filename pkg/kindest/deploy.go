@@ -26,7 +26,16 @@ type DeployOptions struct {
 	Wait          bool     `json:"wait"`
 }
 
+func (m *Module) HasEnvironment() bool {
+	return m.Spec.Env.Docker != nil || m.Spec.Env.Kubernetes != nil
+}
+
+var ErrNoEnvironment = fmt.Errorf("no environment in spec")
+
 func (m *Module) Deploy(options *DeployOptions) (string, error) {
+	if !m.HasEnvironment() {
+		return "", ErrNoEnvironment
+	}
 	kubeContext := options.KubeContext
 	if options.Kind != "" {
 		// Ensure cluster is created
@@ -36,36 +45,77 @@ func (m *Module) Deploy(options *DeployOptions) (string, error) {
 			return "", err
 		}
 	}
-	if m.Spec.Env.Kubernetes != nil {
-		if err := applyManifests(
-			kubeContext,
-			m.Dir(),
-			m.Spec.Env.Kubernetes.Resources,
-		); err != nil {
+	if err := m.RestartContainers(options.RestartImages, kubeContext); err != nil {
+		return "", err
+	}
+	if options.Wait {
+		if err := m.WaitForReady(kubeContext); err != nil {
 			return "", err
-		}
-		if err := m.installCharts(kubeContext); err != nil {
-			return "", err
-		}
-		if err := restartDeployments(
-			kubeContext,
-			options.RestartImages,
-			m.log,
-		); err != nil {
-			return "", err
-		}
-		if options.Wait {
-			if err := m.WaitForReady(kubeContext); err != nil {
-				return "", err
-			}
 		}
 	}
 	return kubeContext, nil
 }
 
+func (m *Module) RestartContainers(restartImages []string, kubeContext string) error {
+	if m.Spec.Env.Docker != nil {
+		panic("unimplemented")
+	} else if m.Spec.Env.Kubernetes != nil {
+		if err := applyManifests(
+			kubeContext,
+			m.Dir(),
+			m.Spec.Env.Kubernetes.Resources,
+		); err != nil {
+			return err
+		}
+		if err := m.installCharts(kubeContext); err != nil {
+			return err
+		}
+		if err := restartDeployments(
+			kubeContext,
+			restartImages,
+			m.log,
+		); err != nil {
+			return err
+		}
+		if err := restartStatefulSets(
+			kubeContext,
+			restartImages,
+			m.log,
+		); err != nil {
+			return err
+		}
+	} else {
+		panic("unreachable branch detected")
+	}
+	return nil
+}
+
+func (m *Module) waitForReadyPods(kubeContext string, images []string) error {
+	for _, image := range images {
+		m.log.Info(
+			"TODO: wait for pods running image to be ready",
+			zap.String("image", image),
+		)
+	}
+	return nil
+}
+
 func (m *Module) WaitForReady(kubeContext string) error {
 	// TODO: wait for all deployments to be ready
-	m.log.Info("TODO: wait for cluster to be ready")
+	// TODO: inspect all charts and get deployments?
+	// Maybe recurse all modules and wait for all pods that have those images?
+	//m.Spec.Env.Kubernetes.Charts[0]
+	images, err := m.ListImages()
+	if err != nil {
+		return fmt.Errorf("ListImages: %v", err)
+	}
+	if m.Spec.Env.Docker != nil {
+		panic("unimplemented")
+	} else if m.Spec.Env.Kubernetes != nil {
+		return m.waitForReadyPods(kubeContext, images)
+	} else {
+		panic("unreachable branch detected")
+	}
 	return nil
 }
 
@@ -80,7 +130,7 @@ func restartDeployments(kubeContext string, images []string, log logger.Logger) 
 	if err != nil {
 		return err
 	}
-	log.Debug("Checking deployments to restart", zap.Int("numDeployments", len(ds.Items)))
+	log.Debug("Checking Deployments to restart", zap.Int("numDeployments", len(ds.Items)))
 	for _, d := range ds.Items {
 		for _, c := range d.Spec.Template.Spec.Containers {
 			match := false
@@ -91,7 +141,7 @@ func restartDeployments(kubeContext string, images []string, log logger.Logger) 
 				}
 			}
 			if match {
-				log.Debug("Restarting deployment",
+				log.Debug("Restarting Deployment",
 					zap.String("name", d.Name),
 					zap.String("namespace", d.Namespace))
 				cmd := exec.Command(
@@ -99,6 +149,51 @@ func restartDeployments(kubeContext string, images []string, log logger.Logger) 
 					"rollout",
 					"restart",
 					"deployment",
+					"--context", kubeContext,
+					"-n", d.Namespace,
+					d.Name,
+				)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err := cmd.Run(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func restartStatefulSets(kubeContext string, images []string, log logger.Logger) error {
+	client, _, err := clientForContext(kubeContext)
+	if err != nil {
+		return err
+	}
+	ds, err := client.AppsV1().
+		StatefulSets("").
+		List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	log.Debug("Checking StatefulSets to restart", zap.Int("numStatefulSets", len(ds.Items)))
+	for _, d := range ds.Items {
+		for _, c := range d.Spec.Template.Spec.Containers {
+			match := false
+			for _, img := range images {
+				if img == c.Image {
+					match = true
+					break
+				}
+			}
+			if match {
+				log.Debug("Restarting StatefulSet",
+					zap.String("name", d.Name),
+					zap.String("namespace", d.Namespace))
+				cmd := exec.Command(
+					"kubectl",
+					"rollout",
+					"restart",
+					"statefulset",
 					"--context", kubeContext,
 					"-n", d.Namespace,
 					d.Name,

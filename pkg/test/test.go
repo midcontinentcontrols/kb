@@ -65,12 +65,12 @@ func WithTemporaryModule(t *testing.T, f func(name string, rootPath string)) {
 	f(name, rootPath)
 }
 
-func WithTemporaryCluster(name string, t *testing.T, log logger.Logger, f func(cl k8sclient.Client)) {
-	_, err := cluster_management.CreateCluster(name, log)
+func WithTemporaryCluster(t *testing.T, name string, log logger.Logger, f func(kubeContext string, cl k8sclient.Client)) {
+	kubeContext, err := cluster_management.CreateCluster(name, log)
 	require.NoError(t, err)
 	defer cluster_management.DeleteCluster(name)
 	cl := CreateKubeClient(t)
-	f(cl)
+	f(kubeContext, cl)
 }
 
 func NewDockerClient(t *testing.T) client.APIClient {
