@@ -129,8 +129,7 @@ func (m *Module) installChart(
 		zap.String("releaseName", chart.ReleaseName),
 		zap.String("name", chart.Name),
 		zap.String("namespace", chart.Namespace),
-		zap.String("path", chartPath),
-	)
+		zap.String("path", chartPath))
 	env := createHelmEnv(chart.Namespace, kubeContext)
 	cfg := new(action.Configuration)
 	helmDriver := os.Getenv("HELM_DRIVER")
@@ -145,7 +144,6 @@ func (m *Module) installChart(
 	if helmDriver == "memory" {
 		loadReleasesInMemory(cfg, env, chart.Namespace)
 	}
-
 	valueOpts := &values.Options{
 		ValueFiles: chart.ValuesFiles,
 	}
@@ -158,10 +156,7 @@ func (m *Module) installChart(
 		return err
 	}
 	vals = mergeMaps(vals, explicit)
-
-	log.Info("Installing chart")
-	//zap.String("vals", fmt.Sprintf("%#v", vals)), zap.String("original", fmt.Sprintf("%#v", chart.Values)))
-
+	log.Debug("Installing chart")
 	histClient := action.NewHistory(cfg)
 	histClient.Max = 1
 	if _, err := histClient.Run(chart.ReleaseName); err == driver.ErrReleaseNotFound {
@@ -181,7 +176,6 @@ func (m *Module) installChart(
 		if chartRequested.Metadata.Deprecated {
 			log.Warn("This chart is deprecated")
 		}
-
 		if req := chartRequested.Metadata.Dependencies; req != nil {
 			return fmt.Errorf("chart dependencies are not yet implemented")
 			/*
@@ -216,7 +210,7 @@ func (m *Module) installChart(
 		//install.Replace = true
 		install.Namespace = chart.Namespace
 		install.ReleaseName = chart.ReleaseName
-		log.Info("Installing resolved chart", zap.String("vals", fmt.Sprintf("%#v", vals)))
+		log.Debug("Installing resolved chart", zap.String("vals", fmt.Sprintf("%#v", vals)))
 		release, err := install.Run(chartRequested, vals)
 		if err != nil {
 			return err

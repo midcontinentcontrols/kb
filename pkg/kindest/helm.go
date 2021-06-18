@@ -4,18 +4,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+	"helm.sh/helm/chart"
 	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/cli/values"
-	"helm.sh/helm/v3/pkg/getter"
 	kubefake "helm.sh/helm/v3/pkg/kube/fake"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -235,33 +231,6 @@ func (t *TestSpec) installChart(
 
 		if req := chartRequested.Metadata.Dependencies; req != nil {
 			return fmt.Errorf("chart dependencies are not yet implemented")
-			/*
-				// If CheckDependencies returns an error, we have unfulfilled dependencies.
-				// As of Helm 2.4.0, this is treated as a stopping condition:
-				// https://github.com/helm/helm/issues/2209
-				if err := action.CheckDependencies(chartRequested, req); err != nil {
-					if client.DependencyUpdate {
-						man := &downloader.Manager{
-							//Out:              out,
-							//ChartPath:        cp,
-							//Keyring:          client.ChartPathOptions.Keyring,
-							//SkipUpdate:       false,
-							//Getters:          p,
-							//RepositoryConfig: settings.RepositoryConfig,
-							//RepositoryCache:  settings.RepositoryCache,
-							//Debug:            settings.Debug,
-						}
-						if err := man.Update(); err != nil {
-							return err
-						}
-						// Reload the chart with the updated Chart.lock file.
-						if chartRequested, err = loader.Load(cp); err != nil {
-							return fmt.Errorf("failed reloading chart after repo update: %v", err)
-						}
-					} else {
-						return err
-					}
-				}*/
 		}
 		install.CreateNamespace = true
 		//install.Replace = true
