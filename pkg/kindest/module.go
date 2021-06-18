@@ -150,8 +150,8 @@ func (m *Module) RunTests(options *TestOptions, p *Process, log logger.Logger) e
 	return m.Spec.RunTests(options, m.Path, p, log)
 }
 
-func (m *Module) CachedDigest() (string, error) {
-	path, err := digestPathForManifest(m.Path)
+func (m *Module) CachedDigest(imageName string) (string, error) {
+	path, err := digestPathForManifest(imageName)
 	if err != nil {
 		return "", err
 	}
@@ -162,7 +162,7 @@ func (m *Module) CachedDigest() (string, error) {
 	return string(body), nil
 }
 
-func (m *Module) cacheDigest(digest string) error {
+func (m *Module) cacheDigest(imageName string, digest string) error {
 	path, err := digestPathForManifest(m.Path)
 	if err != nil {
 		return err
@@ -835,7 +835,7 @@ func doBuildModule(
 	relativeDockerfile string,
 	options *BuildOptions,
 	log logger.Logger,
-) (string, error) {
+) error {
 	dest := util.SanitizeImageName(options.Repository, spec.Name, options.Tag)
 	log = log.With(zap.String("dest", dest))
 	switch options.Builder {
@@ -850,14 +850,14 @@ func doBuildModule(
 			options,
 			log,
 		); err != nil {
-			return "", fmt.Errorf("docker: %v", err)
+			return fmt.Errorf("docker: %v", err)
 		}
 	case "kaniko":
 		panic("not implemented")
 	default:
-		return "", fmt.Errorf("unknown builder '%s'", options.Builder)
+		return fmt.Errorf("unknown builder '%s'", options.Builder)
 	}
-	return dest, nil
+	return nil
 }
 
 func (m *Module) GetAffectedModules(files []string) ([]*Module, error) {
@@ -939,13 +939,11 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	if err != nil {
 		return err
 	}
-	cachedDigest, err := m.CachedDigest()
+	dest := util.SanitizeImageName(options.Repository, m.Spec.Build.Name, options.Tag)
+	cachedDigest, err := m.CachedDigest(dest)
 	if err != nil && err != ErrModuleNotCached {
 		return err
 	}
-
-	// TODO: rebuild if any of the base images were rebuilt
-
 	if digest == cachedDigest && !options.NoCache && !options.Force {
 		m.log.Debug("No files changed", zap.String("digest", cachedDigest))
 		return nil
@@ -959,22 +957,22 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	if err != nil {
 		return err
 	}
-	dest, err := doBuildModule(
+	if err := doBuildModule(
 		m.Spec.Build,
 		tar,
 		relativeDockerfile,
 		options,
 		m.log,
-	)
-	if err != nil {
+	); err != nil {
 		return err
 	}
 	m.log.Info(
 		"Successfully built image",
 		zap.String("dest", dest),
+		zap.String("digest", digest),
 		zap.Bool("noPush", options.NoPush))
 	m.builtImage(dest)
-	if err := m.cacheDigest(digest); err != nil {
+	if err := m.cacheDigest(dest, digest); err != nil {
 		return err
 	}
 	if !options.SkipHooks {
