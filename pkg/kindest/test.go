@@ -20,7 +20,6 @@ import (
 	restclient "k8s.io/client-go/rest"
 
 	"github.com/midcontinentcontrols/kindest/pkg/kubeconfig"
-	"helm.sh/helm/v3/pkg/chart"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	kinderrors "sigs.k8s.io/kind/pkg/errors"
@@ -488,82 +487,6 @@ func loadImageOnCluster(imageName, name string, provider *cluster.Provider) erro
 		})
 	}
 	return kinderrors.UntilErrorConcurrent(fns)
-}
-
-func waitForCluster(client *kubernetes.Clientset, log logger.Logger) error {
-	timeout := time.Second * 120
-	delay := time.Second
-	start := time.Now()
-	good := false
-	deadline := time.Now().Add(timeout)
-	p := client.CoreV1().Pods("kube-system")
-	for time.Now().Before(deadline) {
-		pods, err := p.List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		count := 0
-		for _, pod := range pods.Items {
-			switch pod.Status.Phase {
-			case corev1.PodPending:
-				count++
-			case corev1.PodRunning:
-				continue
-			default:
-				return fmt.Errorf("unexpected pod phase '%s' for %s.%s", pod.Status.Phase, pod.Name, pod.Namespace)
-			}
-		}
-		if count == 0 {
-			good = true
-			break
-		}
-		total := len(pods.Items)
-		log.Info("Waiting on pods in kube-system",
-			zap.Int("numReady", total-count),
-			zap.Int("numPods", total),
-			zap.String("elapsed", time.Since(start).String()),
-			zap.String("timeout", timeout.String()))
-		time.Sleep(delay)
-	}
-	if !good {
-		return fmt.Errorf("pods in kube-system failed to be Ready within %s", timeout.String())
-	}
-	good = false
-	sa := client.CoreV1().ServiceAccounts("default")
-	for time.Now().Before(deadline) {
-		if _, err := sa.Get(
-			context.TODO(),
-			"default",
-			metav1.GetOptions{},
-		); err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Waiting on default serviceaccount",
-					zap.String("elapsed", time.Since(start).String()),
-					zap.String("timeout", timeout.String()))
-				time.Sleep(delay)
-				continue
-			}
-			return err
-		}
-		good = true
-		break
-	}
-	if !good {
-		return fmt.Errorf("default serviceaccount failed to appear within %v", timeout.String())
-	}
-	log.Info("Cluster is running", zap.String("elapsed", time.Since(start).String()))
-	return nil
-}
-
-// isChartInstallable validates if a chart can be installed
-//
-// Application chart type is only installable
-func isChartInstallable(ch *chart.Chart) (bool, error) {
-	switch ch.Metadata.Type {
-	case "", "application":
-		return true, nil
-	}
-	return false, fmt.Errorf("%s charts are not installable", ch.Metadata.Type)
 }
 
 var ErrUnknownCluster = fmt.Errorf("unknown cluster")

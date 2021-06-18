@@ -27,6 +27,16 @@ func RandomTestName() string {
 }
 
 func EnsureImagePulled(imageName string, cli client.APIClient, log logger.Logger) error {
+	imgs, err := cli.ImageList(context.TODO(), types.ImageListOptions{})
+	if err != nil {
+		return fmt.Errorf("docker: %v", err)
+	}
+	for _, img := range imgs {
+		if img.ID == "1fd8e1b0bb7e" {
+			// Already pulled!
+			return nil
+		}
+	}
 	resp, err := cli.ImagePull(context.TODO(), imageName, types.ImagePullOptions{})
 	if err != nil {
 		return fmt.Errorf("docker: %v", err)
@@ -35,8 +45,8 @@ func EnsureImagePulled(imageName string, cli client.APIClient, log logger.Logger
 	if err != nil {
 		return err
 	}
-	log.Info(
-		"Pulled image",
+	log.Debug(
+		"Pulled registry image",
 		zap.String("response", string(body)),
 		zap.String("imageName", imageName))
 	return nil

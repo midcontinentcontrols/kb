@@ -123,6 +123,16 @@ func loadReleasesInMemory(actionConfig *action.Configuration, env *cli.EnvSettin
 	return nil
 }
 
+// isChartInstallable validates if a chart can be installed
+// Application chart type is only installable
+func isChartInstallable(ch *chart.Chart) (bool, error) {
+	switch ch.Metadata.Type {
+	case "", "application":
+		return true, nil
+	}
+	return false, fmt.Errorf("%s charts are not installable", ch.Metadata.Type)
+}
+
 var helmL sync.Mutex
 
 func createHelmEnv(namespace string, kubeContext string) *cli.EnvSettings {
@@ -157,6 +167,7 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 	return out
 }
 
+/*
 func (t *TestSpec) installChart(
 	chart *ChartSpec,
 	rootPath string,
@@ -288,3 +299,4 @@ func (t *TestSpec) installChart(
 	log.Info("Chart upgraded", zap.Int("version", rel.Version))
 	return nil
 }
+*/

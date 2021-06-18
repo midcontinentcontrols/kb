@@ -3,7 +3,6 @@ package cluster_management
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -109,8 +108,21 @@ func WaitForCluster(client *kubernetes.Clientset, log logger.Logger) error {
 	if !good {
 		return fmt.Errorf("default serviceaccount failed to appear within %v", timeout.String())
 	}
-	log.Info("Cluster is running", zap.String("elapsed", time.Since(start).String()))
 	return nil
+}
+
+func ClusterExists(name string) (bool, error) {
+	p := cluster.NewProvider()
+	existing, err := p.List()
+	if err != nil {
+		return false, fmt.Errorf("kind: %v", err)
+	}
+	for _, n := range existing {
+		if n == name {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func CreateCluster(name string, log logger.Logger) (string, error) {
@@ -118,13 +130,18 @@ func CreateCluster(name string, log logger.Logger) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("docker: %v", err)
 	}
+	exists, err := ClusterExists(name)
+	if err != nil {
+		return "", err
+	}
 	p := cluster.NewProvider()
-	kindConfig := GenerateKindConfig("kind-registry", 5000)
-	if err := p.Create(
-		name,
-		cluster.CreateWithRawConfig([]byte(kindConfig)),
-	); err != nil && !strings.Contains(err.Error(), fmt.Sprintf(`node(s) already exist for a cluster with the name "%s"`, name)) {
-		return "", fmt.Errorf("kind: %v", err)
+	if !exists {
+		kindConfig := GenerateKindConfig("kind-registry", 5000)
+		config := cluster.CreateWithRawConfig([]byte(kindConfig))
+		if err := p.Create(name, config); err != nil {
+			//  && !strings.Contains(err.Error(), fmt.Sprintf(`node(s) already exist for a cluster with the name "%s"`, name))
+			return "", fmt.Errorf("kind: %v", err)
+		}
 	}
 	client, kubeContext, err := ClientForKindCluster(name, p)
 	if err != nil {

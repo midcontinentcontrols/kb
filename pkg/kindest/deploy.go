@@ -35,25 +35,27 @@ func (m *Module) Deploy(options *DeployOptions) (string, error) {
 			return "", err
 		}
 	}
-	if err := applyManifests(
-		kubeContext,
-		m.Dir(),
-		m.Spec.Env.Kubernetes.Resources,
-	); err != nil {
-		return "", err
-	}
-	if err := m.installCharts(kubeContext); err != nil {
-		return "", err
-	}
-	if err := restartDeployments(
-		kubeContext,
-		options.RestartImages,
-	); err != nil {
-		return "", err
-	}
-	if options.Wait {
-		if err := m.WaitForReady(kubeContext); err != nil {
+	if m.Spec.Env.Kubernetes != nil {
+		if err := applyManifests(
+			kubeContext,
+			m.Dir(),
+			m.Spec.Env.Kubernetes.Resources,
+		); err != nil {
 			return "", err
+		}
+		if err := m.installCharts(kubeContext); err != nil {
+			return "", err
+		}
+		if err := restartDeployments(
+			kubeContext,
+			options.RestartImages,
+		); err != nil {
+			return "", err
+		}
+		if options.Wait {
+			if err := m.WaitForReady(kubeContext); err != nil {
+				return "", err
+			}
 		}
 	}
 	return kubeContext, nil
