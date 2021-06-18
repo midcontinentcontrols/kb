@@ -153,11 +153,13 @@ env:
 		require.NoError(t, err)
 		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
 		test.WithTemporaryCluster(t, name, log, func(kubeContext string, cl client.Client) {
-			require.NoError(t, cl.Create(context.TODO(), &corev1.Namespace{
+			ns := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: namespace,
 				},
-			}))
+			}
+			require.NoError(t, cl.Create(context.TODO(), ns))
+			defer cl.Delete(context.TODO(), ns)
 			_, err = module.Deploy(&DeployOptions{KubeContext: kubeContext})
 			require.NoError(t, err)
 			require.NoError(t, util.WaitForDeployment(cl, "foo-busybox", namespace))
@@ -165,7 +167,7 @@ env:
 	})
 }
 
-func TestDeployChartRestartImages(t *testing.T) {
+func TestDeployRestartImages(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
 		namespace := name
 		pushRepo := getPushRepository()
@@ -236,11 +238,13 @@ test:
 		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
 		test.WithTemporaryCluster(t, name, log, func(kubeContext string, cl client.Client) {
-			require.NoError(t, cl.Create(context.TODO(), &corev1.Namespace{
+			ns := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: namespace,
 				},
-			}))
+			}
+			require.NoError(t, cl.Create(context.TODO(), ns))
+			defer cl.Delete(context.TODO(), ns)
 			require.NoError(t, module.RunTests2(&TestOptions{
 				KubeContext: kubeContext,
 			}, p, log))
