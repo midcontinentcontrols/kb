@@ -108,7 +108,6 @@ func (m *Module) builtImage(imageName string) {
 		}
 	}
 	if !found {
-		fmt.Printf("Built image %s\n", imageName)
 		m.BuiltImages = append(m.BuiltImages, imageName)
 	}
 }
