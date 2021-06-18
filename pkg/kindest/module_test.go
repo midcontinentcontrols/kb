@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/midcontinentcontrols/kindest/pkg/test"
 
@@ -278,6 +279,59 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 			require.Equal(t, BuildStatusSucceeded, module.Status())
 			require.False(t, log.WasObservedIgnoreFields("debug", "Digests do not match, building..."))
 			require.True(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+		})
+	})
+
+	//
+	// Ensure ListImages recursively returns dependenciess
+	t.Run("list images", func(t *testing.T) {
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			tag := uuid.New().String()[:8]
+			depYaml := fmt.Sprintf(`build:
+  name: %s-dep`, name)
+			specYaml := fmt.Sprintf(`dependencies:
+- dep
+build:
+  name: %s
+  buildArgs:
+  - name: tag
+    value: %s`,
+				name,
+				tag)
+			depDockerfile := `FROM alpine:3.11.6
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+			dockerfile := fmt.Sprintf(`ARG tag
+FROM %s-dep:${tag}
+CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"Dockerfile":   dockerfile,
+				"dep": map[string]interface{}{
+					"kindest.yaml": depYaml,
+					"Dockerfile":   depDockerfile,
+				},
+			}))
+			log := logger.NewMockLogger(logger.NewFakeLogger())
+			module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			images, err := module.ListImages()
+			require.NoError(t, err)
+			require.Len(t, images, 2)
+			require.NotEqual(t, images[0], images[1])
+			require.Contains(t, images, name)
+			require.Contains(t, images, name+"-dep")
+			require.Equal(t, BuildStatusPending, module.Status())
+			require.NoError(t, module.Build(&BuildOptions{
+				NoPush: true,
+				Tag:    tag,
+			}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+			images = module.BuiltImages
+			require.Len(t, images, 2)
+			require.NotEqual(t, images[0], images[1])
+			require.Contains(t, images, name+":"+tag)
+			require.Contains(t, images, name+"-dep:"+tag)
 		})
 	})
 
