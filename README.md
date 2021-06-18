@@ -191,7 +191,7 @@ test:
 The test container will now run as a pod on Kubernetes with cluster admin privileges. Any setup necessary for your tests, such as applying manifests or syncing helm charts, should go in `test.env.kubernetes`. If you require additional features to prepare your test environment, please [open an issue](https://github.com/midcontinentcontrols/kindest/issues).
 
 ## Docker Desktop Resource Limits
-**The default resource limits for Docker Desktop appear insufficient to run the tests.** If this occurs, you will encounter [kind#1437](https://github.com/kubernetes-sigs/kind/issues/1437#issuecomment-602975739). Configure Docker with 4gb of both memory and swap just to be safe:
+**For some Docker Desktop versions, the default resource limits for Docker Desktop appear insufficient to run the tests.** If this occurs, you will encounter [kind#1437](https://github.com/kubernetes-sigs/kind/issues/1437#issuecomment-602975739). If your Docker Desktop supports resource configuration, specify at least 4gb of both memory and swap just to be safe:
 
 ![Example Docker Desktop Settings](docs/images/docker-resources.png)
 
