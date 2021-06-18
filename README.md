@@ -93,7 +93,6 @@ test:
   env:
     # Run the test image locally with Docker. This is useful
     # for incorporating unit tests into your kindest.yaml
-    # TODO: docker env does not do anything meaningful yet.
     #docker: {}
 
     # Run the test in a Kubernetes environment. The cluster
