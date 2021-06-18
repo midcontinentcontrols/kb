@@ -65,6 +65,7 @@ func (m *Module) Deploy(options *DeployOptions) (string, error) {
 
 func (m *Module) WaitForReady(kubeContext string) error {
 	// TODO: wait for all deployments to be ready
+	m.log.Info("TODO: wait for cluster to be ready")
 	return nil
 }
 
