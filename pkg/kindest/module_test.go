@@ -285,7 +285,7 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 
 	//
 	// Ensure ListImages recursively returns dependenciess and
-	// BuiltImages correctly reflects which images were pushed.
+	// BuiltImages correctly reflects which images were changed.
 	t.Run("list images", func(t *testing.T) {
 		test.WithTemporaryModule(t, func(name string, rootPath string) {
 			tag := uuid.New().String()[:8]
