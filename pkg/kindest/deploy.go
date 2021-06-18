@@ -83,6 +83,13 @@ func (m *Module) RestartContainers(restartImages []string, kubeContext string) e
 		); err != nil {
 			return err
 		}
+		if err := restartDaemonSets(
+			kubeContext,
+			restartImages,
+			m.log,
+		); err != nil {
+			return err
+		}
 		if err := restartStatefulSets(
 			kubeContext,
 			restartImages,
@@ -204,6 +211,51 @@ func restartStatefulSets(kubeContext string, images []string, log logger.Logger)
 					"rollout",
 					"restart",
 					"statefulset",
+					"--context", kubeContext,
+					"-n", d.Namespace,
+					d.Name,
+				)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err := cmd.Run(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func restartDaemonSets(kubeContext string, images []string, log logger.Logger) error {
+	client, _, err := clientForContext(kubeContext)
+	if err != nil {
+		return err
+	}
+	ds, err := client.AppsV1().
+		DaemonSets("").
+		List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	log.Debug("Checking DaemonSets to restart", zap.Int("numDaemonSets", len(ds.Items)))
+	for _, d := range ds.Items {
+		for _, c := range d.Spec.Template.Spec.Containers {
+			match := false
+			for _, img := range images {
+				if img == c.Image {
+					match = true
+					break
+				}
+			}
+			if match {
+				log.Debug("Restarting DaemonSets",
+					zap.String("name", d.Name),
+					zap.String("namespace", d.Namespace))
+				cmd := exec.Command(
+					"kubectl",
+					"rollout",
+					"restart",
+					"daemonset",
 					"--context", kubeContext,
 					"-n", d.Namespace,
 					d.Name,
