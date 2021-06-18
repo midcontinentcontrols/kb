@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
+	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"go.uber.org/zap"
@@ -49,6 +50,7 @@ func (m *Module) Deploy(options *DeployOptions) (string, error) {
 		if err := restartDeployments(
 			kubeContext,
 			options.RestartImages,
+			m.log,
 		); err != nil {
 			return "", err
 		}
@@ -66,7 +68,7 @@ func (m *Module) WaitForReady(kubeContext string) error {
 	return nil
 }
 
-func restartDeployments(kubeContext string, images []string) error {
+func restartDeployments(kubeContext string, images []string, log logger.Logger) error {
 	client, _, err := clientForContext(kubeContext)
 	if err != nil {
 		return err
@@ -87,6 +89,9 @@ func restartDeployments(kubeContext string, images []string) error {
 				}
 			}
 			if match {
+				log.Debug("Restarting deployment",
+					zap.String("name", d.Name),
+					zap.String("namespace", d.Namespace))
 				cmd := exec.Command(
 					"kubectl",
 					"rollout",
