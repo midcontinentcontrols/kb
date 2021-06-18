@@ -10,8 +10,22 @@ import (
 	"go.uber.org/zap"
 )
 
+type TestArgs struct {
+	BuildArgs
+
+	Namespace     string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	KubeContext   string `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
+	Kind          string `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Transient     bool   `json:"transient,omitempty" yaml:"transient,omitempty"`
+	SkipBuild     bool   `json:"skipBuild,omitempty" yaml:"skipBuild,omitempty"`
+	SkipTestBuild bool   `json:"skipTestBuild,omitempty" yaml:"skipTestBuild,omitempty"`
+	SkipDeploy    bool   `json:"skipDeploy,omitempty" yaml:"skipDeploy,omitempty"`
+}
+
+var testArgs TestArgs
+
 var test2Cmd = &cobra.Command{
-	Use: "test2",
+	Use: "test",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		kubeContext := testArgs.KubeContext
 		start := time.Now()

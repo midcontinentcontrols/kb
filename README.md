@@ -4,7 +4,7 @@
 
 This is a toolchain built on top of [kind](https://github.com/kubernetes-sigs/kind) that aims to reduce the complexity associated with using it as a tool for microservice development. It was born out of necessity to reduce increasing execution times and maintenance overhead of bash scripts that accomplished more or less the same thing.
 
-Currently, kindest only runs locally using the Docker daemon. It is already a suitable replacement for `docker build`. There are plans to support on-cluster building with [kaniko](https://github.com/GoogleContainerTools/kaniko).
+Currently, kindest only builds locally using the Docker daemon. It is already a suitable replacement for `docker build`. There are plans to support on-cluster building with [kaniko](https://github.com/GoogleContainerTools/kaniko).
 
 At its core, the `kindest.yaml` file defines how images are built and tested either locally or on Kubernetes. The build process is fully parallelized and utilizes caching, so as to bypass redundant work for each submodule when no files have changed.
 
@@ -58,6 +58,8 @@ env:
   # Deploy the module using docker. This is currently
   # unimplemented, but in the future docker-compose
   # might be suppoted and can be configured here.
+  # Note: `env.docker` is fully supported for tests,
+  # where it will execute the test image locally.
   #docker: {}
 
   # Deploy the module to a kubernetes cluster.
