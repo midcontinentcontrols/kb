@@ -10,8 +10,8 @@ import (
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"gopkg.in/yaml.v2"
-	"helm.sh/helm/chart"
 	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
 	kubefake "helm.sh/helm/v3/pkg/kube/fake"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -24,7 +24,7 @@ func ensureMapKeysAreStrings(m map[interface{}]interface{}) (map[string]interfac
 	for k, v := range m {
 		typedKey, ok := k.(string)
 		if !ok {
-			return nil, fmt.Errorf("Unexpected type %s for key %s", reflect.TypeOf(k), k)
+			return nil, fmt.Errorf("unexpected type %s for key %s", reflect.TypeOf(k), k)
 		}
 		switch v.(type) {
 		case []interface{}:
@@ -52,6 +52,7 @@ func ensureMapKeysAreStrings(m map[interface{}]interface{}) (map[string]interfac
 	return r, nil
 }
 
+/*
 func (t *TestSpec) installCharts(
 	rootPath string,
 	kubeContext string,
@@ -70,7 +71,7 @@ func (t *TestSpec) installCharts(
 		}
 	}
 	return nil
-}
+}*/
 
 func debug(log logger.Logger) func(string, ...interface{}) {
 	return func(format string, v ...interface{}) {

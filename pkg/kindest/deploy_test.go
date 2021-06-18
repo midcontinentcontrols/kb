@@ -3,14 +3,12 @@ package kindest
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
-	"github.com/midcontinentcontrols/kindest/pkg/util"
+	"github.com/midcontinentcontrols/kindest/pkg/test"
 
-	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +17,7 @@ import (
 )
 
 var chartYaml = `apiVersion: v2
-description: Kindest DevOps for Monorepos
+description: "Kindest DevOps for Monorepos (test chart)"
 name: kindest
 version: 0.0.1
 maintainers:
@@ -27,25 +25,14 @@ maintainers:
     email: thavlik@midcontinentcontrols.com
     url: https://midcontinentcontrols.com`
 
-func WithTemporaryCluster(name string, t *testing.T, log logger.Logger, f func(cl client.Client)) {
-	_, err := cluster_management.CreateCluster(name, log)
-	require.NoError(t, err)
-	defer cluster_management.DeleteCluster(name)
-	cl := CreateKubeClient(t)
-	f(cl)
-}
-
 // Make sure we encounter an error when Chart.yaml is missing
 func TestDeployErrMissingChartYaml(t *testing.T) {
-	name := util.RandomTestName()
-	log := logger.NewMockLogger(logger.NewFakeLogger())
-	pushRepo := getPushRepository()
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
-	defer os.RemoveAll(rootPath)
-	valuesYaml := `foo: bar
+	test.WithTemporaryModule(t, func(name string, rootPath string) {
+		log := logger.NewMockLogger(logger.NewFakeLogger())
+		pushRepo := getPushRepository()
+		valuesYaml := `foo: bar
 baz: bal`
-	script := `#!/bin/bash
+		script := `#!/bin/bash
 set -euo pipefail
 kubectl get deployment -n bar
 if [ -z "$(kubectl get deployment -n bar | grep foo-deployment)" ]; then
@@ -53,7 +40,7 @@ if [ -z "$(kubectl get deployment -n bar | grep foo-deployment)" ]; then
 	exit 2
 fi
 echo "Chart was installed correctly!"`
-	dockerfile := `FROM alpine:3.11.6
+		dockerfile := `FROM alpine:3.11.6
 RUN apk add --no-cache wget bash
 ENV KUBECTL=v1.17.0
 RUN wget -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL}/bin/linux/amd64/kubectl \
@@ -62,11 +49,11 @@ RUN wget -O /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-rel
 COPY script /script
 RUN chmod +x /script
 CMD ["tail", "-f", "/dev/null"]`
-	manifest := `apiVersion: v1
+		manifest := `apiVersion: v1
 kind: Namespace
 metadata:
   name: test`
-	specYaml := fmt.Sprintf(`build:
+		specYaml := fmt.Sprintf(`build:
   name: %s/%s
 env:
   kubernetes:
@@ -85,37 +72,35 @@ test:
       dockerfile: Dockerfile
       command: ["/script"]
 `, pushRepo, kindestTestImageName, pushRepo, kindestTestImageName)
-	require.NoError(t, createFiles(map[string]interface{}{
-		"kindest.yaml": specYaml,
-		"Dockerfile":   dockerfile,
-		"test.yaml":    manifest,
-		"script":       script,
-		"chart": map[string]interface{}{
-			"values.yaml": valuesYaml,
-		},
-	}, rootPath))
-	module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
-	require.NoError(t, err)
-	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-	WithTemporaryCluster(name, t, log, func(cl client.Client) {
-		_, err = module.Deploy(&DeployOptions{})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "Chart.yaml file is missing")
+		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+			"kindest.yaml": specYaml,
+			"Dockerfile":   dockerfile,
+			"test.yaml":    manifest,
+			"script":       script,
+			"chart": map[string]interface{}{
+				"values.yaml": valuesYaml,
+			},
+		}))
+		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+		require.NoError(t, err)
+		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+		test.WithTemporaryCluster(name, t, log, func(cl client.Client) {
+			_, err = module.Deploy(&DeployOptions{})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "Chart.yaml file is missing")
+		})
 	})
 }
 
 // Try and deploy a basic chart, then ensure the chart resources
 // are created appropriately.
 func TestDeployChart(t *testing.T) {
-	name := util.RandomTestName()
-	namespace := name
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
-	defer os.RemoveAll(rootPath)
-	pushRepo := getPushRepository()
-	dockerfile := `FROM alpine:3.11.6
+	test.WithTemporaryModule(t, func(name string, rootPath string) {
+		namespace := name
+		pushRepo := getPushRepository()
+		dockerfile := `FROM alpine:3.11.6
 CMD ["tail", "-f", "/dev/null"]`
-	deploymentYaml := `apiVersion: apps/v1
+		deploymentYaml := `apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-busybox
@@ -135,8 +120,8 @@ spec:
         imagePullPolicy: Always
         image: {{ .Values.image }}
         command: ["tail", "-f", "/dev/null"]`
-	valuesYaml := `image: ""`
-	specYaml := fmt.Sprintf(`build:
+		valuesYaml := `image: ""`
+		specYaml := fmt.Sprintf(`build:
   name: %s/%s
 env:
   kubernetes:
@@ -147,36 +132,37 @@ env:
         values:
           image: busybox:latest
 `, pushRepo, kindestTestImageName, namespace)
-	require.NoError(t, createFiles(map[string]interface{}{
-		"kindest.yaml": specYaml,
-		"Dockerfile":   dockerfile,
-		"chart": map[string]interface{}{
-			"Chart.yaml":  chartYaml,
-			"values.yaml": valuesYaml,
-			"templates": map[string]interface{}{
-				"deployment.yaml": deploymentYaml,
-			},
-		},
-	}, rootPath))
-	log := logger.NewMockLogger(logger.NewFakeLogger())
-	module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
-	require.NoError(t, err)
-	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-	WithTemporaryCluster(name, t, log, func(cl client.Client) {
-		require.NoError(t, cl.Create(context.TODO(), &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: namespace,
+		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+			"kindest.yaml": specYaml,
+			"Dockerfile":   dockerfile,
+			"chart": map[string]interface{}{
+				"Chart.yaml":  chartYaml,
+				"values.yaml": valuesYaml,
+				"templates": map[string]interface{}{
+					"deployment.yaml": deploymentYaml,
+				},
 			},
 		}))
-		_, err = module.Deploy(&DeployOptions{})
+		log := logger.NewMockLogger(logger.NewFakeLogger())
+		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
-		require.NoError(t, WaitForDeployment(cl, "foo-busybox", namespace))
+		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+		test.WithTemporaryCluster(name, t, log, func(cl client.Client) {
+			require.NoError(t, cl.Create(context.TODO(), &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespace,
+				},
+			}))
+			_, err = module.Deploy(&DeployOptions{})
+			require.NoError(t, err)
+			require.NoError(t, WaitForDeployment(cl, "foo-busybox", namespace))
+		})
 	})
 }
 
 /*
 func TestDeployChartRestartImages(t *testing.T) {
-	name := util.RandomTestName()
+	name := test.RandomTestName()
 	pushRepo := getPushRepository()
 	rootPath := filepath.Join("tmp", name)
 	require.NoError(t, os.MkdirAll(rootPath, 0766))
@@ -198,10 +184,10 @@ test:
       name: %s/%s-test
       dockerfile: Dockerfile
 `, pushRepo, kindestTestImageName, pushRepo, kindestTestImageName)
-	require.NoError(t, createFiles(map[string]interface{}{
+	require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
 		"kindest.yaml": specYaml,
 		"Dockerfile":   dockerfile,
-	}, rootPath))
+	}))
 	log := logger.NewMockLogger(logger.NewFakeLogger())
 	p := NewProcess(runtime.NumCPU(), log)
 	module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))

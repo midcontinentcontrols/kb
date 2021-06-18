@@ -3,19 +3,15 @@ package kindest
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/midcontinentcontrols/kindest/pkg/util"
+	"github.com/midcontinentcontrols/kindest/pkg/test"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -81,47 +77,13 @@ type testEnv struct {
 	files map[string]interface{}
 }
 
-func createFiles(files map[string]interface{}, dir string) error {
-	if err := os.MkdirAll(dir, 0766); err != nil {
-		return err
-	}
-	for k, v := range files {
-		path := filepath.Join(dir, k)
-		if m, ok := v.(map[string]interface{}); ok {
-			if err := createFiles(m, path); err != nil {
-				return fmt.Errorf("%s: %v", path, err)
-			}
-		} else if s, ok := v.(string); ok {
-			if err := ioutil.WriteFile(
-				path,
-				[]byte(s),
-				0644,
-			); err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("unknown type for %s", path)
-		}
-	}
-	return nil
-}
-
 func runTest(
 	t *testing.T,
 	files func(name string) map[string]interface{},
 	f func(t *testing.T, rootPath string),
 ) {
-	name := util.RandomTestName()
+	name := test.RandomTestName()
 	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, createFiles(files(name), rootPath))
+	require.NoError(t, test.CreateFiles(files(name), rootPath))
 	f(t, rootPath)
-}
-
-func CreateKubeClient(t *testing.T) client.Client {
-	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	require.NoError(t, err)
-	cl, err := client.New(config, client.Options{})
-	require.NoError(t, err)
-	return cl
 }

@@ -19,7 +19,7 @@ func TestModuleBuildKaniko(t *testing.T) {
 	//
 	//
 	t.Run("BuildStatusSucceeded", func(t *testing.T) {
-		name := util.RandomTestName()
+		name := test.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -29,10 +29,10 @@ func TestModuleBuildKaniko(t *testing.T) {
   name: %s`, name)
 		dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		require.NoError(t, createFiles(map[string]interface{}{
+		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
 			"kindest.yaml": specYaml,
 			"Dockerfile":   dockerfile,
-		}, rootPath))
+		}))
 		log := logger.NewMockLogger(logger.NewFakeLogger())
 		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
@@ -41,7 +41,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 		require.Equal(t, BuildStatusSucceeded, module.Status())
 	})
 	t.Run("BuildStatusFailed", func(t *testing.T) {
-		name := util.RandomTestName()
+		name := test.RandomTestName()
 		rootPath := filepath.Join("tmp", name)
 		require.NoError(t, os.MkdirAll(rootPath, 0644))
 		defer func() {
@@ -51,10 +51,10 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
   name: %s`, name)
 		dockerfile := `FROM alpine:3.11.6
 RUN cat foo`
-		require.NoError(t, createFiles(map[string]interface{}{
+		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
 			"kindest.yaml": specYaml,
 			"Dockerfile":   dockerfile,
-		}, rootPath))
+		}))
 		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
 		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)

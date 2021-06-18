@@ -2,62 +2,53 @@ package kindest
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
-	"github.com/midcontinentcontrols/kindest/pkg/util"
+	"github.com/midcontinentcontrols/kindest/pkg/test"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestModuleBuildStatus(t *testing.T) {
 	t.Run("BuildStatusSucceeded", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		specYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			specYaml := fmt.Sprintf(`build:
   name: %s`, name)
-		dockerfile := `FROM alpine:3.11.6
+			dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		require.NoError(t, createFiles(map[string]interface{}{
-			"kindest.yaml": specYaml,
-			"Dockerfile":   dockerfile,
-		}, rootPath))
-		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
-		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
-		require.NoError(t, err)
-		require.Equal(t, BuildStatusPending, module.Status())
-		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"Dockerfile":   dockerfile,
+			}))
+			p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+			module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			require.Equal(t, BuildStatusPending, module.Status())
+			require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+		})
 	})
 	t.Run("BuildStatusFailed", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		specYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			specYaml := fmt.Sprintf(`build:
   name: %s`, name)
-		dockerfile := `FROM alpine:3.11.6
+			dockerfile := `FROM alpine:3.11.6
 RUN cat foo`
-		require.NoError(t, createFiles(map[string]interface{}{
-			"kindest.yaml": specYaml,
-			"Dockerfile":   dockerfile,
-		}, rootPath))
-		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
-		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
-		require.NoError(t, err)
-		err = module.Build(&BuildOptions{NoPush: true})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "The command '/bin/sh -c cat foo' returned a non-zero code: 1")
-		require.Equal(t, BuildStatusFailed, module.Status())
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"Dockerfile":   dockerfile,
+			}))
+			p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+			module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			err = module.Build(&BuildOptions{NoPush: true})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "The command '/bin/sh -c cat foo' returned a non-zero code: 1")
+			require.Equal(t, BuildStatusFailed, module.Status())
+		})
 	})
 }
 
@@ -65,252 +56,184 @@ func TestModuleBuildContext(t *testing.T) {
 	//
 	// A basic test with a file copied over.
 	t.Run("basic", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		specYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			specYaml := fmt.Sprintf(`build:
   name: %s`, name)
-		dockerfile := `FROM alpine:3.11.6
+			dockerfile := `FROM alpine:3.11.6
 COPY foo foo
 RUN cat foo
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		require.NoError(t, createFiles(map[string]interface{}{
-			"kindest.yaml": specYaml,
-			"foo":          "hello, world!",
-			"Dockerfile":   dockerfile,
-		}, rootPath))
-		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
-		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
-		require.NoError(t, err)
-		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"foo":          "hello, world!",
+				"Dockerfile":   dockerfile,
+			}))
+			p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+			module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+		})
 	})
 
 	//
 	// Make sure dot syntax works for COPY/ADD directives
 	t.Run("dot", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		specYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			specYaml := fmt.Sprintf(`build:
   name: %s`, name)
-		dockerfile := `FROM alpine:3.11.6
+			dockerfile := `FROM alpine:3.11.6
 COPY . .
 RUN cat foo
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		require.NoError(t, createFiles(map[string]interface{}{
-			"kindest.yaml": specYaml,
-			"foo":          "hello, world!",
-			"Dockerfile":   dockerfile,
-		}, rootPath))
-		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
-		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
-		require.NoError(t, err)
-		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"foo":          "hello, world!",
+				"Dockerfile":   dockerfile,
+			}))
+			p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+			module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+		})
 	})
 
 	//
 	// This test ensures subdirectories are copied over correctly.
 	t.Run("subdir", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		specYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			specYaml := fmt.Sprintf(`build:
   name: %s`, name)
-		dockerfile := `FROM alpine:3.11.6
+			dockerfile := `FROM alpine:3.11.6
 COPY subdir/foo subdir/foo
 RUN cat subdir/foo
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		require.NoError(t, createFiles(map[string]interface{}{
-			"kindest.yaml": specYaml,
-			"subdir": map[string]interface{}{
-				"foo": "hello, world!",
-			},
-			"Dockerfile": dockerfile,
-		}, rootPath))
-		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
-		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
-		require.NoError(t, err)
-		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"subdir": map[string]interface{}{
+					"foo": "hello, world!",
+				},
+				"Dockerfile": dockerfile,
+			}))
+			p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+			module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+		})
 	})
 
 	//
 	// This test ensure .dockerignore correctly excludes a single file.
 	t.Run("dockerignore", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		specYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			specYaml := fmt.Sprintf(`build:
   name: %s
   context: ..`, name)
-		dockerfile := `FROM alpine:3.11.6
+			dockerfile := `FROM alpine:3.11.6
 COPY . .
 RUN cat .git/foo
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		require.NoError(t, createFiles(map[string]interface{}{
-			".dockerignore": ".git/",
-			".git":          map[string]interface{}{"foo": "bar"},
-			"dir": map[string]interface{}{
-				"kindest.yaml": specYaml,
-				"Dockerfile":   dockerfile,
-			},
-		}, rootPath))
-		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
-		module, err := p.GetModule(filepath.Join(rootPath, "dir", "kindest.yaml"))
-		require.NoError(t, err)
-		err = module.Build(&BuildOptions{NoPush: true})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "docker: The command '/bin/sh -c cat .git/foo' returned a non-zero code: 1")
-		require.Equal(t, BuildStatusFailed, module.Status())
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				".dockerignore": ".git/",
+				".git":          map[string]interface{}{"foo": "bar"},
+				"dir": map[string]interface{}{
+					"kindest.yaml": specYaml,
+					"Dockerfile":   dockerfile,
+				},
+			}))
+			p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+			module, err := p.GetModule(filepath.Join(rootPath, "dir", "kindest.yaml"))
+			require.NoError(t, err)
+			err = module.Build(&BuildOptions{NoPush: true})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "docker: The command '/bin/sh -c cat .git/foo' returned a non-zero code: 1")
+			require.Equal(t, BuildStatusFailed, module.Status())
+		})
 	})
 
 	//
 	// This test ensures parent directories can be used as build contexts.
 	t.Run("parent", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		specYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			specYaml := fmt.Sprintf(`build:
   name: %s
   context: ../`, name)
-		dockerfile := `FROM alpine:3.11.6
+			dockerfile := `FROM alpine:3.11.6
 COPY foo foo
 RUN cat foo
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		require.NoError(t, createFiles(map[string]interface{}{
-			"subdir": map[string]interface{}{
-				"kindest.yaml": specYaml,
-				"Dockerfile":   dockerfile,
-			},
-			"foo": "hello, world!",
-		}, rootPath))
-		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
-		module, err := p.GetModule(filepath.Join(rootPath, "subdir", "kindest.yaml"))
-		require.NoError(t, err)
-		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"subdir": map[string]interface{}{
+					"kindest.yaml": specYaml,
+					"Dockerfile":   dockerfile,
+				},
+				"foo": "hello, world!",
+			}))
+			p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+			module, err := p.GetModule(filepath.Join(rootPath, "subdir", "kindest.yaml"))
+			require.NoError(t, err)
+			require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+		})
 	})
 
 	//
 	// This test ensures the contents of deeply nested directories are copied over.
 	t.Run("deep", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		specYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			specYaml := fmt.Sprintf(`build:
   name: %s
   context: ../`, name)
-		dockerfile := `FROM alpine:3.11.6
+			dockerfile := `FROM alpine:3.11.6
 COPY subdir subdir
 RUN cat subdir/deep/foo
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		require.NoError(t, createFiles(map[string]interface{}{
-			"subdir": map[string]interface{}{
-				"kindest.yaml": specYaml,
-				"Dockerfile":   dockerfile,
-				"deep": map[string]interface{}{
-					"foo": "hello, world!",
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"subdir": map[string]interface{}{
+					"kindest.yaml": specYaml,
+					"Dockerfile":   dockerfile,
+					"deep": map[string]interface{}{
+						"foo": "hello, world!",
+					},
 				},
-			},
-		}, rootPath))
-		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
-		module, err := p.GetModule(filepath.Join(rootPath, "subdir", "kindest.yaml"))
-		require.NoError(t, err)
-		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
+			}))
+			p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+			module, err := p.GetModule(filepath.Join(rootPath, "subdir", "kindest.yaml"))
+			require.NoError(t, err)
+			require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+		})
 	})
-	/*
-	   	//
-	   	// This test ensures files are properly excuded via dockerignore
-	   	t.Run("dockerignore", func(t *testing.T) {
-	   		name := util.RandomTestName()
-	   		rootPath := filepath.Join("tmp", name)
-	   		require.NoError(t, os.MkdirAll(rootPath, 0644))
-	   		defer func() {
-	   			require.NoError(t, os.RemoveAll(rootPath))
-	   		}()
-	   		specYaml := fmt.Sprintf(`build:
-	     name: %s
-	     context: ../`, name)
-	   		dockerfile := `FROM alpine:3.11.6
-	   COPY . .
-	   RUN cat subdir/deep/foo
-	   RUN apk add --no-cache bash
-	   RUN bash -c if [[ -n "$(ls | grep .git)" ]]; then exit 100; fi
-	   CMD ["sh", "-c", "echo \"Hello, world\""]`
-	   		dockerignore := `.git/`
-	   		require.NoError(t, createFiles(map[string]interface{}{
-	   			".dockerignore": dockerignore,
-	   			".git": map[string]interface{}{
-	   				"foo": "bar",
-	   			},
-	   			"subdir": map[string]interface{}{
-	   				"kindest.yaml": specYaml,
-	   				"Dockerfile":   dockerfile,
-	   				"deep": map[string]interface{}{
-	   					"foo": "hello, world!",
-	   				},
-	   			},
-	   		}, rootPath))
-	   		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
-	   		module, err := p.GetModule(filepath.Join(rootPath, "subdir", "kindest.yaml"))
-	   		require.NoError(t, err)
-	   		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-	   		require.Equal(t, BuildStatusSucceeded, module.Status())
-	   	})
-	*/
 }
 
 //
 // This test ensures the build cache is used when building an unchanged module.
 func TestModuleBuildCache(t *testing.T) {
-	name := util.RandomTestName()
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0644))
-	defer func() {
-		require.NoError(t, os.RemoveAll(rootPath))
-	}()
-	specYaml := fmt.Sprintf(`build:
+	test.WithTemporaryModule(t, func(name string, rootPath string) {
+		specYaml := fmt.Sprintf(`build:
   name: %s`, name)
-	dockerfile := `FROM alpine:3.11.6
+		dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-	require.NoError(t, createFiles(map[string]interface{}{
-		"kindest.yaml": specYaml,
-		"Dockerfile":   dockerfile,
-	}, rootPath))
-	log := logger.NewMockLogger(logger.NewFakeLogger())
-	module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
-	require.NoError(t, err)
-	require.Equal(t, BuildStatusPending, module.Status())
-	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-	require.Equal(t, BuildStatusSucceeded, module.Status())
-	require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
-	module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
-	require.NoError(t, err)
-	require.Equal(t, BuildStatusPending, module.Status())
-	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-	require.Equal(t, BuildStatusSucceeded, module.Status())
-	require.True(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+			"kindest.yaml": specYaml,
+			"Dockerfile":   dockerfile,
+		}))
+		log := logger.NewMockLogger(logger.NewFakeLogger())
+		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+		require.NoError(t, err)
+		require.Equal(t, BuildStatusPending, module.Status())
+		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+		require.Equal(t, BuildStatusSucceeded, module.Status())
+		require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+		module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+		require.NoError(t, err)
+		require.Equal(t, BuildStatusPending, module.Status())
+		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+		require.Equal(t, BuildStatusSucceeded, module.Status())
+		require.True(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+	})
 }
 
 //
@@ -320,85 +243,77 @@ func TestModuleDependency(t *testing.T) {
 	//
 	// Ensure dependencies are cached along with the module being built.
 	t.Run("cache", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		depYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			depYaml := fmt.Sprintf(`build:
   name: %s-dep`, name)
-		specYaml := fmt.Sprintf(`dependencies:
+			specYaml := fmt.Sprintf(`dependencies:
 - dep
 build:
   name: %s`, name)
-		depDockerfile := `FROM alpine:3.11.6
+			depDockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		dockerfile := fmt.Sprintf(`FROM %s-dep:latest
+			dockerfile := fmt.Sprintf(`FROM %s-dep:latest
 CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
-		require.NoError(t, createFiles(map[string]interface{}{
-			"kindest.yaml": specYaml,
-			"Dockerfile":   dockerfile,
-			"dep": map[string]interface{}{
-				"kindest.yaml": depYaml,
-				"Dockerfile":   depDockerfile,
-			},
-		}, rootPath))
-		log := logger.NewMockLogger(logger.NewFakeLogger())
-		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
-		require.NoError(t, err)
-		require.Equal(t, BuildStatusPending, module.Status())
-		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
-		require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
-		// Ensure the dep was cached
-		log = logger.NewMockLogger(logger.NewFakeLogger())
-		module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "dep", "kindest.yaml"))
-		require.NoError(t, err)
-		require.Equal(t, BuildStatusPending, module.Status())
-		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
-		require.False(t, log.WasObservedIgnoreFields("debug", "Digests do not match, building..."))
-		require.True(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"Dockerfile":   dockerfile,
+				"dep": map[string]interface{}{
+					"kindest.yaml": depYaml,
+					"Dockerfile":   depDockerfile,
+				},
+			}))
+			log := logger.NewMockLogger(logger.NewFakeLogger())
+			module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			require.Equal(t, BuildStatusPending, module.Status())
+			require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+			// Ensure the dep was cached
+			log = logger.NewMockLogger(logger.NewFakeLogger())
+			module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "dep", "kindest.yaml"))
+			require.NoError(t, err)
+			require.Equal(t, BuildStatusPending, module.Status())
+			require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.False(t, log.WasObservedIgnoreFields("debug", "Digests do not match, building..."))
+			require.True(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+		})
 	})
 
 	//
 	// Ensure errors in building a dependency are correctly propogated.
 	t.Run("error", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		depYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			depYaml := fmt.Sprintf(`build:
   name: %s-dep`, name)
-		specYaml := fmt.Sprintf(`dependencies:
+			specYaml := fmt.Sprintf(`dependencies:
 - myDependency
 build:
   name: %s`, name)
-		depDockerfile := `FROM alpine:3.11.6
+			depDockerfile := `FROM alpine:3.11.6
 RUN cat /nonexistent
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		dockerfile := fmt.Sprintf(`FROM %s-dep:latest
+			dockerfile := fmt.Sprintf(`FROM %s-dep:latest
 CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
-		require.NoError(t, createFiles(map[string]interface{}{
-			"kindest.yaml": specYaml,
-			"Dockerfile":   dockerfile,
-			"myDependency": map[string]interface{}{
-				"kindest.yaml": depYaml,
-				"Dockerfile":   depDockerfile,
-			},
-		}, rootPath))
-		log := logger.NewMockLogger(logger.NewFakeLogger())
-		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
-		require.NoError(t, err)
-		require.Equal(t, BuildStatusPending, module.Status())
-		err = module.Build(&BuildOptions{NoPush: true})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "myDependency")
-		require.Contains(t, err.Error(), "The command '/bin/sh -c cat /nonexistent' returned a non-zero code: 1")
-		require.Equal(t, BuildStatusFailed, module.Status())
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"Dockerfile":   dockerfile,
+				"myDependency": map[string]interface{}{
+					"kindest.yaml": depYaml,
+					"Dockerfile":   depDockerfile,
+				},
+			}))
+			log := logger.NewMockLogger(logger.NewFakeLogger())
+			module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			require.Equal(t, BuildStatusPending, module.Status())
+			err = module.Build(&BuildOptions{NoPush: true})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "myDependency")
+			require.Contains(t, err.Error(), "The command '/bin/sh -c cat /nonexistent' returned a non-zero code: 1")
+			require.Equal(t, BuildStatusFailed, module.Status())
+		})
 	})
 }
 
@@ -406,40 +321,36 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 // This ensures the buildArgs: section of kindest.yaml is properly applied
 // when images are built.
 func TestModuleBuildArgs(t *testing.T) {
-	name := util.RandomTestName()
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0644))
-	defer func() {
-		require.NoError(t, os.RemoveAll(rootPath))
-	}()
-	script := `#!/bin/bash
+	test.WithTemporaryModule(t, func(name string, rootPath string) {
+		script := `#!/bin/bash
 set -euo pipefail
 if [ "$foo" -ne "bar" ]; then
 	exit 100
 fi`
-	specYaml := fmt.Sprintf(`build:
+		specYaml := fmt.Sprintf(`build:
   name: %s
   buildArgs:
     - name: foo
       value: bar`, name)
-	dockerfile := `FROM alpine:3.11.6
+		dockerfile := `FROM alpine:3.11.6
 ARG foo
 RUN apk add --no-cache bash
 COPY script .
 RUN echo "foo isss $foo"
 RUN chmod +x ./script && ./script
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-	require.NoError(t, createFiles(map[string]interface{}{
-		"kindest.yaml": specYaml,
-		"Dockerfile":   dockerfile,
-		"script":       script,
-	}, rootPath))
-	p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
-	module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
-	require.NoError(t, err)
-	require.Equal(t, BuildStatusPending, module.Status())
-	require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-	require.Equal(t, BuildStatusSucceeded, module.Status())
+		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+			"kindest.yaml": specYaml,
+			"Dockerfile":   dockerfile,
+			"script":       script,
+		}))
+		p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+		require.NoError(t, err)
+		require.Equal(t, BuildStatusPending, module.Status())
+		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+		require.Equal(t, BuildStatusSucceeded, module.Status())
+	})
 }
 
 //
@@ -449,92 +360,80 @@ func TestModuleBuildOptions(t *testing.T) {
 	//
 	// Test the functionality of --no-cache
 	t.Run("no cache", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		specYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			specYaml := fmt.Sprintf(`build:
   name: %s`, name)
-		dockerfile := `FROM alpine:3.11.6
+			dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		require.NoError(t, createFiles(map[string]interface{}{
-			"kindest.yaml": specYaml,
-			"Dockerfile":   dockerfile,
-		}, rootPath))
-		log := logger.NewMockLogger(logger.NewFakeLogger())
-		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
-		require.NoError(t, err)
-		require.Equal(t, BuildStatusPending, module.Status())
-		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
-		require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
-		module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
-		require.NoError(t, err)
-		require.Equal(t, BuildStatusPending, module.Status())
-		require.NoError(t, module.Build(&BuildOptions{NoCache: true, NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
-		require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"Dockerfile":   dockerfile,
+			}))
+			log := logger.NewMockLogger(logger.NewFakeLogger())
+			module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			require.Equal(t, BuildStatusPending, module.Status())
+			require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+			module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			require.Equal(t, BuildStatusPending, module.Status())
+			require.NoError(t, module.Build(&BuildOptions{NoCache: true, NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+		})
 	})
 
 	//
 	// Ensure custom tags (--tag or otherwise) are used when specified.
 	// Note: the default tag is "latest"
 	t.Run("tag", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		specYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			specYaml := fmt.Sprintf(`build:
   name: %s`, name)
-		dockerfile := `FROM alpine:3.11.6
+			dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		require.NoError(t, createFiles(map[string]interface{}{
-			"kindest.yaml": specYaml,
-			"Dockerfile":   dockerfile,
-		}, rootPath))
-		log := logger.NewMockLogger(logger.NewFakeLogger())
-		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
-		require.NoError(t, err)
-		require.Equal(t, BuildStatusPending, module.Status())
-		tag := "foobar"
-		require.NoError(t, module.Build(&BuildOptions{Tag: tag, NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
-		require.True(t, log.WasObservedIgnoreFields("info", "Successfully built image"))
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"Dockerfile":   dockerfile,
+			}))
+			log := logger.NewMockLogger(logger.NewFakeLogger())
+			module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			require.Equal(t, BuildStatusPending, module.Status())
+			tag := "foobar"
+			require.NoError(t, module.Build(&BuildOptions{Tag: tag, NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.True(t, log.WasObservedIgnoreFields("info", "Successfully built image"))
+		})
 	})
 
 	//
 	// Test the functionality of --no-cache
 	t.Run("repository", func(t *testing.T) {
-		name := util.RandomTestName()
-		rootPath := filepath.Join("tmp", name)
-		require.NoError(t, os.MkdirAll(rootPath, 0644))
-		defer func() {
-			require.NoError(t, os.RemoveAll(rootPath))
-		}()
-		specYaml := fmt.Sprintf(`build:
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			specYaml := fmt.Sprintf(`build:
   name: %s`, name)
-		dockerfile := `FROM alpine:3.11.6
+			dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "echo \"Hello, world\""]`
-		require.NoError(t, createFiles(map[string]interface{}{
-			"kindest.yaml": specYaml,
-			"Dockerfile":   dockerfile,
-		}, rootPath))
-		log := logger.NewMockLogger(logger.NewFakeLogger())
-		module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
-		require.NoError(t, err)
-		require.Equal(t, BuildStatusPending, module.Status())
-		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
-		require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
-		module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
-		require.NoError(t, err)
-		require.Equal(t, BuildStatusPending, module.Status())
-		require.NoError(t, module.Build(&BuildOptions{NoCache: true, NoPush: true}))
-		require.Equal(t, BuildStatusSucceeded, module.Status())
-		require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": specYaml,
+				"Dockerfile":   dockerfile,
+			}))
+			log := logger.NewMockLogger(logger.NewFakeLogger())
+			module, err := NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			require.Equal(t, BuildStatusPending, module.Status())
+			require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+			module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			require.Equal(t, BuildStatusPending, module.Status())
+			require.NoError(t, module.Build(&BuildOptions{NoCache: true, NoPush: true}))
+			require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
+		})
 	})
 }
