@@ -2,6 +2,7 @@ package kindest
 
 import (
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -283,7 +284,8 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 	})
 
 	//
-	// Ensure ListImages recursively returns dependenciess
+	// Ensure ListImages recursively returns dependenciess and
+	// BuiltImages correctly reflects which images were pushed.
 	t.Run("list images", func(t *testing.T) {
 		test.WithTemporaryModule(t, func(name string, rootPath string) {
 			tag := uuid.New().String()[:8]
@@ -332,6 +334,20 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 			require.NotEqual(t, images[0], images[1])
 			require.Contains(t, images, name+":"+tag)
 			require.Contains(t, images, name+"-dep:"+tag)
+			dockerfile = `FROM alpine:3.11.6
+CMD ["sh", "-c", "echo now we are updated"]`
+			require.NoError(t, ioutil.WriteFile(
+				filepath.Join(rootPath, "Dockerfile"),
+				[]byte(dockerfile),
+				0644,
+			))
+			module, err = NewProcess(runtime.NumCPU(), log).GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.NoError(t, err)
+			require.NoError(t, module.Build(&BuildOptions{
+				NoPush: true,
+			}))
+			require.Len(t, module.BuiltImages, 1)
+			require.Equal(t, name+":latest", module.BuiltImages[0])
 		})
 	})
 

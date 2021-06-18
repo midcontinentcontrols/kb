@@ -155,7 +155,7 @@ func (t *TestSpec) runKubernetes(
 			}
 			rd := bufio.NewReader(r)
 			for {
-				message, err := rd.ReadString('\n')
+				_, err := rd.ReadString('\n')
 				if err != nil {
 					if err == io.EOF {
 						break
@@ -164,7 +164,7 @@ func (t *TestSpec) runKubernetes(
 				}
 				// TODO: redirect somewhere useful
 				//log.Info("Test output", zap.String("message", message))
-				fmt.Println(message)
+				//fmt.Println(message)
 			}
 		default:
 			return fmt.Errorf("unexpected phase '%s'", pod.Status.Phase)
