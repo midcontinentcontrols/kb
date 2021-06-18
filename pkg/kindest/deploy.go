@@ -80,6 +80,7 @@ func restartDeployments(kubeContext string, images []string, log logger.Logger) 
 	if err != nil {
 		return err
 	}
+	log.Debug("Checking deployments to restart", zap.Int("numDeployments", len(ds.Items)))
 	for _, d := range ds.Items {
 		for _, c := range d.Spec.Template.Spec.Containers {
 			match := false
