@@ -119,10 +119,7 @@ func (m *Module) installCharts(kubeContext string) error {
 	return nil
 }
 
-func (m *Module) installChart(
-	chart *ChartSpec,
-	kubeContext string,
-) error {
+func (m *Module) installChart(chart *ChartSpec, kubeContext string) error {
 	rootPath := m.Dir()
 	chartPath := filepath.Clean(filepath.Join(rootPath, chart.Name))
 	log := m.log.With(
