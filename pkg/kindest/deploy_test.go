@@ -88,7 +88,9 @@ test:
 		require.NoError(t, err)
 		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
 		test.WithTemporaryCluster(t, name, log, func(kubeContext string, cl client.Client) {
-			_, err = module.Deploy(&DeployOptions{})
+			_, err = module.Deploy(&DeployOptions{
+				KubeContext: kubeContext,
+			})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "Chart.yaml file is missing")
 		})
@@ -156,7 +158,7 @@ env:
 					Name: namespace,
 				},
 			}))
-			_, err = module.Deploy(&DeployOptions{})
+			_, err = module.Deploy(&DeployOptions{KubeContext: kubeContext})
 			require.NoError(t, err)
 			require.NoError(t, util.WaitForDeployment(cl, "foo-busybox", namespace))
 		})

@@ -53,6 +53,7 @@ func CreateKubeClient(t *testing.T, kubeContext string) k8sclient.Client {
 	if kubeContext != "" {
 		cfg, err = config.GetConfigWithContext(kubeContext)
 	} else {
+		panic("don't do this")
 		cfg, err = config.GetConfig()
 	}
 	require.NoError(t, err)
@@ -84,6 +85,8 @@ func WithTemporaryCluster(t *testing.T, name string, log logger.Logger, f func(k
 		if atomic.AddInt32(&numClustersCreated, 1) == 2 {
 			fmt.Println("Warning: a transient cluster is being created for each test. Set the KUBECONTEXT environment variable to significantly reduce test execution time.")
 		}
+	} else if atomic.AddInt32(&numClustersCreated, -1) == -1 {
+		fmt.Printf("Using persistent kube context %s\n", kubeContext)
 	}
 	f(kubeContext, CreateKubeClient(t, kubeContext))
 }
