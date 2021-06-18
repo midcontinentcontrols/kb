@@ -95,6 +95,8 @@ func (t *TestSpec) Run(
 		kubeContext, err := m.Deploy(&DeployOptions{
 			KubeContext:   options.KubeContext,
 			Kind:          options.Kind,
+			Repository:    options.Repository,
+			Tag:           options.Tag,
 			RestartImages: m.BuiltImages,
 			Wait:          true,
 		})

@@ -22,6 +22,8 @@ import (
 type DeployOptions struct {
 	Kind          string   `json:"kind"`
 	KubeContext   string   `json:"kubeContext"`
+	Repository    string   `json:"repository"`
+	Tag           string   `json:"tag"`
 	RestartImages []string `json:"restartImages"`
 	Wait          bool     `json:"wait"`
 }
@@ -49,7 +51,11 @@ func (m *Module) Deploy(options *DeployOptions) (string, error) {
 		return "", err
 	}
 	if options.Wait {
-		if err := m.WaitForReady(kubeContext); err != nil {
+		if err := m.WaitForReady(
+			kubeContext,
+			options.Repository,
+			options.Tag,
+		); err != nil {
 			return "", err
 		}
 	}
@@ -90,17 +96,21 @@ func (m *Module) RestartContainers(restartImages []string, kubeContext string) e
 	return nil
 }
 
-func (m *Module) waitForReadyPods(kubeContext string, images []string) error {
+func (m *Module) waitForReadyPods(
+	kubeContext string,
+	images []string,
+) error {
 	for _, image := range images {
 		m.log.Info(
 			"TODO: wait for pods running image to be ready",
 			zap.String("image", image),
+			zap.String("kubeContext", kubeContext),
 		)
 	}
 	return nil
 }
 
-func (m *Module) WaitForReady(kubeContext string) error {
+func (m *Module) WaitForReady(kubeContext, repository, tag string) error {
 	// TODO: wait for all deployments to be ready
 	// TODO: inspect all charts and get deployments?
 	// Maybe recurse all modules and wait for all pods that have those images?

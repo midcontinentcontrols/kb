@@ -54,32 +54,61 @@ build:
   # Commands to run locally after building/pushing
   #after: []
 
+env:
+  # Deploy the module using docker. This is currently
+  # unimplemented, but in the future docker-compose
+  # might be suppoted and can be configured here.
+  #docker: {}
+
+  # Deploy the module to a kubernetes cluster.
+  kubernetes:
+    # List of relative paths to manifests that should be
+    # applied at deploy.
+    resources:
+      - path/to/my_custom_resource_definitions.yaml
+    # These are passed to `kubectl apply -f`, so directories
+    # containing multiple yaml files are supported.
+      - path/to/folder_containing_manifests/
+
+    # These charts will be installed/upgraded at deploy.
+    charts:
+      - releaseName: kindest
+        namespace: kindest
+        path: path/to/chart # ./path/to/chart/Chart.yaml
+        values: {}
+
 test:
   # Tests have a `build` section mirroring the module's.
   # Typically, this image will contain source code for all
   # the repo's dependencies and potentially be multiple gb
-  # in size. 
+  # in size.
   build:
     name: midcontinentcontrols/example-test
     dockerfile: test/Dockerfile
   
-  # We can specify a minimal environment for running the tests
+  # We can specify a minimal environment for running the tests.
+  # This section mirrors the root `env` section because a test
+  # is effectively a module with an implicit manifest that
+  # cannot be depended upon. 
   env:
     # Run the test image locally with Docker. This is useful
     # for incorporating unit tests into your kindest.yaml
+    # TODO: docker env does not do anything meaningful yet.
     #docker: {}
 
     # Run the test in a Kubernetes environment. The cluster
     # may be an actual k8s cluster or a KIND cluster running
-    # either locally or inside a pod. 
+    # either locally or inside a pod.
     kubernetes:
       # List of relative paths to manifests that should be
       # applied before running tests.
       resources:
         - path/to/my_custom_resource_definitions.yaml
 
-      # These charts will be installed/upgraded before the
-      # tests run.
+      # These charts will be installed/upgraded before this
+      # test runs. Note: the module's env is always updated
+      # when tests run. This chart is only shown here for
+      # demonstration purposes.
       charts:
         - releaseName: kindest
           namespace: kindest

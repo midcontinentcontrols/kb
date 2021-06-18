@@ -108,6 +108,7 @@ func (m *Module) builtImage(imageName string) {
 		}
 	}
 	if !found {
+		fmt.Printf("Built image %s\n", imageName)
 		m.BuiltImages = append(m.BuiltImages, imageName)
 	}
 }
@@ -131,6 +132,8 @@ func (m *Module) RunTests2(options *TestOptions, p *Process, log logger.Logger) 
 		if _, err := m.Deploy(&DeployOptions{
 			Kind:          options.Kind,
 			KubeContext:   options.KubeContext,
+			Repository:    options.Repository,
+			Tag:           options.Tag,
 			RestartImages: m.BuiltImages,
 			Wait:          true,
 		}); err != nil {
