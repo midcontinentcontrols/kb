@@ -155,22 +155,28 @@ test:
 Note that tests using the Docker environment can still run as pods on Kubernetes, but they will not have access to the cluster.
 
 ### Kubernetes
-Tests requiring a Kubernetes cluster can indicate the minimal requirements by defining the `test.env.kubernetes:` object. 
+Tests requiring a Kubernetes cluster can indicate the minimal requirements by defining the `test.env.kubernetes:` object. If a chart or resource is part of a module's standard deployment, it should be included in the module's root `env:` section, as opposed to a test. This is so you can use `kindest deploy` in a production settings, i.e. when you want to install/upgrade a chart without running the tests.
 
 ```yaml
 # kindest.yaml
+env:
+  kubernetes: {} # Put production k8s configuration here
+
 test:
   ...
   env:
-    # Run these tests on kubernetes
+    # Run these tests on kubernetes. This test environment
+    # will only be considered during development, and not
+    # during a production deploy.
     kubernetes:
       # Paths to resources that will be applied every time
       # before running tests. Use this to load CRDs and
       # secrets. Remember to add your secrets to .gitignore
       # so they are not checked into source control.
       resources:
-        - crds/my-example-crd.yaml
-        - test/fixtures/secrets/my-secret.yaml
+        - crds/
+        - test/fixtures/
+        - test/fixtures/secrets/
 
       # These charts will be installed/upgraded before the
       # tests run.
@@ -205,6 +211,6 @@ go test -v -timeout 4h
 Image pulling and building is part of the tests, so the `-timeout` flag is necessary. `.vscode/settings.json` is intentionally part of this repository in order for VS Code's `Go: Toggle Test Coverage in Current Package` to work correctly.
 
 ## License
-Copyright (c) Mid Continent Controls, Inc. 2020
+Copyright (c) Mid Continent Controls, Inc. 2021
 
 Released under MIT and Apache dual licenses. Unencumbered commercial use is permitted. See LICENSE-Apache and LICENSE-MIT files for more information.
