@@ -12,9 +12,11 @@ import (
 	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/stretchr/testify/require"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 func RandomTestName() string {
@@ -46,11 +48,17 @@ func CreateFiles(dir string, files map[string]interface{}) error {
 	return nil
 }
 
-func CreateKubeClient(t *testing.T) k8sclient.Client {
-	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+func CreateKubeClient(t *testing.T, kubeContext string) k8sclient.Client {
+	var cfg *rest.Config
+	var err error
+	if kubeContext != "" {
+		cfg, err = config.GetConfigWithContext(kubeContext)
+	} else {
+		kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
+		cfg, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	}
 	require.NoError(t, err)
-	cl, err := k8sclient.New(config, k8sclient.Options{})
+	cl, err := k8sclient.New(cfg, k8sclient.Options{})
 	require.NoError(t, err)
 	return cl
 }
@@ -66,11 +74,16 @@ func WithTemporaryModule(t *testing.T, f func(name string, rootPath string)) {
 }
 
 func WithTemporaryCluster(t *testing.T, name string, log logger.Logger, f func(kubeContext string, cl k8sclient.Client)) {
-	kubeContext, err := cluster_management.CreateCluster(name, log)
-	require.NoError(t, err)
-	defer cluster_management.DeleteCluster(name)
-	cl := CreateKubeClient(t)
-	f(kubeContext, cl)
+	// TODO: implement env var to use persistent cluster to speed this up
+	var kubeContext string
+	var ok bool
+	if kubeContext, ok = os.LookupEnv("KUBECONTEXT"); !ok {
+		var err error
+		kubeContext, err = cluster_management.CreateCluster(name, log)
+		require.NoError(t, err)
+		defer cluster_management.DeleteCluster(name)
+	}
+	f(kubeContext, CreateKubeClient(t, kubeContext))
 }
 
 func NewDockerClient(t *testing.T) client.APIClient {

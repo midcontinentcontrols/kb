@@ -1,4 +1,1 @@
-- Base image
-- Fix it so when a dependency that is a base image is built, all child modules are automatically rebuilt
-
 [kind#303](https://github.com/kubernetes-sigs/kind/issues/303)
