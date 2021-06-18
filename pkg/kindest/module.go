@@ -32,6 +32,7 @@ import (
 
 	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"github.com/midcontinentcontrols/kindest/pkg/util"
 )
 
 type BuildStatus int32
@@ -812,7 +813,7 @@ func doBuildModule(
 	options *BuildOptions,
 	log logger.Logger,
 ) (string, error) {
-	dest := sanitizeImageName(options.Repository, spec.Name, options.Tag)
+	dest := util.SanitizeImageName(options.Repository, spec.Name, options.Tag)
 	log = log.With(zap.String("dest", dest))
 	switch options.Builder {
 	case "":

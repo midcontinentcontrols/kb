@@ -2,13 +2,8 @@ package kindest
 
 import (
 	"context"
-	"fmt"
-	"path/filepath"
-	"testing"
 	"time"
 
-	"github.com/midcontinentcontrols/kindest/pkg/test"
-	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -57,33 +52,4 @@ func WaitForDeployment2(
 		time.Sleep(delay)
 	}
 	return nil
-}
-
-func sanitizeImageName(host, image, tag string) string {
-	if tag == "" {
-		tag = "latest"
-	}
-	n := len(host)
-	if n == 0 {
-		return fmt.Sprintf("%s:%s", image, tag)
-	}
-	if host[n-1] == '/' {
-		host = host[:n-1]
-	}
-	return fmt.Sprintf("%s/%s:%s", host, image, tag)
-}
-
-type testEnv struct {
-	files map[string]interface{}
-}
-
-func runTest(
-	t *testing.T,
-	files func(name string) map[string]interface{},
-	f func(t *testing.T, rootPath string),
-) {
-	name := test.RandomTestName()
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, test.CreateFiles(files(name), rootPath))
-	f(t, rootPath)
 }

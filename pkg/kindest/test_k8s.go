@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"github.com/midcontinentcontrols/kindest/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -31,7 +32,7 @@ func (t *TestSpec) runKubernetes(
 	if err := createTestRBAC(client, log); err != nil {
 		return err
 	}
-	image := sanitizeImageName(repository, t.Build.Name, "latest")
+	image := util.SanitizeImageName(repository, t.Build.Name, "latest")
 	imagePullPolicy := corev1.PullAlways
 	if namespace == "" {
 		namespace = "default"
