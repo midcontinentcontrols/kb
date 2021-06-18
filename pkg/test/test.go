@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/docker/docker/client"
@@ -13,8 +14,6 @@ import (
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -54,8 +53,7 @@ func CreateKubeClient(t *testing.T, kubeContext string) k8sclient.Client {
 	if kubeContext != "" {
 		cfg, err = config.GetConfigWithContext(kubeContext)
 	} else {
-		kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
-		cfg, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		cfg, err = config.GetConfig()
 	}
 	require.NoError(t, err)
 	cl, err := k8sclient.New(cfg, k8sclient.Options{})
@@ -73,8 +71,9 @@ func WithTemporaryModule(t *testing.T, f func(name string, rootPath string)) {
 	f(name, rootPath)
 }
 
+var numClustersCreated int32
+
 func WithTemporaryCluster(t *testing.T, name string, log logger.Logger, f func(kubeContext string, cl k8sclient.Client)) {
-	// TODO: implement env var to use persistent cluster to speed this up
 	var kubeContext string
 	var ok bool
 	if kubeContext, ok = os.LookupEnv("KUBECONTEXT"); !ok {
@@ -82,6 +81,9 @@ func WithTemporaryCluster(t *testing.T, name string, log logger.Logger, f func(k
 		kubeContext, err = cluster_management.CreateCluster(name, log)
 		require.NoError(t, err)
 		defer cluster_management.DeleteCluster(name)
+		if atomic.AddInt32(&numClustersCreated, 1) == 2 {
+			fmt.Println("Warning: a transient cluster is being created for each test. Set the KUBECONTEXT environment variable to significantly reduce test execution time.")
+		}
 	}
 	f(kubeContext, CreateKubeClient(t, kubeContext))
 }
