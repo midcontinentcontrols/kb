@@ -210,7 +210,7 @@ git clone git@github.com:midcontinentcontrols/kindest.git
 cd kindest/pkg/kindest
 go test -v -timeout 4h
 ```
-Image pulling and building is part of the tests, so the `-timeout` flag is necessary. `.vscode/settings.json` is intentionally part of this repository in order for VS Code's `Go: Toggle Test Coverage in Current Package` to work correctly.
+Image pulling and building is part of the tests, making the `-timeout` flag necessary. `.vscode/settings.json` is intentionally part of this repository in order for VS Code's `Go: Toggle Test Coverage in Current Package` to work correctly.
 
 ## License
 Copyright (c) Mid Continent Controls, Inc. 2021
