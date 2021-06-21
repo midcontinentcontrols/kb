@@ -12,6 +12,7 @@ import (
 
 	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"github.com/midcontinentcontrols/kindest/pkg/util"
 
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/labels"
@@ -145,7 +146,7 @@ func buildConfigFromFlags(context, kubeconfigPath string) (*rest.Config, error) 
 
 func clientsetForContext(context string) (*kubernetes.Clientset, *restclient.Config, error) {
 	// TODO: in-cluster config
-	kubeConfigPath := filepath.Join(homeDir(), ".kube", "config")
+	kubeConfigPath := filepath.Join(util.HomeDir(), ".kube", "config")
 	config, err := buildConfigFromFlags(context, kubeConfigPath)
 	if err != nil {
 		return nil, nil, err

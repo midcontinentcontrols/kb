@@ -695,7 +695,7 @@ func buildKaniko(
 	log logger.Logger,
 ) error {
 	var kubeconfig string
-	if home := homeDir(); home != "" {
+	if home := util.HomeDir(); home != "" {
 		kubeconfig = filepath.Join(home, ".kube", "config")
 	}
 	log.Info("Building on-cluster", zap.String("kubeconfig", kubeconfig))
