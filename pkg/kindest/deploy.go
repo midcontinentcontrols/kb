@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 
 	appsv1 "k8s.io/api/apps/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	client "github.com/influxdata/influxdb1-client"
 	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/midcontinentcontrols/kindest/pkg/util"
@@ -138,7 +138,7 @@ func waitForDeployments(cl client.Client, images []string, log logger.Logger) er
 		for _, image := range images {
 			for _, container := range deployment.Spec.Template.Spec.Containers {
 				if container.Image == image {
-					log.Debug("Waiting on deployment",
+					log.Info("Waiting on deployment",
 						zap.String("name", deployment.Name),
 						zap.String("namespace", deployment.Namespace))
 					if err := util.WaitForDeployment(
@@ -165,7 +165,7 @@ func waitForStatefulSets(cl client.Client, images []string, log logger.Logger) e
 		for _, image := range images {
 			for _, container := range statefulSet.Spec.Template.Spec.Containers {
 				if container.Image == image {
-					log.Debug("Waiting on StatefulSet",
+					log.Info("Waiting on StatefulSet",
 						zap.String("name", statefulSet.Name),
 						zap.String("namespace", statefulSet.Namespace))
 					if err := util.WaitForStatefulSet(
@@ -192,7 +192,7 @@ func waitForDaemonSets(cl client.Client, images []string, log logger.Logger) err
 		for _, image := range images {
 			for _, container := range daemonSet.Spec.Template.Spec.Containers {
 				if container.Image == image {
-					log.Debug("Waiting on DaemonSet",
+					log.Info("Waiting on DaemonSet",
 						zap.String("name", daemonSet.Name),
 						zap.String("namespace", daemonSet.Namespace))
 					if err := util.WaitForDaemonSet(

@@ -66,6 +66,11 @@ func (t *TestSpec) Verify(manifestPath string, log logger.Logger) error {
 	if err := t.Build.Verify(manifestPath, log); err != nil {
 		return err
 	}
+	if t.DefaultTimeout != "" {
+		if _, err := time.ParseDuration(t.DefaultTimeout); err != nil {
+			return fmt.Errorf("parse defaultTimeout: %v", err)
+		}
+	}
 	if t.Env.Docker != nil {
 		if t.Env.Kubernetes != nil {
 			return ErrMultipleTestEnv
@@ -120,6 +125,11 @@ func (t *TestSpec) Run(
 			timeout, err = time.ParseDuration(options.Timeout)
 			if err != nil {
 				return fmt.Errorf("parse timeout: %v", err)
+			}
+		} else if t.DefaultTimeout != "" {
+			timeout, err = time.ParseDuration(t.DefaultTimeout)
+			if err != nil {
+				panic(fmt.Sprintf("unreachable branch detected: failed to parse DefaultTimeout: %v", err))
 			}
 		} else {
 			timeout = 120 * time.Second

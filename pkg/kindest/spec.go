@@ -110,10 +110,11 @@ type KindestSpec struct {
 }
 
 type TestSpec struct {
-	Name      string      `json:"name"`
-	Build     *BuildSpec  `json:"build"`
-	Variables []*Variable `json:"variables,omitempty" yaml:"variables,omitempty"`
-	Env       EnvSpec     `json:"env,omitempty" yaml:"env,omitempty"`
+	Name           string      `json:"name"`
+	Build          *BuildSpec  `json:"build"`
+	Variables      []*Variable `json:"variables,omitempty" yaml:"variables,omitempty"`
+	Env            EnvSpec     `json:"env,omitempty" yaml:"env,omitempty"`
+	DefaultTimeout string      `json:"defaultTimeout,omitempty" yaml:"defaultTimeout,omitempty"`
 }
 
 func (b *BuildSpec) GetDockerfilePath(rootPath string) string {

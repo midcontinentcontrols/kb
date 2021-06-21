@@ -11,8 +11,7 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jhoonb/archivex v0.0.0-20201016144719-6a343cdae81d
-	github.com/moby/term v0.0.0-20201216013528-df9cb8a40635 // indirect
-	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00
+	github.com/moby/term v0.0.0-20201216013528-df9cb8a40635
 	github.com/sabhiram/go-gitignore v0.0.0-20201211210132-54b8a0bf510f
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.7.0
@@ -23,7 +22,7 @@ require (
 	k8s.io/api v0.21.1
 	k8s.io/apimachinery v0.21.1
 	k8s.io/client-go v0.21.1
-	k8s.io/kubectl v0.21.1
+	k8s.io/kubectl v0.21.1 // indirect
 	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/controller-runtime v0.9.0
 	sigs.k8s.io/kind v0.11.1
