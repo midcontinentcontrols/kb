@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -27,6 +28,7 @@ func NewZapLoggerFromEnv() Logger {
 	if debug, ok := os.LookupEnv("DEBUG"); ok && debug != "0" {
 		atom.SetLevel(zap.DebugLevel)
 	} else if logLevel, ok := os.LookupEnv("LOG_LEVEL"); ok {
+		logLevel = strings.ToLower(logLevel)
 		switch logLevel {
 		case "info":
 			atom.SetLevel(zap.InfoLevel)

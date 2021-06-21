@@ -48,23 +48,25 @@ func (p *Process) GetModule(manifestPath string) (*Module, error) {
 func (p *Process) GetModuleFromBuildSpec(manifestPath string, b *BuildSpec) *Module {
 	return &Module{
 		Path: manifestPath,
-		log:  p.log,
-		pool: p.pool,
 		Spec: &KindestSpec{
 			Build: b,
 		},
+		p:    p,
+		log:  p.log,
+		pool: p.pool,
 	}
 }
 
 func (p *Process) GetModuleFromTestSpec(manifestPath string, t *TestSpec) *Module {
 	return &Module{
 		Path: manifestPath,
-		log:  p.log,
-		pool: p.pool,
 		Spec: &KindestSpec{
 			Build: t.Build,
 			Env:   t.Env,
 		},
+		p:    p,
+		log:  p.log,
+		pool: p.pool,
 	}
 }
 
@@ -95,6 +97,7 @@ func (p *Process) getModuleNoLock(manifestPath string) (*Module, error) {
 		Dependencies: dependencies,
 		log:          p.log,
 		pool:         p.pool,
+		p:            p,
 	}
 	p.modules[manifestPath] = m
 	return m, nil

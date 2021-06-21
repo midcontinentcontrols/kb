@@ -76,6 +76,7 @@ type Module struct {
 	pool         *tunny.Pool
 	builtImagesL sync.Mutex
 	BuiltImages  []string
+	p            *Process
 }
 
 func (m *Module) ListImages() ([]string, error) {
@@ -114,7 +115,7 @@ func (m *Module) builtImage(imageName string) {
 
 var ErrModuleNotCached = fmt.Errorf("module is not cached")
 
-func (m *Module) RunTests2(options *TestOptions, p *Process, log logger.Logger) error {
+func (m *Module) RunTests2(options *TestOptions, log logger.Logger) error {
 	if !options.SkipBuild {
 		if options.Kind != "" {
 			var err error
@@ -139,14 +140,14 @@ func (m *Module) RunTests2(options *TestOptions, p *Process, log logger.Logger) 
 			return err
 		}
 	}
-	if err := m.RunTests(options, p, log); err != nil {
+	if err := m.RunTests(options, log); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *Module) RunTests(options *TestOptions, p *Process, log logger.Logger) error {
-	return m.Spec.RunTests(options, m.Path, p, log)
+func (m *Module) RunTests(options *TestOptions, log logger.Logger) error {
+	return m.Spec.RunTests(options, m.Path, m.p, log)
 }
 
 func (m *Module) CachedDigest(imageName string) (string, error) {
@@ -162,7 +163,7 @@ func (m *Module) CachedDigest(imageName string) (string, error) {
 }
 
 func (m *Module) cacheDigest(imageName string, digest string) error {
-	path, err := digestPathForManifest(m.Path)
+	path, err := digestPathForManifest(imageName)
 	if err != nil {
 		return err
 	}

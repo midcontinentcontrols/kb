@@ -41,7 +41,7 @@ test:
 		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
 		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		err = module.RunTests(&TestOptions{BuildOptions: BuildOptions{NoPush: true}}, p, log)
+		err = module.RunTests(&TestOptions{BuildOptions: BuildOptions{NoPush: true}}, log)
 		require.NoError(t, err)
 	})
 }
@@ -69,7 +69,7 @@ test:
 		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
 		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		err = module.RunTests(&TestOptions{BuildOptions: BuildOptions{NoPush: true}}, p, log)
+		err = module.RunTests(&TestOptions{BuildOptions: BuildOptions{NoPush: true}}, log)
 		require.Error(t, err)
 		require.Truef(t, strings.Contains(err.Error(), "exit code 1"), "got error '%s'", err.Error())
 	})
@@ -117,7 +117,7 @@ test:
 		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
 		require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
-		err = module.RunTests(&TestOptions{BuildOptions: BuildOptions{NoPush: true}}, p, log)
+		err = module.RunTests(&TestOptions{BuildOptions: BuildOptions{NoPush: true}}, log)
 		require.Error(t, err)
 		// The command should fail with an exotic exit code
 		// to indicate the files were mounted

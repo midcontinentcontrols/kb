@@ -270,6 +270,7 @@ CMD ["sh", "-c", "echo \"foo bar baz\""]`, name)
 			require.Equal(t, BuildStatusPending, module.Status())
 			require.NoError(t, module.Build(&BuildOptions{NoPush: true}))
 			require.Equal(t, BuildStatusSucceeded, module.Status())
+			require.True(t, log.WasObservedIgnoreFields("debug", "Digests do not match, building..."))
 			require.False(t, log.WasObservedIgnoreFields("debug", "No files changed"))
 			// Ensure the dep was cached
 			log = logger.NewMockLogger(logger.NewFakeLogger())

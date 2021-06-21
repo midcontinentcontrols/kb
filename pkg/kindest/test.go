@@ -54,6 +54,7 @@ type TestOptions struct {
 	SkipBuild     bool   `json:"skipBuild,omitempty"`
 	SkipTestBuild bool   `json:"skipTestBuild,omitempty"`
 	SkipDeploy    bool   `json:"skipDeploy,omitempty"`
+	Timeout       string `json:"timeout,omitempty"`
 }
 
 var ErrMultipleTestEnv = fmt.Errorf("multiple test environments defined")
@@ -113,10 +114,20 @@ func (t *TestSpec) Run(
 				}
 			}()
 		}
+		var timeout time.Duration
+		if options.Timeout != "" {
+			timeout, err = time.ParseDuration(options.Timeout)
+			if err != nil {
+				return fmt.Errorf("parse timeout: %v", err)
+			}
+		} else {
+			timeout = 120 * time.Second
+		}
 		return t.runKubernetes(
 			kubeContext,
 			options.Repository,
 			options.Namespace,
+			timeout,
 			log,
 		)
 	} else {

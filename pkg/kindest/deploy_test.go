@@ -221,10 +221,12 @@ test:
       name: %s/%s-test
       dockerfile: Dockerfile
 `, pushRepo, kindestTestImageName, namespace, pushRepo, kindestTestImageName)
+		script := `#!/bin/bash
+echo "Hello, world!"`
 		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
 			"kindest.yaml": specYaml,
 			"Dockerfile":   dockerfile,
-			"script":       "#!/bin/bash",
+			"script":       script,
 			"chart": map[string]interface{}{
 				"Chart.yaml":  chartYaml,
 				"values.yaml": valuesYaml,
@@ -233,7 +235,8 @@ test:
 				},
 			},
 		}))
-		log := logger.NewMockLogger(logger.NewFakeLogger())
+		//log := logger.NewMockLogger(logger.NewFakeLogger())
+		log := logger.NewZapLoggerFromEnv()
 		p := NewProcess(runtime.NumCPU(), log)
 		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
@@ -245,9 +248,7 @@ test:
 			}
 			require.NoError(t, cl.Create(context.TODO(), ns))
 			defer cl.Delete(context.TODO(), ns)
-			require.NoError(t, module.RunTests2(&TestOptions{
-				KubeContext: kubeContext,
-			}, p, log))
+			require.NoError(t, module.RunTests2(&TestOptions{KubeContext: kubeContext}, log))
 			require.NoError(t, util.WaitForDeployment(cl, "foo-restart-test", namespace))
 			pods := &corev1.PodList{}
 			require.NoError(t, cl.List(context.TODO(), pods, client.InNamespace(namespace)))
@@ -287,9 +288,7 @@ exit 102`,
 			))
 			module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 			require.NoError(t, err)
-			err = module.RunTests2(&TestOptions{
-				KubeContext: kubeContext,
-			}, p, log)
+			err = module.RunTests2(&TestOptions{KubeContext: kubeContext}, log)
 			require.Error(t, err)
 			require.Equal(t, "exit code 100", err.Error())
 		})

@@ -20,6 +20,7 @@ func (t *TestSpec) runKubernetes(
 	kubeContext string,
 	repository string,
 	namespace string,
+	timeout time.Duration,
 	log logger.Logger,
 ) error {
 	client, _, err := clientForContext(kubeContext)
@@ -45,6 +46,7 @@ func (t *TestSpec) runKubernetes(
 	if err := deleteOldPods(pods, t.Name, log); err != nil {
 		return err
 	}
+	fmt.Println("Creating pod")
 	log.Debug("Creating test pod")
 	podName := t.Name + "-" + uuid.New().String()[:8]
 	var env []corev1.EnvVar
@@ -82,7 +84,7 @@ func (t *TestSpec) runKubernetes(
 		return err
 	}
 	log.Debug("Created test pod", zap.String("name", pod.Name))
-	timeout := 90 * time.Second
+	//timeout := 90 * time.Second
 	delay := time.Second
 	start = time.Now()
 	scheduled := false

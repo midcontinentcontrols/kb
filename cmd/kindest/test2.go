@@ -20,6 +20,7 @@ type TestArgs struct {
 	SkipBuild     bool   `json:"skipBuild,omitempty" yaml:"skipBuild,omitempty"`
 	SkipTestBuild bool   `json:"skipTestBuild,omitempty" yaml:"skipTestBuild,omitempty"`
 	SkipDeploy    bool   `json:"skipDeploy,omitempty" yaml:"skipDeploy,omitempty"`
+	Timeout       string `json:"timeout,omitempty" yaml:"timeout,omitempty"`
 }
 
 var testArgs TestArgs
@@ -55,8 +56,8 @@ var test2Cmd = &cobra.Command{
 				SkipBuild:     testArgs.SkipBuild,
 				SkipTestBuild: testArgs.SkipTestBuild,
 				SkipDeploy:    testArgs.SkipDeploy,
+				Timeout:       testArgs.Timeout,
 			},
-			p,
 			log,
 		); err != nil {
 			return err
@@ -87,4 +88,5 @@ func init() {
 	test2Cmd.PersistentFlags().BoolVar(&testArgs.SkipBuild, "skip-build", false, "Skip automatic build")
 	test2Cmd.PersistentFlags().BoolVar(&testArgs.SkipTestBuild, "skip-test-build", false, "Skip building test images")
 	test2Cmd.PersistentFlags().BoolVar(&testArgs.SkipDeploy, "skip-deploy", false, "Skip automatic deploy")
+	test2Cmd.PersistentFlags().StringVar(&testArgs.Timeout, "timeout", "120s", "timeout for running tests")
 }

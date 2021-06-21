@@ -55,7 +55,7 @@ test:
 		err = module.RunTests(&TestOptions{
 			Kind:      name,
 			Transient: true,
-		}, p, log)
+		}, log)
 		require.NoError(t, err)
 	})
 }
@@ -87,7 +87,7 @@ test:
 		err = module.RunTests(&TestOptions{
 			Kind:      name,
 			Transient: true,
-		}, p, log)
+		}, log)
 		require.Error(t, err)
 		require.Truef(t, strings.Contains(err.Error(), "exit code 1"), "got error '%s'", err.Error())
 	})
@@ -123,7 +123,7 @@ test:
 		err = module.RunTests(&TestOptions{
 			Kind:      name,
 			Transient: true,
-		}, p, log)
+		}, log)
 		require.NoError(t, err)
 	})
 }
