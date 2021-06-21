@@ -235,8 +235,7 @@ echo "Hello, world!"`
 				},
 			},
 		}))
-		//log := logger.NewMockLogger(logger.NewFakeLogger())
-		log := logger.NewZapLoggerFromEnv()
+		log := logger.NewMockLogger(logger.NewFakeLogger())
 		p := NewProcess(runtime.NumCPU(), log)
 		module, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
 		require.NoError(t, err)
