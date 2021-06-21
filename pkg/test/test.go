@@ -12,10 +12,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"github.com/midcontinentcontrols/kindest/pkg/util"
 	"github.com/stretchr/testify/require"
-	"k8s.io/client-go/rest"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 func RandomTestName() string {
@@ -48,16 +47,8 @@ func CreateFiles(dir string, files map[string]interface{}) error {
 }
 
 func CreateKubeClient(t *testing.T, kubeContext string) k8sclient.Client {
-	var cfg *rest.Config
-	var err error
-	if kubeContext != "" {
-		cfg, err = config.GetConfigWithContext(kubeContext)
-	} else {
-		panic("don't do this")
-		cfg, err = config.GetConfig()
-	}
-	require.NoError(t, err)
-	cl, err := k8sclient.New(cfg, k8sclient.Options{})
+	require.NotEmpty(t, kubeContext)
+	cl, err := util.CreateKubeClient(kubeContext)
 	require.NoError(t, err)
 	return cl
 }

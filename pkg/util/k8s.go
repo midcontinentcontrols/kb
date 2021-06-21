@@ -3,7 +3,13 @@ package util
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
+
+	restclient "k8s.io/client-go/rest"
+
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"go.uber.org/zap"
@@ -13,8 +19,137 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var DefaultWaitTimeout = 60 * time.Second
+
+func HomeDir() string {
+	if h := os.Getenv("HOME"); h != "" {
+		return h
+	}
+	return os.Getenv("USERPROFILE") // windows
+}
+
+func buildConfigFromFlags(context, kubeconfigPath string) (*rest.Config, error) {
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
+		&clientcmd.ConfigOverrides{
+			CurrentContext: context,
+		}).ClientConfig()
+}
+
+// ClientsetForContext creates an official kubernetes client
+func ClientsetForContext(kubeContext string) (*kubernetes.Clientset, *restclient.Config, error) {
+	// TODO: in-cluster config
+	kubeConfigPath := filepath.Join(HomeDir(), ".kube", "config")
+	config, err := buildConfigFromFlags(kubeContext, kubeConfigPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, nil, err
+	}
+	return client, config, nil
+}
+
+// CreateKubeClient creates a controller-runtime kubernetes client.
+// This client is usually superior to the other, and is often preferred.
+func CreateKubeClient(kubeContext string) (client.Client, error) {
+	var cfg *rest.Config
+	var err error
+	if kubeContext != "" {
+		cfg, err = config.GetConfigWithContext(kubeContext)
+	} else {
+		cfg, err = config.GetConfig()
+	}
+	if err != nil {
+		return nil, err
+	}
+	return client.New(cfg, client.Options{})
+}
+
+func WaitForDaemonSet(
+	cl client.Client,
+	name string,
+	namespace string,
+) error {
+	return WaitForDaemonSet2(
+		cl,
+		name,
+		namespace,
+		DefaultWaitTimeout,
+	)
+}
+
+func WaitForDaemonSet2(
+	cl client.Client,
+	name string,
+	namespace string,
+	timeout time.Duration,
+) error {
+	delay := 3 * time.Second
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		daemonSet := &appsv1.DaemonSet{}
+		if err := cl.Get(
+			context.TODO(),
+			types.NamespacedName{Name: name, Namespace: namespace},
+			daemonSet,
+		); err == nil {
+			if daemonSet.Status.CurrentNumberScheduled == daemonSet.Status.DesiredNumberScheduled {
+				// All nodes are ready!
+				return nil
+			}
+		} else if !errors.IsNotFound(err) {
+			return err
+		}
+		time.Sleep(delay)
+	}
+	return nil
+}
+
+func WaitForStatefulSet(
+	cl client.Client,
+	name string,
+	namespace string,
+) error {
+	return WaitForStatefulSet2(
+		cl,
+		name,
+		namespace,
+		DefaultWaitTimeout,
+	)
+}
+
+func WaitForStatefulSet2(
+	cl client.Client,
+	name string,
+	namespace string,
+	timeout time.Duration,
+) error {
+	delay := 3 * time.Second
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		statefulSet := &appsv1.StatefulSet{}
+		if err := cl.Get(
+			context.TODO(),
+			types.NamespacedName{Name: name, Namespace: namespace},
+			statefulSet,
+		); err == nil {
+			if statefulSet.Status.ReadyReplicas == statefulSet.Status.Replicas {
+				return nil
+			}
+		} else if !errors.IsNotFound(err) {
+			return err
+		}
+		time.Sleep(delay)
+	}
+	return nil
+}
 
 func WaitForDeployment(
 	cl client.Client,
@@ -25,7 +160,7 @@ func WaitForDeployment(
 		cl,
 		name,
 		namespace,
-		30*time.Second,
+		DefaultWaitTimeout,
 	)
 }
 

@@ -23,7 +23,7 @@ func (t *TestSpec) runKubernetes(
 	timeout time.Duration,
 	log logger.Logger,
 ) error {
-	client, _, err := clientForContext(kubeContext)
+	client, _, err := util.ClientsetForContext(kubeContext)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,6 @@ func (t *TestSpec) runKubernetes(
 	if err := deleteOldPods(pods, t.Name, log); err != nil {
 		return err
 	}
-	fmt.Println("Creating pod")
 	log.Debug("Creating test pod")
 	podName := t.Name + "-" + uuid.New().String()[:8]
 	var env []corev1.EnvVar

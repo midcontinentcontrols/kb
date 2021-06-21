@@ -7,8 +7,12 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	appsv1 "k8s.io/api/apps/v1"
+
+	client "github.com/influxdata/influxdb1-client"
 	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"github.com/midcontinentcontrols/kindest/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"go.uber.org/zap"
@@ -109,12 +113,99 @@ func (m *Module) waitForReadyPods(
 	kubeContext string,
 	images []string,
 ) error {
-	for _, image := range images {
-		m.log.Info(
-			"TODO: wait for pods running image to be ready",
-			zap.String("image", image),
-			zap.String("kubeContext", kubeContext),
-		)
+	cl, err := util.CreateKubeClient(kubeContext)
+	if err != nil {
+		return err
+	}
+	if err := waitForDeployments(cl, images, m.log); err != nil {
+		return err
+	}
+	if err := waitForStatefulSets(cl, images, m.log); err != nil {
+		return err
+	}
+	if err := waitForDaemonSets(cl, images, m.log); err != nil {
+		return err
+	}
+	return nil
+}
+
+func waitForDeployments(cl client.Client, images []string, log logger.Logger) error {
+	deployments := &appsv1.DeploymentList{}
+	if err := cl.List(context.TODO(), deployments); err != nil {
+		return err
+	}
+	for _, deployment := range deployments.Items {
+		for _, image := range images {
+			for _, container := range deployment.Spec.Template.Spec.Containers {
+				if container.Image == image {
+					log.Debug("Waiting on deployment",
+						zap.String("name", deployment.Name),
+						zap.String("namespace", deployment.Namespace))
+					if err := util.WaitForDeployment(
+						cl,
+						deployment.Name,
+						deployment.Namespace,
+					); err != nil {
+						return fmt.Errorf("error waiting for Deployment %s/%s: %v", deployment.Namespace, deployment.Name, err)
+					}
+					break
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func waitForStatefulSets(cl client.Client, images []string, log logger.Logger) error {
+	statefulSets := &appsv1.StatefulSetList{}
+	if err := cl.List(context.TODO(), statefulSets); err != nil {
+		return err
+	}
+	for _, statefulSet := range statefulSets.Items {
+		for _, image := range images {
+			for _, container := range statefulSet.Spec.Template.Spec.Containers {
+				if container.Image == image {
+					log.Debug("Waiting on StatefulSet",
+						zap.String("name", statefulSet.Name),
+						zap.String("namespace", statefulSet.Namespace))
+					if err := util.WaitForStatefulSet(
+						cl,
+						statefulSet.Name,
+						statefulSet.Namespace,
+					); err != nil {
+						return fmt.Errorf("error waiting for StatefulSet %s/%s: %v", statefulSet.Namespace, statefulSet.Name, err)
+					}
+					break
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func waitForDaemonSets(cl client.Client, images []string, log logger.Logger) error {
+	daemonSets := &appsv1.DaemonSetList{}
+	if err := cl.List(context.TODO(), daemonSets); err != nil {
+		return err
+	}
+	for _, daemonSet := range daemonSets.Items {
+		for _, image := range images {
+			for _, container := range daemonSet.Spec.Template.Spec.Containers {
+				if container.Image == image {
+					log.Debug("Waiting on DaemonSet",
+						zap.String("name", daemonSet.Name),
+						zap.String("namespace", daemonSet.Namespace))
+					if err := util.WaitForDaemonSet(
+						cl,
+						daemonSet.Name,
+						daemonSet.Namespace,
+					); err != nil {
+						return fmt.Errorf("error waiting for DaemonSet %s/%s: %v", daemonSet.Namespace, daemonSet.Name, err)
+					}
+					break
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -139,7 +230,7 @@ func (m *Module) WaitForReady(kubeContext, repository, tag string) error {
 }
 
 func restartDeployments(kubeContext string, images []string, log logger.Logger) error {
-	client, _, err := clientForContext(kubeContext)
+	client, _, err := util.ClientsetForContext(kubeContext)
 	if err != nil {
 		return err
 	}
@@ -184,7 +275,7 @@ func restartDeployments(kubeContext string, images []string, log logger.Logger) 
 }
 
 func restartStatefulSets(kubeContext string, images []string, log logger.Logger) error {
-	client, _, err := clientForContext(kubeContext)
+	client, _, err := util.ClientsetForContext(kubeContext)
 	if err != nil {
 		return err
 	}
@@ -229,7 +320,7 @@ func restartStatefulSets(kubeContext string, images []string, log logger.Logger)
 }
 
 func restartDaemonSets(kubeContext string, images []string, log logger.Logger) error {
-	client, _, err := clientForContext(kubeContext)
+	client, _, err := util.ClientsetForContext(kubeContext)
 	if err != nil {
 		return err
 	}

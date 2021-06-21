@@ -143,14 +143,7 @@ func buildConfigFromFlags(context, kubeconfigPath string) (*rest.Config, error) 
 		}).ClientConfig()
 }
 
-func homeDir() string {
-	if h := os.Getenv("HOME"); h != "" {
-		return h
-	}
-	return os.Getenv("USERPROFILE") // windows
-}
-
-func clientForContext(context string) (*kubernetes.Clientset, *restclient.Config, error) {
+func clientsetForContext(context string) (*kubernetes.Clientset, *restclient.Config, error) {
 	// TODO: in-cluster config
 	kubeConfigPath := filepath.Join(homeDir(), ".kube", "config")
 	config, err := buildConfigFromFlags(context, kubeConfigPath)
@@ -864,7 +857,7 @@ func (t *TestSpec) runKubernetes(
 		// Use existing kubernetes context from ~/.kube/config
 		var err error
 		kubeContext = options.Context
-		client, _, err = clientForContext(options.Context)
+		client, _, err = util.ClientsetForContext(options.Context)
 		if err != nil {
 			return err
 		}

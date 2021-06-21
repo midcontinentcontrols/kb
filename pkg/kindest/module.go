@@ -650,7 +650,7 @@ func copyDockerCredential(
 	pod *corev1.Pod,
 ) error {
 	var dockerconfigjson string
-	home := homeDir()
+	home := util.HomeDir()
 	if home == "" {
 		home = "/root"
 	}
