@@ -31,6 +31,7 @@ type DeployOptions struct {
 	NoAutoRestart bool     `json:"noAutoRestart"`
 	RestartImages []string `json:"restartImages"`
 	Wait          bool     `json:"wait"`
+	Verbose       bool     `json:"verbose,omitempty"`
 }
 
 func (m *Module) HasEnvironment() bool {
@@ -51,8 +52,15 @@ func (m *Module) Deploy(options *DeployOptions) (string, error) {
 			return "", err
 		}
 	}
+	if err := m.UpdateResources(kubeContext, options.Verbose); err != nil {
+		return "", err
+	}
 	if !options.NoAutoRestart {
-		if err := m.RestartContainers(options.RestartImages, kubeContext); err != nil {
+		if err := m.RestartContainers(
+			options.RestartImages,
+			options.Verbose,
+			kubeContext,
+		); err != nil {
 			return "", err
 		}
 	}
@@ -68,7 +76,7 @@ func (m *Module) Deploy(options *DeployOptions) (string, error) {
 	return kubeContext, nil
 }
 
-func (m *Module) RestartContainers(restartImages []string, kubeContext string) error {
+func (m *Module) UpdateResources(kubeContext string, verbose bool) error {
 	if m.Spec.Env.Docker != nil {
 		panic("unimplemented")
 	} else if m.Spec.Env.Kubernetes != nil {
@@ -76,31 +84,11 @@ func (m *Module) RestartContainers(restartImages []string, kubeContext string) e
 			kubeContext,
 			m.Dir(),
 			m.Spec.Env.Kubernetes.Resources,
+			verbose,
 		); err != nil {
 			return err
 		}
 		if err := m.installCharts(kubeContext); err != nil {
-			return err
-		}
-		if err := restartDeployments(
-			kubeContext,
-			restartImages,
-			m.log,
-		); err != nil {
-			return err
-		}
-		if err := restartDaemonSets(
-			kubeContext,
-			restartImages,
-			m.log,
-		); err != nil {
-			return err
-		}
-		if err := restartStatefulSets(
-			kubeContext,
-			restartImages,
-			m.log,
-		); err != nil {
 			return err
 		}
 	} else {
@@ -109,10 +97,26 @@ func (m *Module) RestartContainers(restartImages []string, kubeContext string) e
 	return nil
 }
 
-func (m *Module) waitForReadyPods(
-	kubeContext string,
-	images []string,
-) error {
+func (m *Module) RestartContainers(restartImages []string, verbose bool, kubeContext string) error {
+	if m.Spec.Env.Docker != nil {
+		panic("unimplemented")
+	} else if m.Spec.Env.Kubernetes != nil {
+		if err := restartDeployments(kubeContext, restartImages, verbose, m.log); err != nil {
+			return err
+		}
+		if err := restartDaemonSets(kubeContext, restartImages, verbose, m.log); err != nil {
+			return err
+		}
+		if err := restartStatefulSets(kubeContext, restartImages, verbose, m.log); err != nil {
+			return err
+		}
+	} else {
+		panic("unreachable branch detected")
+	}
+	return nil
+}
+
+func (m *Module) waitForReadyPods(kubeContext string, images []string) error {
 	cl, err := util.CreateKubeClient(kubeContext)
 	if err != nil {
 		return err
@@ -134,23 +138,35 @@ func waitForDeployments(cl client.Client, images []string, log logger.Logger) er
 	if err := cl.List(context.TODO(), deployments); err != nil {
 		return err
 	}
+	var wait []*appsv1.Deployment
 	for _, deployment := range deployments.Items {
 		for _, image := range images {
+			found := false
 			for _, container := range deployment.Spec.Template.Spec.Containers {
 				if container.Image == image {
-					log.Info("Waiting on deployment",
-						zap.String("name", deployment.Name),
-						zap.String("namespace", deployment.Namespace))
-					if err := util.WaitForDeployment(
-						cl,
-						deployment.Name,
-						deployment.Namespace,
-					); err != nil {
-						return fmt.Errorf("error waiting for Deployment %s/%s: %v", deployment.Namespace, deployment.Name, err)
-					}
+					wait = append(wait, deployment.DeepCopy())
+					found = true
 					break
 				}
 			}
+			if found {
+				break
+			}
+		}
+	}
+	log.Debug("Waiting on Deployments",
+		zap.Int("count", len(wait)),
+		zap.Int("numImages", len(images)))
+	for _, deployment := range wait {
+		log.Info("Waiting on Deployment",
+			zap.String("name", deployment.Name),
+			zap.String("namespace", deployment.Namespace))
+		if err := util.WaitForDeployment(
+			cl,
+			deployment.Name,
+			deployment.Namespace,
+		); err != nil {
+			return fmt.Errorf("error waiting for Deployment %s/%s: %v", deployment.Namespace, deployment.Name, err)
 		}
 	}
 	return nil
@@ -161,23 +177,35 @@ func waitForStatefulSets(cl client.Client, images []string, log logger.Logger) e
 	if err := cl.List(context.TODO(), statefulSets); err != nil {
 		return err
 	}
+	var wait []*appsv1.StatefulSet
 	for _, statefulSet := range statefulSets.Items {
 		for _, image := range images {
+			found := false
 			for _, container := range statefulSet.Spec.Template.Spec.Containers {
 				if container.Image == image {
-					log.Info("Waiting on StatefulSet",
-						zap.String("name", statefulSet.Name),
-						zap.String("namespace", statefulSet.Namespace))
-					if err := util.WaitForStatefulSet(
-						cl,
-						statefulSet.Name,
-						statefulSet.Namespace,
-					); err != nil {
-						return fmt.Errorf("error waiting for StatefulSet %s/%s: %v", statefulSet.Namespace, statefulSet.Name, err)
-					}
+					wait = append(wait, statefulSet.DeepCopy())
+					found = true
 					break
 				}
 			}
+			if found {
+				break
+			}
+		}
+	}
+	log.Debug("Waiting on StatefulSets",
+		zap.Int("count", len(wait)),
+		zap.Int("numImages", len(images)))
+	for _, statefulSet := range wait {
+		log.Info("Waiting on StatefulSet",
+			zap.String("name", statefulSet.Name),
+			zap.String("namespace", statefulSet.Namespace))
+		if err := util.WaitForStatefulSet(
+			cl,
+			statefulSet.Name,
+			statefulSet.Namespace,
+		); err != nil {
+			return fmt.Errorf("error waiting for StatefulSet %s/%s: %v", statefulSet.Namespace, statefulSet.Name, err)
 		}
 	}
 	return nil
@@ -188,36 +216,48 @@ func waitForDaemonSets(cl client.Client, images []string, log logger.Logger) err
 	if err := cl.List(context.TODO(), daemonSets); err != nil {
 		return err
 	}
+	var wait []*appsv1.DaemonSet
 	for _, daemonSet := range daemonSets.Items {
 		for _, image := range images {
+			found := false
 			for _, container := range daemonSet.Spec.Template.Spec.Containers {
 				if container.Image == image {
-					log.Info("Waiting on DaemonSet",
-						zap.String("name", daemonSet.Name),
-						zap.String("namespace", daemonSet.Namespace))
-					if err := util.WaitForDaemonSet(
-						cl,
-						daemonSet.Name,
-						daemonSet.Namespace,
-					); err != nil {
-						return fmt.Errorf("error waiting for DaemonSet %s/%s: %v", daemonSet.Namespace, daemonSet.Name, err)
-					}
+					wait = append(wait, daemonSet.DeepCopy())
+					found = true
 					break
 				}
 			}
+			if found {
+				break
+			}
+		}
+	}
+	log.Debug("Waiting on DaemonSets",
+		zap.Int("count", len(wait)),
+		zap.Int("numImages", len(images)))
+	for _, daemonSet := range wait {
+		log.Info("Waiting on DaemonSet",
+			zap.String("name", daemonSet.Name),
+			zap.String("namespace", daemonSet.Namespace))
+		if err := util.WaitForDaemonSet(
+			cl,
+			daemonSet.Name,
+			daemonSet.Namespace,
+		); err != nil {
+			return fmt.Errorf("error waiting for DaemonSet %s/%s: %v", daemonSet.Namespace, daemonSet.Name, err)
 		}
 	}
 	return nil
 }
 
 func (m *Module) WaitForReady(kubeContext, repository, tag string) error {
-	// TODO: wait for all deployments to be ready
-	// TODO: inspect all charts and get deployments?
-	// Maybe recurse all modules and wait for all pods that have those images?
-	//m.Spec.Env.Kubernetes.Charts[0]
+	// TODO: inspect all charts and get deployments that aren't running images built by a module
 	images, err := m.ListImages()
 	if err != nil {
 		return fmt.Errorf("ListImages: %v", err)
+	}
+	for i, image := range images {
+		images[i] = util.SanitizeImageName(repository, image, tag)
 	}
 	if m.Spec.Env.Docker != nil {
 		panic("unimplemented")
@@ -229,7 +269,7 @@ func (m *Module) WaitForReady(kubeContext, repository, tag string) error {
 	return nil
 }
 
-func restartDeployments(kubeContext string, images []string, log logger.Logger) error {
+func restartDeployments(kubeContext string, images []string, verbose bool, log logger.Logger) error {
 	client, _, err := util.ClientsetForContext(kubeContext)
 	if err != nil {
 		return err
@@ -263,8 +303,10 @@ func restartDeployments(kubeContext string, images []string, log logger.Logger) 
 					"-n", d.Namespace,
 					d.Name,
 				)
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
+				if verbose {
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+				}
 				if err := cmd.Run(); err != nil {
 					return err
 				}
@@ -274,7 +316,7 @@ func restartDeployments(kubeContext string, images []string, log logger.Logger) 
 	return nil
 }
 
-func restartStatefulSets(kubeContext string, images []string, log logger.Logger) error {
+func restartStatefulSets(kubeContext string, images []string, verbose bool, log logger.Logger) error {
 	client, _, err := util.ClientsetForContext(kubeContext)
 	if err != nil {
 		return err
@@ -308,8 +350,10 @@ func restartStatefulSets(kubeContext string, images []string, log logger.Logger)
 					"-n", d.Namespace,
 					d.Name,
 				)
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
+				if verbose {
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+				}
 				if err := cmd.Run(); err != nil {
 					return err
 				}
@@ -319,7 +363,7 @@ func restartStatefulSets(kubeContext string, images []string, log logger.Logger)
 	return nil
 }
 
-func restartDaemonSets(kubeContext string, images []string, log logger.Logger) error {
+func restartDaemonSets(kubeContext string, images []string, verbose bool, log logger.Logger) error {
 	client, _, err := util.ClientsetForContext(kubeContext)
 	if err != nil {
 		return err
@@ -353,8 +397,10 @@ func restartDaemonSets(kubeContext string, images []string, log logger.Logger) e
 					"-n", d.Namespace,
 					d.Name,
 				)
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
+				if verbose {
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+				}
 				if err := cmd.Run(); err != nil {
 					return err
 				}

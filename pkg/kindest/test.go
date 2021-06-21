@@ -309,12 +309,15 @@ func applyManifests(
 	kubeContext string,
 	rootPath string,
 	resources []string,
+	verbose bool,
 ) error {
 	for _, resource := range resources {
 		resource = filepath.Clean(filepath.Join(rootPath, resource))
 		cmd := exec.Command("kubectl", "apply", "--context", kubeContext, "-f", resource)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		if verbose {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
 		if err := cmd.Run(); err != nil {
 			return err
 		}

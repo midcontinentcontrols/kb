@@ -134,6 +134,7 @@ func (m *Module) RunTests2(options *TestOptions, log logger.Logger) error {
 			KubeContext:   options.KubeContext,
 			Repository:    options.Repository,
 			Tag:           options.Tag,
+			Verbose:       options.Verbose,
 			RestartImages: m.BuiltImages,
 			Wait:          true,
 		}); err != nil {
