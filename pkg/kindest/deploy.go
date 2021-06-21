@@ -24,6 +24,7 @@ type DeployOptions struct {
 	KubeContext   string   `json:"kubeContext"`
 	Repository    string   `json:"repository"`
 	Tag           string   `json:"tag"`
+	NoAutoRestart bool     `json:"noAutoRestart"`
 	RestartImages []string `json:"restartImages"`
 	Wait          bool     `json:"wait"`
 }
@@ -40,15 +41,16 @@ func (m *Module) Deploy(options *DeployOptions) (string, error) {
 	}
 	kubeContext := options.KubeContext
 	if options.Kind != "" {
-		// Ensure cluster is created
 		var err error
 		kubeContext, err = cluster_management.CreateCluster(options.Kind, m.log)
 		if err != nil {
 			return "", err
 		}
 	}
-	if err := m.RestartContainers(options.RestartImages, kubeContext); err != nil {
-		return "", err
+	if !options.NoAutoRestart {
+		if err := m.RestartContainers(options.RestartImages, kubeContext); err != nil {
+			return "", err
+		}
 	}
 	if options.Wait {
 		if err := m.WaitForReady(

@@ -16,6 +16,7 @@ type DeployArgs struct {
 	KubeContext   string `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
 	Tag           string `json:"tag,omitempty" yaml:"tag,omitempty"`
 	RestartImages string `json:"restartImages"`
+	NoAutoRestart bool   `json:"noAutoRestart"`
 	Wait          bool   `json:"wait"`
 }
 
@@ -37,6 +38,7 @@ var deployCmd = &cobra.Command{
 			Kind:          deployArgs.Kind,
 			KubeContext:   deployArgs.KubeContext,
 			Tag:           deployArgs.Tag,
+			NoAutoRestart: deployArgs.NoAutoRestart,
 			RestartImages: strings.Split(deployArgs.RestartImages, ","),
 			Wait:          deployArgs.Wait,
 		}); err != nil {
@@ -54,5 +56,6 @@ func init() {
 	deployCmd.PersistentFlags().StringVar(&deployArgs.KubeContext, "kube-context", "", "kubectl context override")
 	deployCmd.PersistentFlags().StringVar(&deployArgs.Tag, "tag", "", "image tag")
 	deployCmd.PersistentFlags().StringVar(&deployArgs.RestartImages, "restart-images", "", "comma-separated list of images used to restart deployments")
+	deployCmd.PersistentFlags().BoolVar(&deployArgs.NoAutoRestart, "no-auto-restart", false, "disable automatic restart of pods for pushed images")
 	deployCmd.PersistentFlags().BoolVarP(&deployArgs.Wait, "wait", "w", false, "wait for successful deployment")
 }
