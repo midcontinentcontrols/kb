@@ -116,6 +116,11 @@ test:
           path: path/to/chart # ./path/to/chart/Chart.yaml
           values: {}
 
+    # If your tests take a long time to complete, here
+    # you can specify a default value for the --timeout
+    # flag of `kindest test`.
+    defaultTimeout: 5m
+    
     # List of environment variables that will be passed to
     # the test container.
     variables:
