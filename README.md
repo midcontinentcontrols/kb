@@ -84,7 +84,7 @@ test:
   # Typically, this image will contain source code for all
   # the repo's dependencies and potentially be multiple gb
   # in size.
-  build:
+- build:
     name: midcontinentcontrols/example-test
     dockerfile: test/Dockerfile
   

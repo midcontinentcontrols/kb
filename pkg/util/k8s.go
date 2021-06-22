@@ -170,6 +170,7 @@ func WaitForDeployment2(
 	namespace string,
 	timeout time.Duration,
 ) error {
+	// TODO: return error for status CrashLoopBackOff
 	delay := 3 * time.Second
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
