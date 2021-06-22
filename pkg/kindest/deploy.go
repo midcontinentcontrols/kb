@@ -540,6 +540,6 @@ func (m *Module) installChart(chart *ChartSpec, kubeContext string) error {
 	if err != nil {
 		return err
 	}
-	log.Info("Chart upgraded", zap.Int("version", rel.Version))
+	log.Debug("Chart upgraded", zap.Int("version", rel.Version))
 	return nil
 }
