@@ -159,7 +159,7 @@ func waitForDeployments(cl client.Client, images []string, log logger.Logger) er
 		zap.Int("count", len(wait)),
 		zap.Int("numImages", len(images)))
 	for _, deployment := range wait {
-		log.Info("Waiting on Deployment",
+		log.Debug("Waiting on Deployment",
 			zap.String("name", deployment.Name),
 			zap.String("namespace", deployment.Namespace))
 		if err := util.WaitForDeployment(
