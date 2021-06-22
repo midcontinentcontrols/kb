@@ -101,6 +101,7 @@ func (m *Module) RestartContainers(restartImages []string, verbose bool, kubeCon
 	if m.Spec.Env.Docker != nil {
 		panic("unimplemented")
 	} else if m.Spec.Env.Kubernetes != nil {
+		// TODO: restart all deployment that mount a modified configmap or secret
 		if err := restartDeployments(kubeContext, restartImages, verbose, m.log); err != nil {
 			return err
 		}
