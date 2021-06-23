@@ -76,12 +76,14 @@ func WaitForDaemonSet(
 	cl client.Client,
 	name string,
 	namespace string,
+	log logger.Logger,
 ) error {
 	return WaitForDaemonSet2(
 		cl,
 		name,
 		namespace,
 		DefaultWaitTimeout,
+		log,
 	)
 }
 
@@ -90,9 +92,11 @@ func WaitForDaemonSet2(
 	name string,
 	namespace string,
 	timeout time.Duration,
+	log logger.Logger,
 ) error {
 	delay := 3 * time.Second
-	deadline := time.Now().Add(timeout)
+	start := time.Now()
+	deadline := start.Add(timeout)
 	for time.Now().Before(deadline) {
 		daemonSet := &appsv1.DaemonSet{}
 		if err := cl.Get(
@@ -107,6 +111,12 @@ func WaitForDaemonSet2(
 		} else if !errors.IsNotFound(err) {
 			return err
 		}
+		if log != nil {
+			log.Debug("Waiting on DaemonSet",
+				zap.String("name", name),
+				zap.String("namespace", namespace),
+				zap.Duration("elapsed", time.Since(start)))
+		}
 		time.Sleep(delay)
 	}
 	return nil
@@ -116,12 +126,14 @@ func WaitForStatefulSet(
 	cl client.Client,
 	name string,
 	namespace string,
+	log logger.Logger,
 ) error {
 	return WaitForStatefulSet2(
 		cl,
 		name,
 		namespace,
 		DefaultWaitTimeout,
+		log,
 	)
 }
 
@@ -130,9 +142,11 @@ func WaitForStatefulSet2(
 	name string,
 	namespace string,
 	timeout time.Duration,
+	log logger.Logger,
 ) error {
 	delay := 3 * time.Second
-	deadline := time.Now().Add(timeout)
+	start := time.Now()
+	deadline := start.Add(timeout)
 	for time.Now().Before(deadline) {
 		statefulSet := &appsv1.StatefulSet{}
 		if err := cl.Get(
@@ -146,6 +160,12 @@ func WaitForStatefulSet2(
 		} else if !errors.IsNotFound(err) {
 			return err
 		}
+		if log != nil {
+			log.Debug("Waiting on StatefulSet",
+				zap.String("name", name),
+				zap.String("namespace", namespace),
+				zap.Duration("elapsed", time.Since(start)))
+		}
 		time.Sleep(delay)
 	}
 	return nil
@@ -155,12 +175,14 @@ func WaitForDeployment(
 	cl client.Client,
 	name string,
 	namespace string,
+	log logger.Logger,
 ) error {
 	return WaitForDeployment2(
 		cl,
 		name,
 		namespace,
 		DefaultWaitTimeout,
+		log,
 	)
 }
 
@@ -169,15 +191,20 @@ func WaitForDeployment2(
 	name string,
 	namespace string,
 	timeout time.Duration,
+	log logger.Logger,
 ) error {
 	// TODO: return error for status CrashLoopBackOff
 	delay := 3 * time.Second
-	deadline := time.Now().Add(timeout)
+	start := time.Now()
+	deadline := start.Add(timeout)
 	for time.Now().Before(deadline) {
 		deployment := &appsv1.Deployment{}
 		if err := cl.Get(
 			context.TODO(),
-			types.NamespacedName{Name: name, Namespace: namespace},
+			types.NamespacedName{
+				Name:      name,
+				Namespace: namespace,
+			},
 			deployment,
 		); err == nil {
 			var replicas int32 = 1
@@ -190,6 +217,12 @@ func WaitForDeployment2(
 			}
 		} else if err != nil && !errors.IsNotFound(err) {
 			return err
+		}
+		if log != nil {
+			log.Debug("Waiting on Deployment",
+				zap.String("name", name),
+				zap.String("namespace", namespace),
+				zap.Duration("elapsed", time.Since(start)))
 		}
 		time.Sleep(delay)
 	}

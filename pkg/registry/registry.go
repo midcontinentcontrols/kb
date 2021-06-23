@@ -6,16 +6,9 @@ import (
 	"strings"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
-
 	"github.com/docker/docker/api/types"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
 	"github.com/midcontinentcontrols/kindest/pkg/util"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes"
 
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -152,6 +145,7 @@ func ConnectRegistry(cli client.APIClient) error {
 	return nil
 }
 
+/*
 func registryService() *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -265,7 +259,7 @@ func ensureDeployment(
 	}
 	retryInterval := time.Second * 3
 	time.Sleep(retryInterval)
-	return WaitForDeployment(
+	return WaitForDeploymentClienset(
 		cl,
 		existing.Name,
 		existing.Namespace,
@@ -325,7 +319,7 @@ func ensureNamespace(
 	return nil
 }
 
-func WaitForDeployment(
+func WaitForDeploymentClientset(
 	cl *kubernetes.Clientset,
 	name string,
 	namespace string,
@@ -356,3 +350,4 @@ func WaitForDeployment(
 	}
 	return nil
 }
+*/

@@ -155,9 +155,9 @@ func waitForDeployments(cl client.Client, images []string, log logger.Logger) er
 			}
 		}
 	}
-	log.Debug("Waiting on Deployments",
+	log.Debug("Waiting on all Deployments to be Running",
 		zap.Int("count", len(wait)),
-		zap.Int("numImages", len(images)))
+		zap.Int("numRestartImages", len(images)))
 	for _, deployment := range wait {
 		log.Debug("Waiting on Deployment",
 			zap.String("name", deployment.Name),
@@ -166,6 +166,7 @@ func waitForDeployments(cl client.Client, images []string, log logger.Logger) er
 			cl,
 			deployment.Name,
 			deployment.Namespace,
+			log,
 		); err != nil {
 			return fmt.Errorf("error waiting for Deployment %s/%s: %v", deployment.Namespace, deployment.Name, err)
 		}
@@ -194,9 +195,9 @@ func waitForStatefulSets(cl client.Client, images []string, log logger.Logger) e
 			}
 		}
 	}
-	log.Debug("Waiting on StatefulSets",
+	log.Debug("Waiting on all StatefulSets to be Running",
 		zap.Int("count", len(wait)),
-		zap.Int("numImages", len(images)))
+		zap.Int("numRestartImages", len(images)))
 	for _, statefulSet := range wait {
 		log.Info("Waiting on StatefulSet",
 			zap.String("name", statefulSet.Name),
@@ -205,6 +206,7 @@ func waitForStatefulSets(cl client.Client, images []string, log logger.Logger) e
 			cl,
 			statefulSet.Name,
 			statefulSet.Namespace,
+			log,
 		); err != nil {
 			return fmt.Errorf("error waiting for StatefulSet %s/%s: %v", statefulSet.Namespace, statefulSet.Name, err)
 		}
@@ -233,9 +235,9 @@ func waitForDaemonSets(cl client.Client, images []string, log logger.Logger) err
 			}
 		}
 	}
-	log.Debug("Waiting on DaemonSets",
+	log.Debug("Waiting on all DaemonSets to be Running",
 		zap.Int("count", len(wait)),
-		zap.Int("numImages", len(images)))
+		zap.Int("numRestartImages", len(images)))
 	for _, daemonSet := range wait {
 		log.Info("Waiting on DaemonSet",
 			zap.String("name", daemonSet.Name),
@@ -244,6 +246,7 @@ func waitForDaemonSets(cl client.Client, images []string, log logger.Logger) err
 			cl,
 			daemonSet.Name,
 			daemonSet.Namespace,
+			log,
 		); err != nil {
 			return fmt.Errorf("error waiting for DaemonSet %s/%s: %v", daemonSet.Namespace, daemonSet.Name, err)
 		}
@@ -292,7 +295,7 @@ func restartDeployments(kubeContext string, images []string, verbose bool, log l
 				}
 			}
 			if match {
-				log.Debug("Restarting Deployment",
+				log.Info("Restarting Deployment",
 					zap.String("name", d.Name),
 					zap.String("namespace", d.Namespace))
 				cmd := exec.Command(

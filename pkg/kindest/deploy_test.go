@@ -162,7 +162,7 @@ env:
 			defer cl.Delete(context.TODO(), ns)
 			_, err = module.Deploy(&DeployOptions{KubeContext: kubeContext})
 			require.NoError(t, err)
-			require.NoError(t, util.WaitForDeployment(cl, "foo-busybox", namespace))
+			require.NoError(t, util.WaitForDeployment(cl, "foo-busybox", namespace, nil))
 		})
 	})
 }
@@ -248,7 +248,7 @@ echo "Hello, world!"`
 			require.NoError(t, cl.Create(context.TODO(), ns))
 			defer cl.Delete(context.TODO(), ns)
 			require.NoError(t, module.RunTests2(&TestOptions{KubeContext: kubeContext}, log))
-			require.NoError(t, util.WaitForDeployment(cl, "foo-restart-test", namespace))
+			require.NoError(t, util.WaitForDeployment(cl, "foo-restart-test", namespace, nil))
 			pods := &corev1.PodList{}
 			require.NoError(t, cl.List(context.TODO(), pods, client.InNamespace(namespace)))
 			var startTime string
