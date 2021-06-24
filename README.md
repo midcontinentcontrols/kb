@@ -195,9 +195,13 @@ test:
 
 The test container will now run as a pod on Kubernetes with cluster admin privileges. Any setup necessary for your tests, such as applying manifests or syncing helm charts, should go in `test.env.kubernetes`. If you require additional features to prepare your test environment, please [open an issue](https://github.com/midcontinentcontrols/kindest/issues).
 
-## Docker Desktop Resource Limits
+## Docker Desktop Gotchas
+### Resource Limits
 **The default resource limits for some Docker Desktop backends, e.g. Hyper-V, are insufficient to run the tests.** If this occurs, you will encounter [kind#1437](https://github.com/kubernetes-sigs/kind/issues/1437#issuecomment-602975739). Configure Docker with 4gb of both memory and swap just to be safe:
 ![Example Docker Desktop Settings](docs/images/docker-resources.png)
+
+### kindest isn't using any push credentials!
+Check your `$HOME/.docker/config.json` and remove the line that has `"credsStore": "desktop"`, then re-login to Docker. Your credentials will be stored directly in `config.json` and kindest will be able to use them.
 
 ## Security
 Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kindest. Open source developers in particular should consider the risks of using kindest with their community CI, and take appropriate mitigating measures.

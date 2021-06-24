@@ -738,7 +738,9 @@ func Build(options *BuildOptions, log logger.Logger) error {
 
 func getAuthConfig(domain string, configs map[string]types.AuthConfig) (*types.AuthConfig, error) {
 	for name, config := range configs {
+		fmt.Printf("%s -> %s\n", name, config.ServerAddress)
 		if strings.Contains(name, domain) {
+			fmt.Println(config)
 			return &config, nil
 		}
 	}
@@ -756,6 +758,10 @@ func RegistryAuthFromEnv(imageName string) (*types.AuthConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Named:")
+	fmt.Println(named)
+	fmt.Println("Domain:")
+	fmt.Println(domain)
 	f, err := os.Open(filepath.Join(u.HomeDir, ".docker", "config.json"))
 	if err != nil {
 		return nil, err
