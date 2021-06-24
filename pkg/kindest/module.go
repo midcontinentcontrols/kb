@@ -24,9 +24,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/moby/term"
 	gogitignore "github.com/sabhiram/go-gitignore"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-	restclient "k8s.io/client-go/rest"
 
 	"go.uber.org/zap"
 
@@ -593,8 +590,6 @@ func buildDocker(
 	if err != nil {
 		return fmt.Errorf("ImageBuild: %v", err)
 	}
-
-	// TODO: redirect this output somewhere useful
 	var termFd uintptr
 	var isTerm bool
 	var output io.Writer
@@ -613,17 +608,12 @@ func buildDocker(
 	); err != nil {
 		return err
 	}
-
 	if !options.NoPush {
 		authConfig, err := RegistryAuthFromEnv(dest)
 		if err != nil {
 			return fmt.Errorf("RegistryAuthFromEnv: %v", err)
 		}
-		log.Info(
-			"Pushing image",
-			zap.String("username", authConfig.Username),
-		)
-		//fmt.Printf("Pushing image image=%s, username=%s, password=%s\n", dest, authConfig.Username, authConfig.Password)
+		log.Info("Pushing image", zap.String("username", authConfig.Username))
 		authBytes, err := json.Marshal(authConfig)
 		if err != nil {
 			return err
@@ -639,7 +629,6 @@ func buildDocker(
 		if err != nil {
 			return fmt.Errorf("ImagePush: %v", err)
 		}
-		// TODO: pipe output somewhere useful
 		if err := jsonmessage.DisplayJSONMessagesStream(
 			resp,
 			output,
@@ -653,6 +642,7 @@ func buildDocker(
 	return nil
 }
 
+/*
 func copyDockerCredential(
 	client *kubernetes.Clientset,
 	config *restclient.Config,
@@ -694,7 +684,6 @@ func copyDockerCredential(
 	return nil
 }
 
-/*
 func buildKaniko(
 	m *Module,
 	dest string,
