@@ -1,5 +1,7 @@
 **Use one of the tags (i.e. `git checkout 0.1.0`) if you desire a stable release. Master breaks frequently.**
 
+**It appears the name `kindest` is already in use by unrelated FOSS projects and a new title for this repo is currently pending.**
+
 # Kindest DevOps for Monorepos
 
 This is a toolchain built on top of [kind](https://github.com/kubernetes-sigs/kind) that aims to address the complexity associated with using it as a tool for microservice development. It was born out of necessity to reduce increasing execution times and maintenance overhead of bash scripts that accomplished more or less the same thing.
