@@ -1,4 +1,4 @@
-**Use one of the tags (i.e. `git checkout 0.0.3`) if you desire a stable release. Master breaks frequently.**
+**Use one of the tags (i.e. `git checkout 0.1.0`) if you desire a stable release. Master breaks frequently.**
 
 # Kindest DevOps for Monorepos
 
