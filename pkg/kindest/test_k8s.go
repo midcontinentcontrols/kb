@@ -1,10 +1,10 @@
 package kindest
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +21,7 @@ func (t *TestSpec) runKubernetes(
 	repository string,
 	namespace string,
 	timeout time.Duration,
+	verbose bool,
 	log logger.Logger,
 ) error {
 	client, _, err := util.ClientsetForContext(kubeContext)
@@ -147,26 +148,32 @@ func (t *TestSpec) runKubernetes(
 					return fmt.Errorf("exit code %d", status.State.Terminated.ExitCode)
 				}
 			}
-			req := pods.GetLogs(pod.Name, &corev1.PodLogOptions{
-				Follow: true,
-			})
-			r, err := req.Stream(context.TODO())
-			if err != nil {
-				return err
-			}
-			rd := bufio.NewReader(r)
-			for {
-				_, err := rd.ReadString('\n')
+			if verbose {
+				req := pods.GetLogs(pod.Name, &corev1.PodLogOptions{
+					Follow: true,
+				})
+				r, err := req.Stream(context.TODO())
 				if err != nil {
-					if err == io.EOF {
-						break
-					}
 					return err
 				}
-				// TODO: redirect somewhere useful
-				//log.Info("Test output", zap.String("message", message))
-				//fmt.Println(message)
+				if _, err := io.Copy(os.Stdout, r); err != nil {
+					return fmt.Errorf("copy: %v", err)
+				}
 			}
+			//rd := bufio.NewReader(r)
+			//for {
+			//	message, err := rd.ReadString('\n')
+			//	if err != nil {
+			//		if err == io.EOF {
+			//			break
+			//		}
+			//		return err
+			//	}
+			//	if verbose {
+			//		fmt.Println(message)
+			//	}
+			//	//log.Info("Test output", zap.String("message", message))
+			//}
 		default:
 			return fmt.Errorf("unexpected phase '%s'", pod.Status.Phase)
 		}

@@ -139,6 +139,7 @@ func (t *TestSpec) Run(
 			options.Repository,
 			options.Namespace,
 			timeout,
+			options.Verbose,
 			log,
 		)
 	} else {
