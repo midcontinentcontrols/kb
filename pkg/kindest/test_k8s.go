@@ -84,12 +84,10 @@ func (t *TestSpec) runKubernetes(
 		return err
 	}
 	log.Debug("Created test pod", zap.String("name", pod.Name))
-	//timeout := 90 * time.Second
 	delay := time.Second
 	start = time.Now()
 	scheduled := false
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
+	for {
 		pod, err = pods.Get(
 			context.TODO(),
 			podName,
@@ -103,23 +101,14 @@ func (t *TestSpec) runKubernetes(
 			if !scheduled {
 				for _, condition := range pod.Status.Conditions {
 					if condition.Status == "PodScheduled" {
-						deadline = time.Now().Add(30 * time.Second)
 						scheduled = true
 					}
 				}
 			}
-			//for _, status := range pod.Status.ContainerStatuses {
-			//	if status.State.Waiting != nil {
-			//		if strings.Contains(status.State.Waiting.Reason, "Err") {
-			//			return fmt.Errorf("pod failed with waiting status '%s'", status.State.Waiting.Reason)
-			//		}
-			//	}
-			//}
 			log.Info("Still waiting on pod",
 				zap.String("phase", string(pod.Status.Phase)),
 				zap.Bool("scheduled", scheduled),
-				zap.String("elapsed", time.Since(start).String()),
-				zap.String("timeout", timeout.String()))
+				zap.String("elapsed", time.Since(start).String()))
 			time.Sleep(delay)
 			continue
 		case corev1.PodRunning:
@@ -133,18 +122,6 @@ func (t *TestSpec) runKubernetes(
 						// Success condition
 						return nil
 					}
-					//req := pods.GetLogs(pod.Name, &corev1.PodLogOptions{
-					//	Follow: true,
-					//})
-					//r, err := req.Stream(context.TODO())
-					//if err != nil {
-					//	return err
-					//}
-					//body, err := ioutil.ReadAll(r)
-					//if err != nil {
-					//	return err
-					//}
-					//fmt.Println(string(body))
 					return fmt.Errorf("exit code %d", status.State.Terminated.ExitCode)
 				}
 			}
@@ -160,35 +137,10 @@ func (t *TestSpec) runKubernetes(
 					return fmt.Errorf("copy: %v", err)
 				}
 			}
-			//rd := bufio.NewReader(r)
-			//for {
-			//	message, err := rd.ReadString('\n')
-			//	if err != nil {
-			//		if err == io.EOF {
-			//			break
-			//		}
-			//		return err
-			//	}
-			//	if verbose {
-			//		fmt.Println(message)
-			//	}
-			//	//log.Info("Test output", zap.String("message", message))
-			//}
 		default:
 			return fmt.Errorf("unexpected phase '%s'", pod.Status.Phase)
 		}
 		time.Sleep(delay)
 		continue
 	}
-	return ErrPodTimeout
-	//kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
-	//config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	//if err != nil {
-	//	return fmt.Errorf("create config: %v", err)
-	//}
-	//_, err = client.New(config, client.Options{})
-	//if err != nil {
-	//	return fmt.Errorf("create client: %v", err)
-	//}
-	//panic(cl)
 }
