@@ -684,147 +684,7 @@ func copyDockerCredential(
 	return nil
 }
 
-func buildKaniko(
-	m *Module,
-	dest string,
-	buildContext []byte,
-	relativeDockerfile string,
-	options *BuildOptions,
-	log logger.Logger,
-) error {
-	var kubeconfig string
-	if home := util.HomeDir(); home != "" {
-		kubeconfig = filepath.Join(home, ".kube", "config")
-	}
-	log.Info("Building on-cluster", zap.String("kubeconfig", kubeconfig))
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return err
-	}
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	namespace := "default"
-	// TODO: push secrets
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kaniko-" + uuid.New().String()[:8],
-			Namespace: namespace,
-		},
-		Spec: corev1.PodSpec{
-			RestartPolicy: corev1.RestartPolicyNever,
-			Containers: []corev1.Container{{
-				Name:            "kaniko",
-				Image:           "gcr.io/kaniko-project/executor:debug",
-				ImagePullPolicy: corev1.PullIfNotPresent,
-				Command: []string{
-					"sh",
-					"-c",
-					"tail -f /dev/null",
-				},
-			}},
-		},
-	}
-	pods := clientset.CoreV1().Pods(namespace)
-	if _, err := pods.Create(
-		context.TODO(),
-		pod,
-		metav1.CreateOptions{},
-	); err != nil {
-		return fmt.Errorf("failed to create kaniko pod: %v", err)
-	}
-	defer func() {
-		if err := pods.Delete(
-			context.TODO(),
-			pod.Name,
-			metav1.DeleteOptions{},
-		); err != nil {
-			m.log.Error("failed to delete pod", zap.String("err", err.Error()))
-		}
-	}()
-	if err := waitForPod(pod.Name, pod.Namespace, clientset, log); err != nil {
-		return err
-	}
-	command := []string{
-		"/kaniko/executor",
-		"--dockerfile=" + relativeDockerfile,
-		"--context=tar://stdin",
-	}
-	if options.NoPush {
-		command = append(command, "--no-push")
-	} else {
-		command = append(command, "--destination="+dest)
-	}
-	if m.Spec.Build.Target != "" {
-		command = append(command, "--target="+m.Spec.Build.Target)
-	}
-	for _, buildArg := range m.Spec.Build.BuildArgs {
-		command = append(command, fmt.Sprintf("--build-arg=%s=%s", buildArg.Name, buildArg.Value))
-	}
 
-	// gzip the build context
-	var buf bytes.Buffer
-	zw := gzip.NewWriter(&buf)
-	if n, err := zw.Write(buildContext); err != nil {
-		return err
-	} else if n != len(buildContext) {
-		return fmt.Errorf("wrong num bytes")
-	}
-	if err := zw.Close(); err != nil {
-		return err
-	}
-
-	if err := copyDockerCredential(clientset, config, pod); err != nil {
-		return err
-	}
-	log.Info("Copied docker credentials to pod")
-
-	// Exec build process in pod
-	stdoutBuf := bytes.NewBuffer(nil)
-	stderrBuf := bytes.NewBuffer(nil)
-	err = execInPod(
-		clientset,
-		config,
-		pod,
-		&corev1.PodExecOptions{
-			Command: command,
-			Stdin:   true,
-			Stdout:  true,
-			Stderr:  true,
-			TTY:     false,
-		},
-		bytes.NewReader(buf.Bytes()),
-		stdoutBuf,
-		stderrBuf,
-	)
-	stderr, _ := ioutil.ReadAll(stderrBuf)
-	if len(stderr) > 0 {
-		os.Stderr.Write(stderr)
-	}
-	stdout, _ := ioutil.ReadAll(stdoutBuf)
-	if len(stdout) > 0 {
-		os.Stderr.Write(stdout)
-	}
-	if err != nil {
-		if strings.Contains(err.Error(), "command terminated with exit code 1") {
-			// Retrieve the error message
-			if len(stderr) > 0 {
-				parts := strings.Split(string(stderr), "\n")
-				for i := len(parts) - 1; i >= 0; i-- {
-					line := strings.TrimSpace(parts[i])
-					if line != "" {
-						// This is messy but it's the best way to propogate error messages back up.
-						// TODO: test me under wider range of failure circumstances
-						return fmt.Errorf(line)
-					}
-				}
-			}
-		}
-		return err
-	}
-	return nil
-}
 */
 
 func doBuildModule(
@@ -851,6 +711,7 @@ func doBuildModule(
 			return fmt.Errorf("docker: %v", err)
 		}
 	case "kaniko":
+		//buildKaniko()
 		panic("not implemented")
 	default:
 		return fmt.Errorf("unknown builder '%s'", options.Builder)
