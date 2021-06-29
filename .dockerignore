@@ -1,1 +1,9 @@
+.vscode/
+docs/
+scripts/
+cmd/kindest/kindest
+cmd/kindest/kindest.exe
 pkg/kindest/tmp
+LICENSE-*
+TODO
+README.md

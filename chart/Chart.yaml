@@ -1,8 +1,0 @@
-apiVersion: v2
-description: Kindest DevOps for Monorepos
-name: kindest
-version: 0.0.1
-maintainers:
-  - name: Tom Havlik
-    email: thavlik@midcontinentcontrols.com
-    url: https://midcontinentcontrols.com
