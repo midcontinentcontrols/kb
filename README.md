@@ -76,9 +76,10 @@ env:
 
     # These charts will be installed/upgraded at deploy.
     charts:
-      - releaseName: kindest
+      kindest: # Each item is given a name, which can be anything.
+        releaseName: kindest
         namespace: kindest
-        path: path/to/chart # ./path/to/chart/Chart.yaml
+        name: path/to/chart # Repository name or dir path that has ./path/to/chart/Chart.yaml
         values: {}
 
 test:
@@ -113,9 +114,10 @@ test:
       # when tests run. This chart is only shown here for
       # demonstration purposes.
       charts:
-        - releaseName: kindest
+        kindest:
+          releaseName: kindest
           namespace: kindest
-          path: path/to/chart # ./path/to/chart/Chart.yaml
+          name: path/to/chart # ./path/to/chart/Chart.yaml
           values: {}
 
     # If your tests take a long time to complete, here
@@ -190,8 +192,9 @@ test:
       # These charts will be installed/upgraded before the
       # tests run.
       charts:
-        - releaseName: kindest
-          path: ./charts/kindest # ./charts/kindest/Chart.yaml
+        kindest:
+          releaseName: kindest
+          name: ./charts/kindest # ./charts/kindest/Chart.yaml
           values: {}
 ```
 

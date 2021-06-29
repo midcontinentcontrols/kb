@@ -62,7 +62,8 @@ metadata:
 env:
   kubernetes:
     charts:
-      - releaseName: foo
+      foo:
+        releaseName: foo
         namespace: bar
         name: chart/
         values: {}
@@ -131,7 +132,8 @@ spec:
 env:
   kubernetes:
     charts:
-      - releaseName: foo
+      foo:
+        releaseName: foo
         namespace: %s
         name: chart/
         values:
@@ -206,7 +208,8 @@ spec:
 env:
   kubernetes:
     charts:
-      - releaseName: foo
+      foo:
+        releaseName: foo
         namespace: %s
         name: chart/
         values: {}
