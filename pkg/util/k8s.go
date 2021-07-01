@@ -1,13 +1,18 @@
 package util
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
 
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/kubectl/pkg/scheme"
 
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -21,6 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -241,7 +247,7 @@ func WaitForPod(name, namespace string, client *kubernetes.Clientset, log logger
 		}
 		switch pod.Status.Phase {
 		case corev1.PodPending:
-			log.Info("Waiting on pod",
+			log.Debug("Waiting on pod",
 				zap.String("elapsed", time.Since(start).String()),
 				zap.String("timeout", timeout.String()))
 			time.Sleep(delay)
@@ -253,4 +259,59 @@ func WaitForPod(name, namespace string, client *kubernetes.Clientset, log logger
 		}
 	}
 	return fmt.Errorf("pod failed to be Ready within %s", timeout.String())
+}
+
+func ExecInPod(
+	client *kubernetes.Clientset,
+	config *restclient.Config,
+	pod *corev1.Pod,
+	options *corev1.PodExecOptions,
+	stdin io.Reader,
+	stdout,
+	stderr io.Writer,
+) error {
+	req := client.CoreV1().RESTClient().Post().Resource("pods").Name(pod.Name).
+		Namespace(pod.Namespace).SubResource("exec")
+	req.VersionedParams(
+		options,
+		scheme.ParameterCodec,
+	)
+	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdin:  stdin,
+		Stdout: stdout,
+		Stderr: stderr,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func CopyDockerConfigToPod(pod *corev1.Pod, client *kubernetes.Clientset, config *rest.Config) error {
+	dockerconfigjson, err := ioutil.ReadFile(filepath.Join(HomeDir(), ".docker", "config.json"))
+	if err != nil {
+		return err
+	}
+	stderr := bytes.NewBuffer(nil)
+	err = ExecInPod(client, config, pod, &corev1.PodExecOptions{
+		Command: []string{
+			"sh",
+			"-c",
+			fmt.Sprintf(
+				"mkdir -p /kaniko/.docker/; echo %s | base64 -d > /kaniko/.docker/config.json",
+				base64.StdEncoding.EncodeToString(dockerconfigjson),
+			),
+		},
+		Stdin:  false,
+		Stdout: true,
+		Stderr: false,
+	}, nil, nil, stderr)
+	if err != nil {
+		return fmt.Errorf("%v: %s", err, stderr.String())
+	}
+	return nil
 }

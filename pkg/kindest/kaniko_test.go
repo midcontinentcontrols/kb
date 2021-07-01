@@ -62,9 +62,12 @@ RUN cat foo`
 			test.WithTemporaryCluster(t, name, log, func(kubeContext string, cl client.Client) {
 				err := module.Build(&BuildOptions{Builder: "kaniko", NoPush: true})
 				require.Error(t, err)
-				require.Contains(t, err.Error(), "cat: can't open 'foo': No such file or directory")
+				require.Contains(t, err.Error(), "kaniko: command terminated with exit code 1")
 				require.Equal(t, BuildStatusFailed, module.Status())
 			})
 		})
 	})
+
+	// TODO: test image pushing
+	// TODO: test pulling private base images
 }
