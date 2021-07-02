@@ -2,7 +2,6 @@ package kindest
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -17,17 +16,9 @@ import (
 
 var kindestTestImageName = "kindest-example"
 
-func getPushRepository() string {
-	repo, ok := os.LookupEnv("PUSH_REPOSITORY")
-	if !ok {
-		return "ahemphill"
-	}
-	return repo
-}
-
 func TestTestK8sEnv(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
-		pushRepo := getPushRepository()
+		pushRepo := test.GetPushRepository()
 		dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "set -euo pipefail; echo $MYVARIABLE"]`
 		specYaml := fmt.Sprintf(`build:
@@ -62,7 +53,7 @@ test:
 
 func TestTestK8sError(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
-		pushRepo := getPushRepository()
+		pushRepo := test.GetPushRepository()
 		dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "exit 1"]`
 		specYaml := fmt.Sprintf(`build:
@@ -95,7 +86,7 @@ test:
 
 func TestTestK8sKindEnv(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
-		pushRepo := getPushRepository()
+		pushRepo := test.GetPushRepository()
 		dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "set -euo pipefail; echo $MYVARIABLE"]`
 		specYaml := fmt.Sprintf(`build:

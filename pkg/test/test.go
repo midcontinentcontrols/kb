@@ -65,6 +65,14 @@ func WithTemporaryModule(t *testing.T, f func(name string, rootPath string)) {
 
 var numClustersCreated int32
 
+func GetPushRepository() string {
+	repo, ok := os.LookupEnv("PUSH_REPOSITORY")
+	if !ok {
+		return "ahemphill"
+	}
+	return repo
+}
+
 func WithTemporaryCluster(t *testing.T, name string, log logger.Logger, f func(kubeContext string, cl k8sclient.Client)) {
 	var kubeContext string
 	var ok bool

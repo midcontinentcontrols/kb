@@ -33,7 +33,7 @@ maintainers:
 func TestDeployErrMissingChartYaml(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
 		log := logger.NewMockLogger(logger.NewFakeLogger())
-		pushRepo := getPushRepository()
+		pushRepo := test.GetPushRepository()
 		valuesYaml := `foo: bar
 baz: bal`
 		script := `#!/bin/bash
@@ -103,7 +103,7 @@ test:
 func TestDeployChart(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
 		namespace := name
-		pushRepo := getPushRepository()
+		pushRepo := test.GetPushRepository()
 		dockerfile := `FROM alpine:3.11.6
 CMD ["tail", "-f", "/dev/null"]`
 		deploymentYaml := `apiVersion: apps/v1
@@ -172,7 +172,7 @@ env:
 func TestDeployRestartImages(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
 		namespace := name
-		pushRepo := getPushRepository()
+		pushRepo := test.GetPushRepository()
 		dockerfile := `FROM alpine:3.11.6
 RUN apk add --no-cache wget bash
 ENV KUBECTL=v1.17.0
