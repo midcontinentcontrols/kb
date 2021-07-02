@@ -52,6 +52,35 @@ RUN cat foo`
 			require.Equal(t, BuildStatusFailed, module.Status())
 		})
 	})
+
+	t.Run("ErrMissingDockerfile", func(t *testing.T) {
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			specYaml := fmt.Sprintf(`build:
+  name: %s`, name)
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": specYaml,
+			}))
+			p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+			_, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "missing Dockerfile")
+		})
+	})
+
+	t.Run("ErrMissingName", func(t *testing.T) {
+		test.WithTemporaryModule(t, func(name string, rootPath string) {
+			dockerfile := `FROM alpine:3.11.6
+CMD ["sh", "-c", "echo \"Hello, world\""]`
+			require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
+				"kindest.yaml": "build: {}",
+				"Dockerfile":   dockerfile,
+			}))
+			p := NewProcess(runtime.NumCPU(), logger.NewFakeLogger())
+			_, err := p.GetModule(filepath.Join(rootPath, "kindest.yaml"))
+			require.Error(t, err)
+			require.Equal(t, err, ErrMissingImageName)
+		})
+	})
 }
 
 func TestModuleBuildContext(t *testing.T) {
