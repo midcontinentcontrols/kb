@@ -33,7 +33,7 @@ maintainers:
 func TestDeployErrMissingChartYaml(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
 		log := logger.NewMockLogger(logger.NewFakeLogger())
-		pushRepo := test.GetPushRepository()
+		pushImage := test.GetPushImage()
 		valuesYaml := `foo: bar
 baz: bal`
 		script := `#!/bin/bash
@@ -58,7 +58,7 @@ kind: Namespace
 metadata:
   name: test`
 		specYaml := fmt.Sprintf(`build:
-  name: %s/%s
+  name: %s
 env:
   kubernetes:
     charts:
@@ -72,10 +72,10 @@ test:
     env:
       kubernetes: {}
     build:
-      name: %s/%s-test
+      name: %s-test
       dockerfile: Dockerfile
       command: ["/script"]
-`, pushRepo, kindestTestImageName, pushRepo, kindestTestImageName)
+`, pushImage, pushImage)
 		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
 			"kindest.yaml": specYaml,
 			"Dockerfile":   dockerfile,
@@ -103,7 +103,7 @@ test:
 func TestDeployChart(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
 		namespace := name
-		pushRepo := test.GetPushRepository()
+		pushImage := test.GetPushImage()
 		dockerfile := `FROM alpine:3.11.6
 CMD ["tail", "-f", "/dev/null"]`
 		deploymentYaml := `apiVersion: apps/v1
@@ -128,7 +128,7 @@ spec:
         command: ["tail", "-f", "/dev/null"]`
 		valuesYaml := `image: ""`
 		specYaml := fmt.Sprintf(`build:
-  name: %s/%s
+  name: %s
 env:
   kubernetes:
     charts:
@@ -138,7 +138,7 @@ env:
         name: chart/
         values:
           image: busybox:latest
-`, pushRepo, kindestTestImageName, namespace)
+`, pushImage, namespace)
 		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
 			"kindest.yaml": specYaml,
 			"Dockerfile":   dockerfile,
@@ -172,7 +172,7 @@ env:
 func TestDeployRestartImages(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
 		namespace := name
-		pushRepo := test.GetPushRepository()
+		pushImage := test.GetPushImage()
 		dockerfile := `FROM alpine:3.11.6
 RUN apk add --no-cache wget bash
 ENV KUBECTL=v1.17.0
@@ -202,9 +202,9 @@ spec:
         imagePullPolicy: Always
         image: {{ .Values.image }}
         command: ["tail", "-f", "/dev/null"]`
-		valuesYaml := fmt.Sprintf(`image: %s/%s`, pushRepo, kindestTestImageName)
+		valuesYaml := fmt.Sprintf(`image: %s`, pushImage)
 		specYaml := fmt.Sprintf(`build:
-  name: %s/%s
+  name: %s
 env:
   kubernetes:
     charts:
@@ -221,9 +221,9 @@ test:
     env:
       kubernetes: {}
     build:
-      name: %s/%s-test
+      name: %s-test
       dockerfile: Dockerfile
-`, pushRepo, kindestTestImageName, namespace, pushRepo, kindestTestImageName)
+`, pushImage, namespace, pushImage)
 		script := `#!/bin/bash
 echo "Hello, world!"`
 		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{

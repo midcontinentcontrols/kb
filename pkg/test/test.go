@@ -65,10 +65,10 @@ func WithTemporaryModule(t *testing.T, f func(name string, rootPath string)) {
 
 var numClustersCreated int32
 
-func GetPushRepository() string {
-	repo, ok := os.LookupEnv("PUSH_REPOSITORY")
+func GetPushImage() string {
+	repo, ok := os.LookupEnv("PUSH_IMAGE")
 	if !ok {
-		return "ahemphill"
+		return "ahemphill/kindest-example"
 	}
 	return repo
 }

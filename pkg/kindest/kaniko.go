@@ -62,7 +62,7 @@ func buildKaniko(
 	}
 	if !options.NoPush {
 		// The pod needs push credentials
-		fmt.Println("Copying docker config to kaniko pod...")
+		//fmt.Println("Copying docker config to kaniko pod...")
 		if err := util.CopyDockerConfigToPod(
 			pod,
 			cl,
@@ -70,7 +70,7 @@ func buildKaniko(
 		); err != nil {
 			return fmt.Errorf("CopyDockerConfigToPod: %v", err)
 		}
-		fmt.Println("Successfully copied it over")
+		//fmt.Println("Successfully copied it over")
 		log.Debug("Copied docker config to kaniko pod")
 	}
 	time.Sleep(time.Minute)
@@ -112,8 +112,8 @@ func buildKaniko(
 			TTY:     false,
 		},
 		bytes.NewReader(buildContext),
-		stdout,
 		stderr,
+		stdout,
 	); err != nil {
 		return fmt.Errorf("kaniko: %v", err)
 	}
@@ -121,11 +121,10 @@ func buildKaniko(
 }
 
 func kanikoPod(namespace string) *corev1.Pod {
-	command := "set -e; "
-	command += ` echo "Tailing null..."; tail -f /dev/null`
+	command := `set -e; echo "Tailing null..."; tail -f /dev/null`
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kaniko-" + uuid.New().String()[:8],
+			Name:      "kindest-kaniko-" + uuid.New().String()[:8],
 			Namespace: namespace,
 		},
 		Spec: corev1.PodSpec{

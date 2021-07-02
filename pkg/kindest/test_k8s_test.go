@@ -14,15 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var kindestTestImageName = "kindest-example"
-
 func TestTestK8sEnv(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
-		pushRepo := test.GetPushRepository()
+		pushImage := test.GetPushImage()
 		dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "set -euo pipefail; echo $MYVARIABLE"]`
 		specYaml := fmt.Sprintf(`build:
-  name: %s/%s
+  name: %s
 test:
   - name: basic
     variables:
@@ -31,9 +29,9 @@ test:
     env:
       kubernetes: {}
     build:
-      name: %s/%s-test
+      name: %s-test
       dockerfile: Dockerfile
-`, pushRepo, kindestTestImageName, pushRepo, kindestTestImageName)
+`, pushImage, pushImage)
 		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
 			"kindest.yaml": specYaml,
 			"Dockerfile":   dockerfile,
@@ -53,19 +51,19 @@ test:
 
 func TestTestK8sError(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
-		pushRepo := test.GetPushRepository()
+		pushImage := test.GetPushImage()
 		dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "exit 1"]`
 		specYaml := fmt.Sprintf(`build:
-  name: %s/%s
+  name: %s
 test:
   - name: basic
     env:
       kubernetes: {}
     build:
-      name: %s/%s-test
+      name: %s-test
       dockerfile: Dockerfile
-`, pushRepo, kindestTestImageName, pushRepo, kindestTestImageName)
+`, pushImage, pushImage)
 		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
 			"kindest.yaml": specYaml,
 			"Dockerfile":   dockerfile,
@@ -86,11 +84,11 @@ test:
 
 func TestTestK8sKindEnv(t *testing.T) {
 	test.WithTemporaryModule(t, func(name string, rootPath string) {
-		pushRepo := test.GetPushRepository()
+		pushImage := test.GetPushImage()
 		dockerfile := `FROM alpine:3.11.6
 CMD ["sh", "-c", "set -euo pipefail; echo $MYVARIABLE"]`
 		specYaml := fmt.Sprintf(`build:
-  name: %s/%s
+  name: %s
 test:
   - name: basic
     variables:
@@ -99,9 +97,9 @@ test:
     env:
       kubernetes: {}
     build:
-      name: %s/%s-test
+      name: %s-test
       dockerfile: Dockerfile
-`, pushRepo, kindestTestImageName, pushRepo, kindestTestImageName)
+`, pushImage, pushImage)
 		require.NoError(t, test.CreateFiles(rootPath, map[string]interface{}{
 			"kindest.yaml": specYaml,
 			"Dockerfile":   dockerfile,
