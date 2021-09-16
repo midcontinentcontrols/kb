@@ -78,42 +78,6 @@ build:
 	require.Contains(t, err.Error(), "dependency 0: missing kindest.yaml")
 }
 
-func TestBuildErrMissingDockerfile(t *testing.T) {
-	specPath := createBasicTestProject(t, "tmp")
-	rootPath := filepath.Dir(specPath)
-	defer os.RemoveAll(rootPath)
-	require.NoError(t, os.Remove(filepath.Join(rootPath, "Dockerfile")))
-	err := Build(&BuildOptions{
-		File:   specPath,
-		NoPush: true,
-	}, test.NewTestLogger())
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "missing Dockerfile")
-}
-
-func TestBuildErrMissingName(t *testing.T) {
-	name := test.RandomTestName()
-	rootPath := filepath.Join("tmp", name)
-	require.NoError(t, os.MkdirAll(rootPath, 0766))
-	defer os.RemoveAll(rootPath)
-	require.NoError(t, ioutil.WriteFile(
-		filepath.Join(rootPath, "Dockerfile"),
-		[]byte("FROM alpine:3.11.6"),
-		0644,
-	))
-	specPath := filepath.Join(rootPath, "kindest.yaml")
-	spec := fmt.Sprintf(`build: {}`)
-	require.NoError(t, ioutil.WriteFile(
-		specPath,
-		[]byte(spec),
-		0644,
-	))
-	require.Equal(t, ErrMissingImageName, Build(&BuildOptions{
-		File:   specPath,
-		NoPush: true,
-	}, test.NewTestLogger()))
-}
-
 func TestBuildContextPath(t *testing.T) {
 	name := test.RandomTestName()
 	rootPath := filepath.Join("tmp", name)

@@ -82,7 +82,8 @@ func buildDocker(
 	); err != nil {
 		return err
 	}
-	if !options.NoPush {
+
+	if !options.NoPush && !spec.SkipPush {
 		authConfig, err := RegistryAuthFromEnv(dest)
 		if err != nil {
 			return fmt.Errorf("RegistryAuthFromEnv: %v", err)
@@ -112,6 +113,10 @@ func buildDocker(
 		); err != nil {
 			return err
 		}
+	} else {
+		log.Debug("Skipping push",
+			zap.Bool("options.noPush", options.NoPush),
+			zap.Bool("spec.SkipPush", spec.SkipPush))
 	}
 	return nil
 }

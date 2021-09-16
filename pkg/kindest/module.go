@@ -695,7 +695,7 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	// This is necessary for calculating the digest
 	buildContext, relativeDockerfile, include, err := m.loadBuildContext()
 	if err != nil {
-		return err
+		return fmt.Errorf("loadBuildContext: %v", err)
 	}
 	digest, err := buildContext.Digest(include)
 	if err != nil {

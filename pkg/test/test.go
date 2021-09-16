@@ -68,7 +68,7 @@ var numClustersCreated int32
 func GetPushImage() string {
 	repo, ok := os.LookupEnv("PUSH_IMAGE")
 	if !ok {
-		return "ahemphill/kindest-example"
+		return "thavlik/kindest-example"
 	}
 	return repo
 }

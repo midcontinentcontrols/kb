@@ -35,6 +35,7 @@ type BuildSpec struct {
 	BuildArgs    []*BuildArg       `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
 	Target       string            `json:"target,omitempty" yaml:"target,omitempty"`
 	Command      []string          `json:"command,omitempty" yaml:"command,omitempty"`
+	SkipPush     bool              `json:"skipPush,omitempty" yaml:"skipPush,omitempty"`
 	NodeSelector map[string]string `json:"nodeSelector,omitempty" yaml:"nodeSelector,omitempty"`
 	Before       []Command         `json:"before,omitempty" yaml:"before,omitempty"`
 	After        []Command         `json:"after,omitempty" yaml:"after,omitempty"`

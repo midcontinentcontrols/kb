@@ -52,7 +52,6 @@ RUN cat foo`
 			require.Equal(t, BuildStatusFailed, module.Status())
 		})
 	})
-
 	t.Run("ErrMissingDockerfile", func(t *testing.T) {
 		test.WithTemporaryModule(t, func(name string, rootPath string) {
 			specYaml := fmt.Sprintf(`build:
@@ -66,7 +65,6 @@ RUN cat foo`
 			require.Contains(t, err.Error(), "missing Dockerfile")
 		})
 	})
-
 	t.Run("ErrMissingName", func(t *testing.T) {
 		test.WithTemporaryModule(t, func(name string, rootPath string) {
 			dockerfile := `FROM alpine:3.11.6
@@ -179,7 +177,7 @@ CMD ["sh", "-c", "echo \"Hello, world\""]`
 			require.NoError(t, err)
 			err = module.Build(&BuildOptions{NoPush: true})
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "docker: The command '/bin/sh -c cat .git/foo' returned a non-zero code: 1")
+			require.Contains(t, err.Error(), "The command '/bin/sh -c cat .git/foo' returned a non-zero code: 1")
 			require.Equal(t, BuildStatusFailed, module.Status())
 		})
 	})
