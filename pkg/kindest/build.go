@@ -171,6 +171,9 @@ func loadSpec(file string, log logger.Logger) (*KindestSpec, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	if len(strings.TrimSpace(string(docBytes))) == 0 {
+		return nil, "", fmt.Errorf("manifest is an empty file")
+	}
 	spec := &KindestSpec{}
 	if err := yaml.Unmarshal(docBytes, spec); err != nil {
 		return nil, "", err

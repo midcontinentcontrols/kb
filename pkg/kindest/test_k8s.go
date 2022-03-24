@@ -24,6 +24,7 @@ func (t *TestSpec) runKubernetes(
 	verbose bool,
 	log logger.Logger,
 ) error {
+	fmt.Printf("%#v\n", t.Env.Kubernetes)
 	client, _, err := util.ClientsetForContext(kubeContext)
 	if err != nil {
 		return err
@@ -33,6 +34,7 @@ func (t *TestSpec) runKubernetes(
 	if err := createTestRBAC(client, log); err != nil {
 		return err
 	}
+	log.Debug("RBAC resources are good to go")
 	image := util.SanitizeImageName(repository, t.Build.Name, "latest")
 	imagePullPolicy := corev1.PullAlways
 	if namespace == "" {
@@ -43,7 +45,7 @@ func (t *TestSpec) runKubernetes(
 		zap.String("t.Name", t.Name),
 		zap.String("namespace", namespace),
 		zap.String("image", image),
-	)
+		zap.String("imagePullSecret", t.Env.Kubernetes.ImagePullSecret))
 	if err := deleteOldPods(pods, t.Name, log); err != nil {
 		return err
 	}
@@ -56,6 +58,16 @@ func (t *TestSpec) runKubernetes(
 			Value: v.Value,
 		})
 	}
+	var imagePullSecrets []corev1.LocalObjectReference
+	if t.Env.Kubernetes.ImagePullSecret != "" || true {
+		log.Debug("Using imagePullSecret",
+			zap.String("secretName", "regcred"))
+		//zap.String("secretName", t.Env.Kubernetes.ImagePullSecret))
+		imagePullSecrets = []corev1.LocalObjectReference{{
+			//Name: t.Env.Kubernetes.ImagePullSecret,
+			Name: "regcred",
+		}}
+	}
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
@@ -67,6 +79,7 @@ func (t *TestSpec) runKubernetes(
 		Spec: corev1.PodSpec{
 			ServiceAccountName: "kindest-test",
 			RestartPolicy:      corev1.RestartPolicyNever,
+			ImagePullSecrets:   imagePullSecrets,
 			Containers: []corev1.Container{{
 				Name:            t.Name,
 				Image:           image,

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"runtime"
 	"time"
 
@@ -36,6 +37,7 @@ var test2Cmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		fmt.Printf("%#v\n", module.Spec.Test[0].Env.Kubernetes)
 		if err := module.RunTests2(
 			&kindest.TestOptions{
 				BuildOptions: kindest.BuildOptions{

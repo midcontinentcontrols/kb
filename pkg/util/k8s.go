@@ -221,7 +221,12 @@ func WaitForDeployment2(
 				// All replicas are available
 				return nil
 			}
-		} else if err != nil && !errors.IsNotFound(err) {
+		} else if errors.IsNotFound(err) {
+			log.Debug("Deployment not found, skipping...",
+				zap.String("name", name),
+				zap.String("namespace", namespace))
+			return nil
+		} else if err != nil {
 			return err
 		}
 		if log != nil {

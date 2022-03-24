@@ -18,8 +18,9 @@ type Variable struct {
 }
 
 type KubernetesEnvSpec struct {
-	Resources []string              `json:"resources,omitempty" yaml:"resources,omitempty"`
-	Charts    map[string]*ChartSpec `json:"charts,omitempty" yaml:"charts,omitempty"`
+	ImagePullSecret string                `json:"imagePullSecret,omitempty"`
+	Resources       []string              `json:"resources,omitempty" yaml:"resources,omitempty"`
+	Charts          map[string]*ChartSpec `json:"charts,omitempty" yaml:"charts,omitempty"`
 }
 
 var ErrMultipleChartSources = fmt.Errorf("multiple chart sources not allowed")

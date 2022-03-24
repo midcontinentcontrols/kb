@@ -77,9 +77,12 @@ func (m *Module) Deploy(options *DeployOptions) (string, error) {
 }
 
 func (m *Module) UpdateResources(kubeContext string, verbose bool) error {
+	log := m.log.With(zap.String("kubeContext", kubeContext))
+	log.Debug("Updating resources")
 	if m.Spec.Env.Docker != nil {
 		panic("unimplemented")
 	} else if m.Spec.Env.Kubernetes != nil {
+		log.Debug("Applying kubernetes manifests")
 		if err := applyManifests(
 			kubeContext,
 			m.Dir(),
@@ -88,12 +91,16 @@ func (m *Module) UpdateResources(kubeContext string, verbose bool) error {
 		); err != nil {
 			return err
 		}
+		log.Debug("Kubernetes manifests applied successfully")
+		log.Debug("Installing Helm charts")
 		if err := m.installCharts(kubeContext); err != nil {
 			return err
 		}
+		log.Debug("Helm charts installed")
 	} else {
 		panic("unreachable branch detected")
 	}
+	log.Debug("Resources updated successfully")
 	return nil
 }
 

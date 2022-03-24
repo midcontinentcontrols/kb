@@ -113,7 +113,7 @@ func (m *Module) RunTests2(options *TestOptions, log logger.Logger) error {
 			}
 		}
 		if err := m.Build(&options.BuildOptions); err != nil {
-			return err
+			return fmt.Errorf("build: %v", err)
 		}
 	}
 	if !options.SkipDeploy {
@@ -126,11 +126,11 @@ func (m *Module) RunTests2(options *TestOptions, log logger.Logger) error {
 			RestartImages: m.BuiltImages,
 			Wait:          true,
 		}); err != nil {
-			return err
+			return fmt.Errorf("deploy: %v", err)
 		}
 	}
 	if err := m.RunTests(options, log); err != nil {
-		return err
+		return fmt.Errorf("test: %v", err)
 	}
 	return nil
 }
@@ -772,6 +772,8 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	if m.Spec.Build == nil {
 		return nil
 	}
+	log := m.log.With(zap.String("name", m.Spec.Build.Name))
+	log.Debug("Building module")
 	baseImage, err := m.Spec.Build.GetBaseImage(m.Dir())
 	if err != nil {
 		return err
@@ -791,6 +793,7 @@ func (m *Module) Build(options *BuildOptions) (err error) {
 	if err != nil {
 		return err
 	}
+	log.Debug("Successfully built module")
 	return nil
 }
 
