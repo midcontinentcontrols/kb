@@ -2,6 +2,9 @@ package kindest
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -32,6 +35,7 @@ type DeployOptions struct {
 	RestartImages []string `json:"restartImages"`
 	Wait          bool     `json:"wait"`
 	Verbose       bool     `json:"verbose,omitempty"`
+	Force         bool     `json:"force,omitempty"`
 }
 
 func (m *Module) HasEnvironment() bool {
@@ -52,7 +56,7 @@ func (m *Module) Deploy(options *DeployOptions) (string, error) {
 			return "", err
 		}
 	}
-	if err := m.UpdateResources(kubeContext, options.Verbose); err != nil {
+	if err := m.UpdateResources(kubeContext, options.Verbose, options.Force); err != nil {
 		return "", err
 	}
 	if !options.NoAutoRestart {
@@ -76,24 +80,25 @@ func (m *Module) Deploy(options *DeployOptions) (string, error) {
 	return kubeContext, nil
 }
 
-func (m *Module) UpdateResources(kubeContext string, verbose bool) error {
+func (m *Module) UpdateResources(kubeContext string, verbose, force bool) error {
 	log := m.log.With(zap.String("kubeContext", kubeContext))
 	log.Debug("Updating resources")
 	if m.Spec.Env.Docker != nil {
 		panic("unimplemented")
 	} else if m.Spec.Env.Kubernetes != nil {
 		log.Debug("Applying kubernetes manifests")
-		if err := applyManifests(
+		if err := m.applyManifests(
 			kubeContext,
 			m.Dir(),
 			m.Spec.Env.Kubernetes.Resources,
 			verbose,
+			force,
 		); err != nil {
 			return err
 		}
 		log.Debug("Kubernetes manifests applied successfully")
 		log.Debug("Installing Helm charts")
-		if err := m.installCharts(kubeContext); err != nil {
+		if err := m.installCharts(kubeContext, force); err != nil {
 			return err
 		}
 		log.Debug("Helm charts installed")
@@ -421,13 +426,49 @@ func restartDaemonSets(kubeContext string, images []string, verbose bool, log lo
 	return nil
 }
 
-func (m *Module) installCharts(kubeContext string) error {
-	for _, chart := range m.Spec.Env.Kubernetes.Charts {
+func digestChart(name string, chart *ChartSpec) (string, error) {
+	h := md5.New()
+	h.Write([]byte("chart?" + name))
+	body, err := json.Marshal(chart)
+	if err != nil {
+		return "", fmt.Errorf("json: %v", err)
+	}
+	if _, err := h.Write(body); err != nil {
+		return "", err
+	}
+	if _, err := hashPath(chart.Name, h); err != nil {
+		return "", fmt.Errorf("hashPath: %v", err)
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func (m *Module) installCharts(kubeContext string, force bool) error {
+	for name, chart := range m.Spec.Env.Kubernetes.Charts {
+		newDigest, err := digestChart(name, chart)
+		if err != nil {
+			return fmt.Errorf("digestPath: %v", err)
+		}
+		key := "chart?" + name
+		if !force {
+			oldDigest, err := m.CachedDigest(key)
+			if err != nil && err != ErrModuleNotCached {
+				return fmt.Errorf("CachedDigest: %v", err)
+			}
+			if newDigest == oldDigest {
+				m.log.Debug("No changes for chart",
+					zap.String("name", name),
+					zap.String("digest", oldDigest))
+				continue
+			}
+		}
 		if err := m.installChart(
 			chart,
 			kubeContext,
 		); err != nil {
 			return fmt.Errorf("failed to install chart '%s': %v", chart.Name, err)
+		}
+		if err := m.cacheDigest(key, newDigest); err != nil {
+			return fmt.Errorf("cacheDigest: %v", err)
 		}
 	}
 	return nil

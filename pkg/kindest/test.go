@@ -2,7 +2,10 @@ package kindest
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -306,13 +309,80 @@ func createTestRBAC(client *kubernetes.Clientset, log logger.Logger) error {
 	return nil
 }
 
-func applyManifests(
+func hashPath(path string, w io.Writer) (int64, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, fmt.Errorf("os.Stat: %v", err)
+	}
+	var total int64
+	if info.IsDir() {
+		w.Write([]byte("d?" + path))
+		infos, err := os.ReadDir(path)
+		if err != nil {
+			return 0, fmt.Errorf("os.ReadDir: %v", err)
+		}
+		var dirTotal int64
+		for _, info := range infos {
+			n, err := hashPath(filepath.Join(path, info.Name()), w)
+			if err != nil {
+				return 0, fmt.Errorf("hashPath: %v", err)
+			}
+			dirTotal += n
+		}
+		w.Write([]byte(fmt.Sprintf("%d", dirTotal)))
+		total += dirTotal
+	} else {
+		w.Write([]byte("e?" + path))
+		f, err := os.OpenFile(path, os.O_RDONLY, 0644)
+		if err != nil {
+			return 0, fmt.Errorf("os.OpenFile: %v", err)
+		}
+		defer f.Close()
+		n, err := io.Copy(w, f)
+		if err != nil {
+			return 0, fmt.Errorf("io.Copy: %v", err)
+		}
+		total += n
+		w.Write([]byte(fmt.Sprintf("%d", n)))
+	}
+	return total, nil
+}
+
+func digestResources(path string) (string, error) {
+	h := md5.New()
+	if _, err := hashPath(path, h); err != nil {
+		return "", fmt.Errorf("hashPath: %v", err)
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func (m *Module) applyManifests(
 	kubeContext string,
 	rootPath string,
 	resources []string,
 	verbose bool,
+	force bool,
 ) error {
 	for _, resource := range resources {
+		newDigest, err := digestResources(resource)
+		if err != nil {
+			return fmt.Errorf("digestPath: %v", err)
+		}
+		key := "res?" + resource
+		if !force {
+			// Bypass if resource hasn't changed
+			oldDigest, err := m.CachedDigest(key)
+			if err != nil && err != ErrModuleNotCached {
+				return fmt.Errorf("CachedDigest: %v", err)
+			}
+			if newDigest == oldDigest {
+				// Nothing to do
+				m.log.Debug("No changes for resource",
+					zap.String("path", resource),
+					zap.String("digest", oldDigest))
+				continue
+			}
+		}
 		resource = filepath.Clean(filepath.Join(rootPath, resource))
 		cmd := exec.Command("kubectl", "apply", "--context", kubeContext, "-f", resource)
 		if verbose {
@@ -321,6 +391,9 @@ func applyManifests(
 		}
 		if err := cmd.Run(); err != nil {
 			return err
+		}
+		if err := m.cacheDigest(key, newDigest); err != nil {
+			return fmt.Errorf("cacheDigest: %v", err)
 		}
 	}
 	return nil

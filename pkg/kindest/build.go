@@ -106,9 +106,9 @@ func (b *BuildSpec) Verify(manifestPath string, log logger.Logger) error {
 	return b.verifyDocker(manifestPath, log)
 }
 
-func digestPathForManifest(manifestPath string) (string, error) {
+func digestPath(resource string) (string, error) {
 	h := md5.New()
-	h.Write([]byte(manifestPath))
+	h.Write([]byte(resource))
 	name := hex.EncodeToString(h.Sum(nil))
 	u, err := user.Current()
 	if err != nil {

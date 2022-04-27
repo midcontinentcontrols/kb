@@ -139,8 +139,8 @@ func (m *Module) RunTests(options *TestOptions, log logger.Logger) error {
 	return m.Spec.RunTests(options, m.Path, m.p, log)
 }
 
-func (m *Module) CachedDigest(imageName string) (string, error) {
-	path, err := digestPathForManifest(imageName)
+func (m *Module) CachedDigest(resource string) (string, error) {
+	path, err := digestPath(resource)
 	if err != nil {
 		return "", err
 	}
@@ -151,8 +151,8 @@ func (m *Module) CachedDigest(imageName string) (string, error) {
 	return string(body), nil
 }
 
-func (m *Module) cacheDigest(imageName string, digest string) error {
-	path, err := digestPathForManifest(imageName)
+func (m *Module) cacheDigest(resource string, digest string) error {
+	path, err := digestPath(resource)
 	if err != nil {
 		return err
 	}
