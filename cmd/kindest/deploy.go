@@ -60,5 +60,5 @@ func init() {
 	deployCmd.PersistentFlags().StringVar(&deployArgs.RestartImages, "restart-images", "", "comma-separated list of images used to restart deployments")
 	deployCmd.PersistentFlags().BoolVar(&deployArgs.NoAutoRestart, "no-auto-restart", false, "disable automatic restart of pods for pushed images")
 	deployCmd.PersistentFlags().BoolVarP(&deployArgs.Wait, "wait", "w", false, "wait for successful deployment")
-	deployCmd.PersistentFlags().BoolVarP(&deployArgs.Force, "force", "f", false, "deploy manifests and charts even if files are unchanged")
+	deployCmd.PersistentFlags().BoolVar(&deployArgs.Force, "force", false, "deploy manifests and charts even if files are unchanged")
 }
