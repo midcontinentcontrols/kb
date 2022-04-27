@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 
+	"gopkg.in/yaml.v3"
 	appsv1 "k8s.io/api/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -429,9 +429,9 @@ func restartDaemonSets(kubeContext string, images []string, verbose bool, log lo
 func digestChart(name string, chart *ChartSpec) (string, error) {
 	h := md5.New()
 	h.Write([]byte("chart?" + name))
-	body, err := json.Marshal(chart)
+	body, err := yaml.Marshal(chart)
 	if err != nil {
-		return "", fmt.Errorf("json: %v", err)
+		return "", fmt.Errorf("yaml.Marshal: %v", err)
 	}
 	if _, err := h.Write(body); err != nil {
 		return "", err
@@ -446,7 +446,7 @@ func (m *Module) installCharts(kubeContext string, force bool) error {
 	for name, chart := range m.Spec.Env.Kubernetes.Charts {
 		newDigest, err := digestChart(name, chart)
 		if err != nil {
-			return fmt.Errorf("digestPath: %v", err)
+			return fmt.Errorf("digestChart: %v", err)
 		}
 		key := "chart?" + name
 		if !force {

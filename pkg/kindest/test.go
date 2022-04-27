@@ -366,7 +366,7 @@ func (m *Module) applyManifests(
 	for _, resource := range resources {
 		newDigest, err := digestResources(resource)
 		if err != nil {
-			return fmt.Errorf("digestPath: %v", err)
+			return fmt.Errorf("digestResources: %v", err)
 		}
 		key := "res?" + resource
 		if !force {
