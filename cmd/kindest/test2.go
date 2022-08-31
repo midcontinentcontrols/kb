@@ -37,6 +37,9 @@ var test2Cmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		if len(module.Spec.Test) == 0 {
+			return fmt.Errorf("no test spec")
+		}
 		fmt.Printf("%#v\n", module.Spec.Test[0].Env.Kubernetes)
 		if err := module.RunTests2(
 			&kindest.TestOptions{
