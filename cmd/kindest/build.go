@@ -61,7 +61,7 @@ func init() {
 	buildCmd.PersistentFlags().StringVarP(&buildArgs.File, "file", "f", "./kindest.yaml", "Path to kindest.yaml file")
 	buildCmd.PersistentFlags().IntVarP(&buildArgs.Concurrency, "concurrency", "c", runtime.NumCPU(), "number of parallel build jobs")
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.NoCache, "no-cache", false, "build images from scratch")
-	buildCmd.PersistentFlags().StringVarP(&buildArgs.Tag, "tag", "t", "latest", "docker image tag")
+	buildCmd.PersistentFlags().StringVarP(&buildArgs.Tag, "tag", "t", "", "docker image tag")
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.Squash, "squash", false, "squashes newly built layers into a single new layer (docker experimental feature)")
 	buildCmd.PersistentFlags().StringVar(&buildArgs.Builder, "builder", "docker", "builder backend (docker or kaniko)")
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.NoPush, "no-push", false, "do not push built images")

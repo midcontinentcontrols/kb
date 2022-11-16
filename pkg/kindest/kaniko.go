@@ -82,11 +82,6 @@ func buildKaniko(
 	if options.NoPush {
 		command = append(command, "--no-push")
 	} else {
-		dest := util.SanitizeImageName(
-			options.Repository,
-			spec.Name,
-			options.Tag,
-		)
 		command = append(command, "--destination="+dest)
 	}
 	for _, buildArg := range spec.BuildArgs {

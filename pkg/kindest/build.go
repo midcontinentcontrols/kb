@@ -34,6 +34,9 @@ type BuildSpec struct {
 	Context      string            `json:"context,omitempty" yaml:"context,omitempty"`
 	BuildArgs    []*BuildArg       `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
 	Target       string            `json:"target,omitempty" yaml:"target,omitempty"`
+	DefaultTag   string            `json:"defaultTag,omitempty" yaml:"defaultTag,omitempty"`
+	TagPrefix    string            `json:"tagPrefix,omitempty" yaml:"tagPrefix,omitempty"`
+	TagSuffix    string            `json:"tagSuffix,omitempty" yaml:"tagSuffix,omitempty"`
 	Command      []string          `json:"command,omitempty" yaml:"command,omitempty"`
 	SkipPush     bool              `json:"skipPush,omitempty" yaml:"skipPush,omitempty"`
 	NodeSelector map[string]string `json:"nodeSelector,omitempty" yaml:"nodeSelector,omitempty"`

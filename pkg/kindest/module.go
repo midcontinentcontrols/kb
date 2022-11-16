@@ -23,6 +23,8 @@ import (
 	"github.com/midcontinentcontrols/kindest/pkg/util"
 )
 
+var DefaultTag = "latest"
+
 type BuildStatus int32
 
 func (b BuildStatus) String() string {
@@ -587,9 +589,10 @@ func doBuildModule(
 	buildContext []byte,
 	relativeDockerfile string,
 	options *BuildOptions,
+	dest string,
+	tag string,
 	log logger.Logger,
 ) error {
-	dest := util.SanitizeImageName(options.Repository, spec.Name, options.Tag)
 	log = log.With(zap.String("dest", dest))
 	switch options.Builder {
 	case "":
@@ -598,6 +601,7 @@ func doBuildModule(
 		if err := buildDocker(
 			spec,
 			dest,
+			tag,
 			buildContext,
 			relativeDockerfile,
 			options,
@@ -701,7 +705,25 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	if err != nil {
 		return err
 	}
-	dest := util.SanitizeImageName(options.Repository, m.Spec.Build.Name, options.Tag)
+
+	// Prefer build's defaultTag
+	tag := m.Spec.Build.DefaultTag
+	if options.Tag != "" {
+		// Overridden via --tag option
+		tag = options.Tag
+	}
+	if tag == "" {
+		// Use the global default
+		tag = DefaultTag
+	}
+	if m.Spec.Build.TagPrefix != "" {
+		tag = m.Spec.Build.TagPrefix + tag
+	}
+	if m.Spec.Build.TagSuffix != "" {
+		tag += m.Spec.Build.TagSuffix
+	}
+
+	dest := util.SanitizeImageName(options.Repository, m.Spec.Build.Name, tag)
 	cachedDigest, err := m.CachedDigest(dest)
 	if err != nil && err != ErrModuleNotCached {
 		return err
@@ -724,6 +746,8 @@ func (m *Module) doBuild(options *BuildOptions) error {
 		tar,
 		relativeDockerfile,
 		options,
+		dest,
+		tag,
 		m.log,
 	); err != nil {
 		return err

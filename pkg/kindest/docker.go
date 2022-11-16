@@ -23,6 +23,7 @@ import (
 func buildDocker(
 	spec *BuildSpec,
 	dest string,
+	tag string,
 	buildContext []byte,
 	relativeDockerfile string,
 	options *BuildOptions,
@@ -36,19 +37,12 @@ func buildDocker(
 	for _, arg := range spec.BuildArgs {
 		buildArgs[arg.Name] = &arg.Value
 	}
-
 	repo := options.Repository
 	if repo != "" && !strings.HasSuffix(repo, "/") {
 		repo += "/"
 	}
 	buildArgs["KINDEST_REPOSITORY"] = &repo
-
-	tag := options.Tag
-	if tag == "" {
-		tag = "latest"
-	}
 	buildArgs["KINDEST_TAG"] = &tag
-
 	resp, err := cli.ImageBuild(
 		context.TODO(),
 		bytes.NewReader(buildContext),
@@ -82,7 +76,6 @@ func buildDocker(
 	); err != nil {
 		return err
 	}
-
 	if !options.NoPush && !spec.SkipPush {
 		authConfig, err := RegistryAuthFromEnv(dest)
 		if err != nil {
