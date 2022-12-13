@@ -127,6 +127,7 @@ type BuildOptions struct {
 	Tag        string `json:"tag,omitempty" yaml:"tag,omitempty"`
 	Builder    string `json:"builder,omitempty" yaml:"builder,omitempty"`
 	NoPush     bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
+	NoPushDeps bool   `json:"noPushDeps,omitempty" yaml:"noPushDeps,omitempty"`
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
 	Context    string `json:"context,omitempty" yaml:"context,omitempty"`
 	Namespace  string `json:"namespace,omitempty" yaml:"namespace,omitempty"`

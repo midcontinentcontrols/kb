@@ -19,6 +19,7 @@ type BuildArgs struct {
 	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
 	Repository  string `json:"repository,omitempty" yaml:"repository,omitempty"`
 	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
+	NoPushDeps  bool   `json:"noPushDeps,omitempty" yaml:"noPushDeps,omitempty"`
 	SkipHooks   bool   `json:"skipHooks,omitempty" yaml:"skipHooks,omitempty"`
 	Verbose     bool   `json:"verbose,omitempty" yaml:"verbose,omitempty"`
 	Force       bool   `json:"force,omitempty" yaml:"force,omitempty"`
@@ -45,6 +46,7 @@ var buildCmd = &cobra.Command{
 			Builder:    buildArgs.Builder,
 			Repository: buildArgs.Repository,
 			NoPush:     buildArgs.NoPush,
+			NoPushDeps: buildArgs.NoPushDeps,
 			SkipHooks:  buildArgs.SkipHooks,
 			Verbose:    buildArgs.Verbose,
 			Force:      buildArgs.Force,
@@ -65,6 +67,7 @@ func init() {
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.Squash, "squash", false, "squashes newly built layers into a single new layer (docker experimental feature)")
 	buildCmd.PersistentFlags().StringVar(&buildArgs.Builder, "builder", "docker", "builder backend (docker or kaniko)")
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.NoPush, "no-push", false, "do not push built images")
+	buildCmd.PersistentFlags().BoolVar(&buildArgs.NoPushDeps, "no-push-deps", false, "do not push dependencies")
 	buildCmd.PersistentFlags().StringVar(&buildArgs.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.SkipHooks, "skip-hooks", false, "skip before: and after: hooks")
 	buildCmd.PersistentFlags().BoolVarP(&buildArgs.Verbose, "verbose", "v", false, "verbose output (pipe build messages to stdout)")

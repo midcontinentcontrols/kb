@@ -19,6 +19,7 @@ type DeployArgs struct {
 	NoAutoRestart bool   `json:"noAutoRestart"`
 	Wait          bool   `json:"wait"`
 	Force         bool   `json:"force"`
+	Verbose       bool   `json:"verbose"`
 }
 
 var deployArgs DeployArgs
@@ -43,6 +44,7 @@ var deployCmd = &cobra.Command{
 			RestartImages: strings.Split(deployArgs.RestartImages, ","),
 			Wait:          deployArgs.Wait,
 			Force:         deployArgs.Force,
+			Verbose:       deployArgs.Verbose,
 		}); err != nil {
 			return err
 		}
@@ -61,4 +63,5 @@ func init() {
 	deployCmd.PersistentFlags().BoolVar(&deployArgs.NoAutoRestart, "no-auto-restart", false, "disable automatic restart of pods for pushed images")
 	deployCmd.PersistentFlags().BoolVarP(&deployArgs.Wait, "wait", "w", false, "wait for successful deployment")
 	deployCmd.PersistentFlags().BoolVar(&deployArgs.Force, "force", false, "deploy manifests and charts even if files are unchanged")
+	deployCmd.PersistentFlags().BoolVarP(&deployArgs.Verbose, "verbose", "v", false, "verbose output")
 }

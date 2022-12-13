@@ -50,6 +50,7 @@ var test2Cmd = &cobra.Command{
 					Builder:    testArgs.Builder,
 					Repository: testArgs.Repository,
 					NoPush:     testArgs.NoPush,
+					NoPushDeps: testArgs.NoPushDeps,
 					SkipHooks:  testArgs.SkipHooks,
 					Verbose:    testArgs.Verbose,
 					Force:      testArgs.Force,
@@ -81,6 +82,7 @@ func init() {
 	test2Cmd.PersistentFlags().BoolVar(&testArgs.Squash, "squash", false, "squashes newly built layers into a single new layer (docker experimental feature)")
 	test2Cmd.PersistentFlags().StringVar(&testArgs.Builder, "builder", "docker", "builder backend (docker or kaniko)")
 	test2Cmd.PersistentFlags().BoolVar(&testArgs.NoPush, "no-push", false, "do not push built images")
+	test2Cmd.PersistentFlags().BoolVar(&testArgs.NoPushDeps, "no-push-deps", false, "do not push built dependencies")
 	test2Cmd.PersistentFlags().StringVar(&testArgs.Repository, "repository", "", "push repository override (e.g. localhost:5000)")
 	test2Cmd.PersistentFlags().BoolVar(&testArgs.SkipHooks, "skip-hooks", false, "skip before: and after: hooks")
 	test2Cmd.PersistentFlags().BoolVarP(&testArgs.Verbose, "verbose", "v", false, "verbose output (pipe build messages to stdout)")
