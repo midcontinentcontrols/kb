@@ -1,4 +1,4 @@
-**Use one of the tags (i.e. `git checkout 0.1.1`) if you desire a stable release. Master breaks frequently.**
+**Use one of the tags (i.e. `git checkout 0.2.0`) if you desire a stable release. Master breaks frequently.**
 
 **It appears the name `kindest` is already in use by unrelated FOSS projects and a new title for this repo is currently pending.**
 
