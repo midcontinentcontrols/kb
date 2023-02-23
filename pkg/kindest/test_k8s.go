@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/google/uuid"
 	"github.com/midcontinentcontrols/kindest/pkg/logger"
@@ -29,7 +31,7 @@ func (t *TestSpec) runKubernetes(
 	if err != nil {
 		return err
 	}
-	start := time.Now()
+	//start := time.Now()
 	log.Debug("Checking RBAC...")
 	if err := createTestRBAC(client, log); err != nil {
 		return err
@@ -98,7 +100,7 @@ func (t *TestSpec) runKubernetes(
 	}
 	log.Debug("Created test pod", zap.String("name", pod.Name))
 	delay := time.Second
-	start = time.Now()
+	start := time.Now()
 	scheduled := false
 	for {
 		pod, err = pods.Get(
@@ -139,15 +141,8 @@ func (t *TestSpec) runKubernetes(
 				}
 			}
 			if verbose {
-				req := pods.GetLogs(pod.Name, &corev1.PodLogOptions{
-					Follow: true,
-				})
-				r, err := req.Stream(context.TODO())
-				if err != nil {
+				if err := tailLogsKubectl(pod.Name, pod.Namespace); err != nil {
 					return err
-				}
-				if _, err := io.Copy(os.Stdout, r); err != nil {
-					return fmt.Errorf("copy: %v", err)
 				}
 			}
 		default:
@@ -156,4 +151,45 @@ func (t *TestSpec) runKubernetes(
 		time.Sleep(delay)
 		continue
 	}
+}
+
+func tailLogsClienset(
+	pods v1.PodInterface,
+	pod *corev1.Pod,
+) error {
+	req := pods.GetLogs(pod.Name, &corev1.PodLogOptions{
+		Follow: true,
+	})
+	r, err := req.Stream(context.TODO())
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(os.Stdout, r); err != nil {
+		return fmt.Errorf("copy: %v", err)
+	}
+	return nil
+}
+
+func tailLogsKubectl(
+	name string,
+	namespace string,
+) error {
+	cmd := exec.Command(
+		getKubectlCommand(),
+		"logs",
+		"-f",
+		"-n", namespace,
+		name,
+	)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func getKubectlCommand() string {
+	if v, ok := os.LookupEnv("KUBECTL"); ok {
+		return v
+	}
+	return "kubectl"
 }
