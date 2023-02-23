@@ -226,6 +226,6 @@ go test -v -timeout 4h
 Image pulling and building is part of the tests, making the `-timeout` flag necessary. `.vscode/settings.json` is intentionally part of this repository in order for VS Code's `Go: Toggle Test Coverage in Current Package` to work correctly.
 
 ## License
-Copyright (c) Mid Continent Controls, Inc. 2022
+Copyright (c) Mid Continent Controls, Inc. 2023
 
 Released under MIT and Apache dual licenses. Unencumbered commercial use is permitted. See LICENSE-Apache and LICENSE-MIT files for more information.
