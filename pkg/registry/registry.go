@@ -70,7 +70,8 @@ func DeleteLocalRegistry(cli client.APIClient, log logger.Logger) error {
 	name := "kind-registry"
 	timeout := 10 * time.Second
 	log = log.With(zap.String("name", name))
-	log.Info("Stopping registry container")
+	log.Info("Stopping registry container",
+		zap.String("timeout", timeout.String()))
 	if err := cli.ContainerStop(
 		context.TODO(),
 		name,
