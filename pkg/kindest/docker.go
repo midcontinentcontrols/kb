@@ -21,6 +21,7 @@ import (
 )
 
 func buildDocker(
+	ctx context.Context,
 	spec *BuildSpec,
 	dest string,
 	tag string,
@@ -44,7 +45,7 @@ func buildDocker(
 	buildArgs["KINDEST_REPOSITORY"] = &repo
 	buildArgs["KINDEST_TAG"] = &tag
 	resp, err := cli.ImageBuild(
-		context.TODO(),
+		ctx,
 		bytes.NewReader(buildContext),
 		dockertypes.ImageBuildOptions{
 			NoCache:    options.NoCache,

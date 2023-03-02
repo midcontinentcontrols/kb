@@ -2,6 +2,7 @@ package kindest
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -585,6 +586,7 @@ func copyDockerCredential(
 */
 
 func doBuildModule(
+	ctx context.Context,
 	spec *BuildSpec,
 	buildContext []byte,
 	relativeDockerfile string,
@@ -599,6 +601,7 @@ func doBuildModule(
 		fallthrough
 	case "docker":
 		if err := buildDocker(
+			ctx,
 			spec,
 			dest,
 			tag,
@@ -690,11 +693,19 @@ func (m *Module) DependsOnFiles(files []string) (bool, error) {
 }
 
 func (m *Module) doBuild(options *BuildOptions) error {
+	// Sanity check to make sure we don't have a colon in the build name.
+	// The error message for this is otherwise quite ambiguous, so it's
+	// worth catching explicitly.
+	if strings.Contains(m.Spec.Build.Name, ":") {
+		return fmt.Errorf("build name cannot contain a colon: %s", m.Spec.Build.Name)
+	}
+
 	if !options.SkipHooks {
 		if err := runCommands(m.Spec.Build.Before); err != nil {
 			return fmt.Errorf("pre-build hook failure: %v", err)
 		}
 	}
+
 	// Create a docker "include" that lists files included by the build context.
 	// This is necessary for calculating the digest
 	buildContext, relativeDockerfile, include, err := m.loadBuildContext()
@@ -742,6 +753,7 @@ func (m *Module) doBuild(options *BuildOptions) error {
 		return err
 	}
 	if err := doBuildModule(
+		context.Background(),
 		m.Spec.Build,
 		tar,
 		relativeDockerfile,
