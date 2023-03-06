@@ -259,11 +259,13 @@ func addDirToBuildContext(
 	traverse []string,
 	c map[string]Entity,
 ) error {
+	// List the files in the directory.
 	infos, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 	for _, info := range infos {
+		// Determine the relative path of the file within the build context.
 		name := info.Name()
 		path := filepath.Join(dir, name)
 		rel, err := filepath.Rel(contextPath, path)
@@ -272,12 +274,15 @@ func addDirToBuildContext(
 		}
 		rel = filepath.ToSlash(rel)
 		if info.IsDir() {
+			// Make sure all directories end with a slash.
 			if !strings.HasSuffix(rel, "/") {
 				rel += "/"
 			}
 		}
+		// Check if the file is excluded by .dockerignore.
 		excludeFile := dockerignore.MatchesPath(rel)
 		if excludeFile {
+			// File is explicitly rejected by .dockerignore
 			continue
 		}
 		if info.IsDir() {
@@ -299,7 +304,9 @@ func addDirToBuildContext(
 					continue
 				}
 			}
+			// Create the build context for the directory.
 			contents := make(map[string]Entity)
+			// Traverse the filesystem to construct the context.
 			if err := addDirToBuildContext(
 				path,
 				contextPath,
@@ -310,15 +317,19 @@ func addDirToBuildContext(
 			); err != nil {
 				return err
 			}
+			// Add the directory to the build context map.
 			c[name] = &Directory{
 				Contents: contents,
 				info:     info,
 			}
 		} else if include.MatchesPath(rel) {
+			// This file is included within the Dockerfile.
+			// Read its contents into memory.
 			body, err := ioutil.ReadFile(path)
 			if err != nil {
 				return err
 			}
+			// Add the file to the build context map.
 			c[name] = &File{
 				Content: body,
 				info:    info,
@@ -328,6 +339,11 @@ func addDirToBuildContext(
 	return nil
 }
 
+// createDockerInclude creates a GitIgnore object from the Dockerfile
+// that includes all the files and directories that are copied or added
+// to the image. It also returns a list of directories that need to be
+// traversed to include all the files and directories that are copied
+// or added to the image.
 func createDockerInclude(contextPath string, dockerfilePath string) (*gogitignore.GitIgnore, []string, error) {
 	f, err := os.Open(dockerfilePath)
 	if err != nil {
@@ -338,64 +354,76 @@ func createDockerInclude(contextPath string, dockerfilePath string) (*gogitignor
 	var addedPaths []string
 	var traverse []string
 	for scanner.Scan() {
+		// Parse the READ and ADD lines in the Dockerfile.
 		line := strings.TrimSpace(scanner.Text())
-		if len(line) == 0 || strings.HasPrefix(line, "#") {
+		if len(line) == 0 || // empty line (probably whitespace)
+			strings.HasPrefix(line, "#") || // line is a comment
+			(!strings.HasPrefix(line, "COPY") && !strings.HasPrefix(line, "ADD")) {
 			continue
 		}
-		if strings.HasPrefix(line, "COPY") || strings.HasPrefix(line, "ADD") {
-			fields := strings.Fields(line)
-			if rel := fields[1]; !strings.HasPrefix(rel, "--from") {
-				abs := filepath.Clean(filepath.Join(contextPath, rel))
-				info, err := os.Stat(abs)
-				if err != nil {
-					return nil, nil, fmt.Errorf("failed to stat %v: %v", abs, err)
-				}
-				if info.IsDir() && !strings.HasSuffix(rel, "/") {
-					rel += "/"
-				}
+		fields := strings.Fields(line)
+		if strings.HasPrefix(fields[1], "--from") {
+			// Ignore COPY's from other stages. These files will
+			// always be available and don't need to be included
+			// in the build context.
+			continue
+		}
+		// The last field is the destination. All other fields
+		// are sources, and there can be many of them.
+		relSources := fields[1 : len(fields)-1]
+		for _, relSource := range relSources {
+			absSource := filepath.Clean(filepath.Join(contextPath, relSource))
+			info, err := os.Stat(absSource)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to stat %v: %v", absSource, err)
+			}
+			if info.IsDir() && !strings.HasSuffix(relSource, "/") {
+				relSource += "/"
+			}
 
-				// Add it to the explicit dockerinclude
+			// Add it to the "explicit" dockerinclude if
+			// it isn't already there.
+			found := false
+			for _, item := range addedPaths {
+				if item == relSource {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Add the path to the list of paths to include.
+				if relSource == "./" {
+					// Fix issue where `COPY . .` doesn't work by
+					// adding all files to the include matcher.
+					relSource = "*"
+				}
+				addedPaths = append(addedPaths, relSource)
+			}
+
+			// Add all the necessary parent paths to the traversal list
+			parts := strings.Split(relSource, "/")
+			for i := range parts[:len(parts)-1] {
+				if parts[i] == "" {
+					// Trailing slash
+					break
+				}
+				var full string
+				for _, other := range parts[:i+1] {
+					if full != "" {
+						full += "/"
+					}
+					full += other
+				}
 				found := false
-				for _, item := range addedPaths {
-					if item == rel {
+				for _, item := range traverse {
+					if item == full {
 						found = true
 						break
 					}
 				}
 				if !found {
-					if rel == "./" {
-						// Fix issue where `COPY . .` doesn't work by
-						// adding all files to the include matcher.
-						rel = "*"
-					}
-					addedPaths = append(addedPaths, rel)
-				}
-
-				// Add all the necessary parent paths to the traversal list
-				parts := strings.Split(rel, "/")
-				for i := range parts[:len(parts)-1] {
-					if parts[i] == "" {
-						// Trailing slash
-						break
-					}
-					var full string
-					for _, other := range parts[:i+1] {
-						if full != "" {
-							full += "/"
-						}
-						full += other
-					}
-					found := false
-					for _, item := range traverse {
-						if item == full {
-							found = true
-							break
-						}
-					}
-					if !found {
-						//fmt.Printf("Added %s\n", full)
-						traverse = append(traverse, full)
-					}
+					//fmt.Printf("Added %s\n", full)
+					traverse = append(traverse, full)
 				}
 			}
 		}
