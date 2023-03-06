@@ -356,9 +356,8 @@ func createDockerInclude(contextPath string, dockerfilePath string) (*gogitignor
 	for scanner.Scan() {
 		// Parse the READ and ADD lines in the Dockerfile.
 		line := strings.TrimSpace(scanner.Text())
-		if len(line) == 0 || // empty line (probably whitespace)
-			strings.HasPrefix(line, "#") || // line is a comment
-			(!strings.HasPrefix(line, "COPY") && !strings.HasPrefix(line, "ADD")) {
+		if !isAddOrCopyLine(line) {
+			// Skip lines that aren't ADD or COPY.
 			continue
 		}
 		fields := strings.Fields(line)
@@ -371,6 +370,13 @@ func createDockerInclude(contextPath string, dockerfilePath string) (*gogitignor
 		// The last field is the destination. All other fields
 		// are sources, and there can be many of them.
 		relSources := fields[1 : len(fields)-1]
+		if len(relSources) > 1 {
+			// Multiple sources per ADD/COPY are not yet supported
+			// becauses the rules for copying directories are not
+			// exactly trivial. For now, we'll just force the
+			// user to specify each source individually.
+			panic(fmt.Sprintf("multiple sources in single COPY/ADD directive (%#v) not yet supported", relSources))
+		}
 		for _, relSource := range relSources {
 			absSource := filepath.Clean(filepath.Join(contextPath, relSource))
 			info, err := os.Stat(absSource)
@@ -429,6 +435,12 @@ func createDockerInclude(contextPath string, dockerfilePath string) (*gogitignor
 		}
 	}
 	return gogitignore.CompileIgnoreLines(addedPaths...), traverse, nil
+}
+
+func isAddOrCopyLine(line string) bool {
+	return len(line) > 0 &&
+		!strings.HasPrefix(line, "#") &&
+		(strings.HasPrefix(line, "COPY") || strings.HasPrefix(line, "ADD"))
 }
 
 func getRelativeDockerfilePath(contextPath, dockerfilePath string) (string, error) {
