@@ -23,6 +23,8 @@ type BuildArgs struct {
 	SkipHooks   bool   `json:"skipHooks,omitempty" yaml:"skipHooks,omitempty"`
 	Verbose     bool   `json:"verbose,omitempty" yaml:"verbose,omitempty"`
 	Force       bool   `json:"force,omitempty" yaml:"force,omitempty"`
+	Restart     bool   `json:"restart,omitempty" yaml:"restart,omitempty"`
+	KubeContext string `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
 }
 
 var buildArgs BuildArgs
@@ -53,7 +55,21 @@ var buildCmd = &cobra.Command{
 		}); err != nil {
 			return err
 		}
-		log.Info("Build successful", zap.String("elapsed", time.Since(start).String()))
+		log.Info("Build successful",
+			zap.String("elapsed", time.Since(start).String()))
+		if buildArgs.Restart {
+			start := time.Now()
+			log.Info("Restarting containers...", zap.String("kubeContext", buildArgs.KubeContext))
+			if err := module.RestartContainers(
+				module.BuiltImages,
+				buildArgs.Verbose,
+				buildArgs.KubeContext,
+			); err != nil {
+				return err
+			}
+			log.Info("Containers restarted",
+				zap.String("elapsed", time.Since(start).String()))
+		}
 		return nil
 	},
 }
@@ -72,4 +88,6 @@ func init() {
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.SkipHooks, "skip-hooks", false, "skip before: and after: hooks")
 	buildCmd.PersistentFlags().BoolVarP(&buildArgs.Verbose, "verbose", "v", false, "verbose output (pipe build messages to stdout)")
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.Force, "force", false, "build regardless of digest")
+	buildCmd.PersistentFlags().BoolVarP(&buildArgs.Restart, "restart", "r", false, "restart pods with out-of-date images after build")
+	buildCmd.PersistentFlags().StringVar(&buildArgs.KubeContext, "kube-context", "", "kubectl context (uses current by default)")
 }
