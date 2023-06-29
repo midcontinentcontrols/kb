@@ -44,6 +44,18 @@ func buildDocker(
 	}
 	buildArgs["KINDEST_REPOSITORY"] = &repo
 	buildArgs["KINDEST_TAG"] = &tag
+	if len(options.BuildArgs) > 0 {
+		for _, arg := range options.BuildArgs {
+			parts := strings.SplitN(arg, "=", 2)
+			if len(parts) != 2 {
+				return fmt.Errorf("invalid build arg: %s", arg)
+			}
+			buildArgs[parts[0]] = &parts[1]
+			log.Debug("build arg",
+				zap.String("name", parts[0]),
+				zap.String("value", parts[1]))
+		}
+	}
 	resp, err := cli.ImageBuild(
 		ctx,
 		bytes.NewReader(buildContext),

@@ -122,18 +122,19 @@ func digestPath(resource string) (string, error) {
 }
 
 type BuildOptions struct {
-	NoCache    bool   `json:"nocache,omitempty" yaml:"nocache,omitempty"`
-	Squash     bool   `json:"squash,omitempty" yaml:"squash,omitempty"`
-	Tag        string `json:"tag,omitempty" yaml:"tag,omitempty"`
-	Builder    string `json:"builder,omitempty" yaml:"builder,omitempty"`
-	NoPush     bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
-	NoPushDeps bool   `json:"noPushDeps,omitempty" yaml:"noPushDeps,omitempty"`
-	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
-	Context    string `json:"context,omitempty" yaml:"context,omitempty"`
-	Namespace  string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
-	Force      bool   `json:"force,omitempty"`     // If true, will always run docker build regardless of kindest digest
-	SkipHooks  bool   `json:"skipHooks,omitempty"` // If true, skip before/after build hooks
-	Verbose    bool   `json:"verbose,omitempty" yaml:"verbose,omitempty"`
+	NoCache    bool     `json:"nocache,omitempty" yaml:"nocache,omitempty"`
+	Squash     bool     `json:"squash,omitempty" yaml:"squash,omitempty"`
+	Tag        string   `json:"tag,omitempty" yaml:"tag,omitempty"`
+	Builder    string   `json:"builder,omitempty" yaml:"builder,omitempty"`
+	NoPush     bool     `json:"noPush,omitempty" yaml:"noPush,omitempty"`
+	NoPushDeps bool     `json:"noPushDeps,omitempty" yaml:"noPushDeps,omitempty"`
+	Repository string   `json:"repository,omitempty" yaml:"repository,omitempty"`
+	Context    string   `json:"context,omitempty" yaml:"context,omitempty"`
+	Namespace  string   `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	Force      bool     `json:"force,omitempty"`     // If true, will always run docker build regardless of kindest digest
+	SkipHooks  bool     `json:"skipHooks,omitempty"` // If true, skip before/after build hooks
+	Verbose    bool     `json:"verbose,omitempty" yaml:"verbose,omitempty"`
+	BuildArgs  []string `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
 }
 
 func locateSpec(file string) (string, error) {

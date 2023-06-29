@@ -11,20 +11,21 @@ import (
 )
 
 type BuildArgs struct {
-	File        string `json:"file,omitempty" yaml:"file,omitempty"`
-	Concurrency int    `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
-	NoCache     bool   `json:"nocache,omitempty" yaml:"nocache,omitempty"`
-	Squash      bool   `json:"squash,omitempty" yaml:"squash,omitempty"`
-	Tag         string `json:"tag,omitempty" yaml:"tag,omitempty"`
-	Builder     string `json:"builder,omitempty" yaml:"builder,omitempty"`
-	Repository  string `json:"repository,omitempty" yaml:"repository,omitempty"`
-	NoPush      bool   `json:"noPush,omitempty" yaml:"noPush,omitempty"`
-	NoPushDeps  bool   `json:"noPushDeps,omitempty" yaml:"noPushDeps,omitempty"`
-	SkipHooks   bool   `json:"skipHooks,omitempty" yaml:"skipHooks,omitempty"`
-	Verbose     bool   `json:"verbose,omitempty" yaml:"verbose,omitempty"`
-	Force       bool   `json:"force,omitempty" yaml:"force,omitempty"`
-	Restart     bool   `json:"restart,omitempty" yaml:"restart,omitempty"`
-	KubeContext string `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
+	File        string   `json:"file,omitempty" yaml:"file,omitempty"`
+	Concurrency int      `json:"concurrency,omitempty" yaml:"concurrency,omitempty"`
+	NoCache     bool     `json:"nocache,omitempty" yaml:"nocache,omitempty"`
+	Squash      bool     `json:"squash,omitempty" yaml:"squash,omitempty"`
+	Tag         string   `json:"tag,omitempty" yaml:"tag,omitempty"`
+	Builder     string   `json:"builder,omitempty" yaml:"builder,omitempty"`
+	Repository  string   `json:"repository,omitempty" yaml:"repository,omitempty"`
+	NoPush      bool     `json:"noPush,omitempty" yaml:"noPush,omitempty"`
+	NoPushDeps  bool     `json:"noPushDeps,omitempty" yaml:"noPushDeps,omitempty"`
+	SkipHooks   bool     `json:"skipHooks,omitempty" yaml:"skipHooks,omitempty"`
+	Verbose     bool     `json:"verbose,omitempty" yaml:"verbose,omitempty"`
+	Force       bool     `json:"force,omitempty" yaml:"force,omitempty"`
+	Restart     bool     `json:"restart,omitempty" yaml:"restart,omitempty"`
+	KubeContext string   `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
+	BuildArgs   []string `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
 }
 
 var buildArgs BuildArgs
@@ -52,6 +53,8 @@ var buildCmd = &cobra.Command{
 			SkipHooks:  buildArgs.SkipHooks,
 			Verbose:    buildArgs.Verbose,
 			Force:      buildArgs.Force,
+			BuildArgs:  buildArgs.BuildArgs,
+			Context:    buildArgs.KubeContext,
 		}); err != nil {
 			return err
 		}
@@ -90,4 +93,5 @@ func init() {
 	buildCmd.PersistentFlags().BoolVar(&buildArgs.Force, "force", false, "build regardless of digest")
 	buildCmd.PersistentFlags().BoolVarP(&buildArgs.Restart, "restart", "r", false, "restart pods with out-of-date images after build")
 	buildCmd.PersistentFlags().StringVar(&buildArgs.KubeContext, "kube-context", "", "kubectl context (uses current by default)")
+	buildCmd.PersistentFlags().StringSliceVar(&buildArgs.BuildArgs, "build-arg", nil, "docker build arguments")
 }
