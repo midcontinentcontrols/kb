@@ -87,6 +87,7 @@ func init() {
 	test2Cmd.PersistentFlags().BoolVar(&testArgs.SkipHooks, "skip-hooks", false, "skip before: and after: hooks")
 	test2Cmd.PersistentFlags().BoolVarP(&testArgs.Verbose, "verbose", "v", false, "verbose output (pipe build messages to stdout)")
 	test2Cmd.PersistentFlags().BoolVar(&testArgs.Force, "force", false, "build regardless of digest")
+	test2Cmd.PersistentFlags().StringVar(&testArgs.Platform, "platform", "", "target platform (e.g. linux/amd64)")
 
 	test2Cmd.PersistentFlags().StringVarP(&testArgs.Namespace, "namespace", "n", "default", "test pod namespace")
 	test2Cmd.PersistentFlags().StringVar(&testArgs.KubeContext, "kube-context", "", "kubectl context (uses current by default)")

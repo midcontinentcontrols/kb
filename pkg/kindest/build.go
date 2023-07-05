@@ -135,6 +135,7 @@ type BuildOptions struct {
 	SkipHooks  bool     `json:"skipHooks,omitempty"` // If true, skip before/after build hooks
 	Verbose    bool     `json:"verbose,omitempty" yaml:"verbose,omitempty"`
 	BuildArgs  []string `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
+	Platform   string   `json:"platform,omitempty" yaml:"platform,omitempty"`
 }
 
 func locateSpec(file string) (string, error) {

@@ -26,6 +26,7 @@ type BuildArgs struct {
 	Restart     bool     `json:"restart,omitempty" yaml:"restart,omitempty"`
 	KubeContext string   `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
 	BuildArgs   []string `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
+	Platform    string   `json:"platform,omitempty" yaml:"platform,omitempty"`
 }
 
 var buildArgs BuildArgs
@@ -55,6 +56,7 @@ var buildCmd = &cobra.Command{
 			Force:      buildArgs.Force,
 			BuildArgs:  buildArgs.BuildArgs,
 			Context:    buildArgs.KubeContext,
+			Platform:   buildArgs.Platform,
 		}); err != nil {
 			return err
 		}
@@ -94,4 +96,5 @@ func init() {
 	buildCmd.PersistentFlags().BoolVarP(&buildArgs.Restart, "restart", "r", false, "restart pods with out-of-date images after build")
 	buildCmd.PersistentFlags().StringVar(&buildArgs.KubeContext, "kube-context", "", "kubectl context (uses current by default)")
 	buildCmd.PersistentFlags().StringSliceVar(&buildArgs.BuildArgs, "build-arg", nil, "docker build arguments")
+	buildCmd.PersistentFlags().StringVar(&buildArgs.Platform, "platform", "", "build platform override (e.g. linux/amd64,linux/arm64, comma-delimit for multiple)")
 }

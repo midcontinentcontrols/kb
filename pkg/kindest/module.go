@@ -640,7 +640,7 @@ func doBuildModule(
 	case "":
 		fallthrough
 	case "docker":
-		if err := buildDocker(
+		if err := buildxDocker(
 			ctx,
 			spec,
 			dest,
@@ -775,7 +775,7 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	}
 
 	dest := util.SanitizeImageName(options.Repository, m.Spec.Build.Name, tag)
-	cachedDigest, err := m.CachedDigest(dest)
+	cachedDigest, err := m.CachedDigest(options.Platform + dest)
 	if err != nil && err != ErrModuleNotCached {
 		return err
 	}
@@ -810,7 +810,7 @@ func (m *Module) doBuild(options *BuildOptions) error {
 		zap.String("digest", digest),
 		zap.Bool("noPush", options.NoPush))
 	m.builtImage(dest)
-	if err := m.cacheDigest(dest, digest); err != nil {
+	if err := m.cacheDigest(options.Platform+dest, digest); err != nil {
 		return err
 	}
 	if !options.SkipHooks {
