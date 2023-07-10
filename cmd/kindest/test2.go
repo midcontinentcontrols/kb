@@ -54,6 +54,7 @@ var test2Cmd = &cobra.Command{
 					SkipHooks:  testArgs.SkipHooks,
 					Verbose:    testArgs.Verbose,
 					Force:      testArgs.Force,
+					Platform:   testArgs.Platform,
 				},
 				KubeContext:   kubeContext,
 				Kind:          testArgs.Kind,
