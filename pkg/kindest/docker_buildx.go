@@ -57,6 +57,7 @@ func buildxDocker(
 		"docker",
 		args...,
 	)
+	cmd.Dir = spec.Context
 	cmd.Stdin = bytes.NewReader(buildContext)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
