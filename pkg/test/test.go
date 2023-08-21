@@ -10,9 +10,9 @@ import (
 
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
-	"github.com/midcontinentcontrols/kindest/pkg/cluster_management"
-	"github.com/midcontinentcontrols/kindest/pkg/logger"
-	"github.com/midcontinentcontrols/kindest/pkg/util"
+	"github.com/midcontinentcontrols/kb/pkg/cluster_management"
+	"github.com/midcontinentcontrols/kb/pkg/logger"
+	"github.com/midcontinentcontrols/kb/pkg/util"
 	"github.com/stretchr/testify/require"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -68,7 +68,7 @@ var numClustersCreated int32
 func GetPushImage() string {
 	repo, ok := os.LookupEnv("PUSH_IMAGE")
 	if !ok {
-		return "thavlik/kindest-example"
+		return "thavlik/kb-example"
 	}
 	return repo
 }

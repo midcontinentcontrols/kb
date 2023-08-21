@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/midcontinentcontrols/kindest/pkg/logger"
+	"github.com/midcontinentcontrols/kb/pkg/logger"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"

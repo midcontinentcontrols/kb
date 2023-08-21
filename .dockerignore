@@ -1,9 +1,9 @@
 .vscode/
 docs/
 scripts/
-cmd/kindest/kindest
-cmd/kindest/kindest.exe
-pkg/kindest/tmp
+cmd/kb/kb
+cmd/kb/kb.exe
+pkg/kb/tmp
 LICENSE-*
 TODO
 README.md

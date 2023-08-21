@@ -1,34 +1,32 @@
 **Use one of the tags (i.e. `git checkout 0.2.0`) if you desire a stable release. Master breaks frequently.**
 
-**It appears the name `kindest` is already in use by unrelated FOSS projects and a new title for this repo is currently pending.**
-
-# Kindest DevOps for Monorepos
+# kb toolchain
 
 This is a toolchain built on top of [kind](https://github.com/kubernetes-sigs/kind) that aims to address the complexity associated with using it as a tool for microservice development. It was born out of necessity to reduce increasing execution times and maintenance overhead of bash scripts that accomplished more or less the same thing.
 
-Currently, kindest only builds locally using the Docker daemon. It is already a suitable replacement for `docker build`. There are plans to support on-cluster building with [kaniko](https://github.com/GoogleContainerTools/kaniko).
+Currently, `kb` only builds locally using the Docker daemon. It is already a suitable replacement for `docker buildx build`. There are plans to support on-cluster building with [kaniko](https://github.com/GoogleContainerTools/kaniko).
 
-At its core, the `kindest.yaml` file defines how images are built and tested either locally or on Kubernetes. The build process is fully parallelized and utilizes caching, so as to bypass redundant work for each submodule when no files have changed.
+At its core, the `kb.yaml` file defines how images are built and tested either locally or on Kubernetes. The build process is fully parallelized and utilizes caching, so as to bypass redundant work for each submodule when no files have changed.
 
-The testing features are stable but currently lack documentation. To run tests on a kind cluster using the [local registry](https://kind.sigs.k8s.io/docs/user/local-registry/), use the command `kindest test --kind my-cluster --repository localhost:5000`
+The testing features are stable but currently lack documentation. To run tests on a kind cluster using the [local registry](https://kind.sigs.k8s.io/docs/user/local-registry/), use the command `kb test --kind my-cluster --repository localhost:5000`
 
-### kindest.yaml
+### kb.yaml
 ```yaml
 # Relative paths to any dependent modules. Building or
 # testing this module will do the same for all deps.
 # These are built/tested concurrently, so it can be more
 # generally exploited to parallelize build jobs.
 dependencies:
-  - my-submodule # ./my-submodule/kindest.yaml
+  - my-submodule # ./my-submodule/kb.yaml
 
 build:
   # Name of the Docker image to build. The tag is chosen
-  # by kindest, so only specify repo and image.
+  # by kb, so only specify repo and image.
   name: midcontinentcontrols/example-image
 
   #dockerfile: ./Dockerfile
 
-  # Docker build context, relative to kindest.yaml
+  # Docker build context, relative to kb.yaml
   #context: .
 
   # https://docs.docker.com/engine/reference/commandline/build/
@@ -41,7 +39,7 @@ build:
   # by kaniko (e.g. arm32) specifying `docker` here will mount the
   # node's docker.sock into the build pod and use that instead.
   # Note: if a builder preference of `docker` is enforced, invoking
-  # `kindest build --builder kaniko` will raise an error.
+  # `kb build --builder kaniko` will raise an error.
   #builder: "" # "docker", "kaniko"
 
   # Only schedule the builder pod on nodes with these labels.
@@ -76,9 +74,9 @@ env:
 
     # These charts will be installed/upgraded at deploy.
     charts:
-      kindest: # Each item is given a name, which can be anything.
-        releaseName: kindest
-        namespace: kindest
+      kb: # Each item is given a name, which can be anything.
+        releaseName: kb
+        namespace: kb
         name: path/to/chart # Repository name or dir path that has ./path/to/chart/Chart.yaml
         values: {}
 
@@ -97,7 +95,7 @@ test:
   # cannot be depended upon. 
   env:
     # Run the test image locally with Docker. This is useful
-    # for incorporating unit tests into your kindest.yaml
+    # for incorporating unit tests into your kb.yaml
     #docker: {}
 
     # Run the test in a Kubernetes environment. The cluster
@@ -114,15 +112,15 @@ test:
       # when tests run. This chart is only shown here for
       # demonstration purposes.
       charts:
-        kindest:
-          releaseName: kindest
-          namespace: kindest
+        kb:
+          releaseName: kb
+          namespace: kb
           name: path/to/chart # ./path/to/chart/Chart.yaml
           values: {}
 
     # If your tests take a long time to complete, here
     # you can specify a default value for the --timeout
-    # flag of `kindest test`.
+    # flag of `kb test`.
     defaultTimeout: 5m
     
     # List of environment variables that will be passed to
@@ -133,13 +131,13 @@ test:
 ```
 
 ## Test Environments
-The minimal environment required by the tests is configured under the `test.env:` section of `kindest.yaml`. 
+The minimal environment required by the tests is configured under the `test.env:` section of `kb.yaml`. 
 
 ### Docker
 For tests that do not *require* Kubernetes (e.g. unit tests), there is Docker executor that runs the test image in isolation: 
 
 ```yaml
-# kindest.yaml
+# kb.yaml
 test:
   build:
     # Name of the test image. This image is not pushed unless
@@ -166,10 +164,10 @@ test:
 Note that tests using the Docker environment can still run as pods on Kubernetes, but they will not have access to the cluster.
 
 ### Kubernetes
-Tests requiring a Kubernetes cluster can indicate the minimal requirements by defining the `test.env.kubernetes:` object. If a chart or resource is part of a module's standard deployment, it should be included in the module's root `env:` section, as opposed to a test. This is so you can use `kindest deploy` in a production settings, i.e. when you want to install/upgrade a chart without running the tests.
+Tests requiring a Kubernetes cluster can indicate the minimal requirements by defining the `test.env.kubernetes:` object. If a chart or resource is part of a module's standard deployment, it should be included in the module's root `env:` section, as opposed to a test. This is so you can use `kb deploy` in a production settings, i.e. when you want to install/upgrade a chart without running the tests.
 
 ```yaml
-# kindest.yaml
+# kb.yaml
 env:
   kubernetes: {} # Put production k8s configuration here
 
@@ -192,24 +190,24 @@ test:
       # These charts will be installed/upgraded before the
       # tests run.
       charts:
-        kindest:
-          releaseName: kindest
-          name: ./charts/kindest # ./charts/kindest/Chart.yaml
+        kb:
+          releaseName: kb
+          name: ./charts/kb # ./charts/kb/Chart.yaml
           values: {}
 ```
 
-The test container will now run as a pod on Kubernetes with cluster admin privileges. Any setup necessary for your tests, such as applying manifests or syncing helm charts, should go in `test.env.kubernetes`. If you require additional features to prepare your test environment, please [open an issue](https://github.com/midcontinentcontrols/kindest/issues).
+The test container will now run as a pod on Kubernetes with cluster admin privileges. Any setup necessary for your tests, such as applying manifests or syncing helm charts, should go in `test.env.kubernetes`. If you require additional features to prepare your test environment, please [open an issue](https://github.com/midcontinentcontrols/kb/issues).
 
 ## Docker Desktop Gotchas
 ### Resource Limits
 **The default resource limits for some Docker Desktop backends, e.g. Hyper-V, are insufficient to run the tests.** If this occurs, you will encounter [kind#1437](https://github.com/kubernetes-sigs/kind/issues/1437#issuecomment-602975739). Configure Docker with 4gb of both memory and swap just to be safe:
 ![Example Docker Desktop Settings](docs/images/docker-resources.png)
 
-### kindest isn't using any push credentials!
-Check your `$HOME/.docker/config.json` and remove the line that has `"credsStore": "desktop"`, then re-login to Docker. Your credentials will be stored directly in `config.json` and kindest will be able to use them.
+### kb isn't using any push credentials!
+Check your `$HOME/.docker/config.json` and remove the line that has `"credsStore": "desktop"`, then re-login to Docker. Your credentials will be stored directly in `config.json` and kb will be able to use them.
 
 ## Security
-Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kindest. Open source developers in particular should consider the risks of using kindest with their community CI, and take appropriate mitigating measures.
+Running kind in a Kubernetes pod poses security risks worthy of operator attention. The Docker daemon of the node, running as root, is exposed to the test cluster. This is considered acceptable when running trusted code on dedicated hardware, which is the target use case of kb. Open source developers in particular should consider the risks of using kb with their community CI, and take appropriate mitigating measures.
 
 Even when not using kind, test pods always run with cluster admin permissions. This may change in the future, but for now the goal is to keep things simple.
 
@@ -219,8 +217,8 @@ Please open an issue or [send an email](mailto:thavlik@midcontinentcontrols.com)
 ### Running the Tests
 The unit tests aim to be comprehensive. To run them with full console output:
 ```
-git clone git@github.com:midcontinentcontrols/kindest.git
-cd kindest/pkg/kindest
+git clone git@github.com:midcontinentcontrols/kb.git
+cd kb/pkg/kb
 go test -v -timeout 4h
 ```
 Image pulling and building is part of the tests, making the `-timeout` flag necessary. `.vscode/settings.json` is intentionally part of this repository in order for VS Code's `Go: Toggle Test Coverage in Current Package` to work correctly.

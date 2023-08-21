@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")"
-cd ../cmd/kindest
+cd ../cmd/kb
 go build
-sudo mv kindest /usr/local/bin/kindest
+sudo mv kb /usr/local/bin/kb
 

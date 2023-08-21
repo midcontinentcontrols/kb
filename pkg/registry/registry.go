@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/midcontinentcontrols/kindest/pkg/logger"
-	"github.com/midcontinentcontrols/kindest/pkg/util"
+	"github.com/midcontinentcontrols/kb/pkg/logger"
+	"github.com/midcontinentcontrols/kb/pkg/util"
 
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -150,8 +150,8 @@ func ConnectRegistry(cli client.APIClient) error {
 func registryService() *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kindest-registry",
-			Namespace: "kindest",
+			Name:      "kb-registry",
+			Namespace: "kb",
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
@@ -162,7 +162,7 @@ func registryService() *corev1.Service {
 				Protocol:   corev1.ProtocolTCP,
 			}},
 			Selector: map[string]string{
-				"app": "kindest-registry",
+				"app": "kb-registry",
 			},
 		},
 	}
@@ -170,12 +170,12 @@ func registryService() *corev1.Service {
 
 func registryDeployment() *appsv1.Deployment {
 	labels := map[string]string{
-		"app": "kindest-registry",
+		"app": "kb-registry",
 	}
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kindest-registry",
-			Namespace: "kindest",
+			Name:      "kb-registry",
+			Namespace: "kb",
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{

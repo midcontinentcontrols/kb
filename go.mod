@@ -1,4 +1,4 @@
-module github.com/midcontinentcontrols/kindest
+module github.com/midcontinentcontrols/kb
 
 go 1.19
 

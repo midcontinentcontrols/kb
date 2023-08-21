@@ -1,5 +1,5 @@
-cmd/kindest/kindest
-cmd/kindest/kindest.exe
+cmd/kb/kb
+cmd/kb/kb.exe
 tmp/
 .tmp/
 .DS_Store

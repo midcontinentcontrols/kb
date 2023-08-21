@@ -31,7 +31,7 @@ import (
 
 	// this package has slightly more generic kubeconfig helpers
 	// and minimal dependencies on the rest of kind
-	"github.com/midcontinentcontrols/kindest/pkg/kubeconfig/internal/kubeconfig"
+	"github.com/midcontinentcontrols/kb/pkg/kubeconfig/internal/kubeconfig"
 )
 
 // Export exports the kubeconfig given the cluster context and a path to write it to

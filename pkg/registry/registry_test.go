@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/midcontinentcontrols/kindest/pkg/test"
+	"github.com/midcontinentcontrols/kb/pkg/test"
 
 	"github.com/docker/docker/client"
 
