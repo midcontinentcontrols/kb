@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -147,7 +148,7 @@ func (m *Module) CachedDigest(resource string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	body, err := ioutil.ReadFile(path)
+	body, err := os.ReadFile(path)
 	if err != nil {
 		return "", ErrModuleNotCached
 	}
@@ -757,6 +758,29 @@ func (m *Module) doBuild(options *BuildOptions) error {
 		return err
 	}
 
+	// Accumulate build args into the digest.
+	opts := make(map[string]string)
+	for _, buildArg := range m.Spec.Build.BuildArgs {
+		opts[buildArg.Name] = buildArg.Value
+	}
+	for _, buildArg := range options.BuildArgs {
+		idx := strings.Index(buildArg, "=")
+		if idx == -1 {
+			return fmt.Errorf("invalid build arg: %s", buildArg)
+		}
+		opts[buildArg[:idx]] = buildArg[idx+1:]
+	}
+	keys := make([]string, len(opts))
+	i := 0
+	for k := range opts {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		digest += fmt.Sprintf(",%s=%s", k, opts[k])
+	}
+
 	// Prefer build's defaultTag
 	tag := m.Spec.Build.DefaultTag
 	if options.Tag != "" {
@@ -775,7 +799,11 @@ func (m *Module) doBuild(options *BuildOptions) error {
 	}
 
 	dest := util.SanitizeImageName(options.Repository, m.Spec.Build.Name, tag)
-	cachedDigest, err := m.CachedDigest(options.Platform + dest)
+	digestKey := dest
+	if options.Platform != "" {
+		digestKey = fmt.Sprintf("%s:%s", dest, options.Platform)
+	}
+	cachedDigest, err := m.CachedDigest(digestKey)
 	if err != nil && err != ErrModuleNotCached {
 		return err
 	}
@@ -810,7 +838,7 @@ func (m *Module) doBuild(options *BuildOptions) error {
 		zap.String("digest", digest),
 		zap.Bool("noPush", options.NoPush))
 	m.builtImage(dest)
-	if err := m.cacheDigest(options.Platform+dest, digest); err != nil {
+	if err := m.cacheDigest(digestKey, digest); err != nil {
 		return err
 	}
 	if !options.SkipHooks {
