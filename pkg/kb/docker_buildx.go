@@ -36,6 +36,12 @@ func buildxDocker(
 		"--build-arg", "KB_REPOSITORY=" + repo,
 		"--build-arg", "KB_TAG=" + tag,
 	}
+	if options.NoCache {
+		args = append(args, "--no-cache")
+	}
+	if options.Squash {
+		args = append(args, "--squash")
+	}
 	for _, arg := range spec.BuildArgs {
 		args = append(args, "--build-arg", arg.Name+"="+arg.Value)
 	}
@@ -52,6 +58,7 @@ func buildxDocker(
 		args = append(args, "--push")
 	}
 	args = append(args, "-") // context from stdin
+	log.Debug("Executing docker buildx command", zap.Strings("args", args))
 	cmd := exec.CommandContext(
 		ctx,
 		"docker",
