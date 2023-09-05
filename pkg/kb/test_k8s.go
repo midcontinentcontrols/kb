@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -22,6 +23,7 @@ func (t *TestSpec) runKubernetes(
 	kubeContext string,
 	repository string,
 	namespace string,
+	args []string,
 	timeout time.Duration,
 	verbose bool,
 	log logger.Logger,
@@ -55,10 +57,41 @@ func (t *TestSpec) runKubernetes(
 	podName := t.Name + "-" + uuid.New().String()[:8]
 	var env []corev1.EnvVar
 	for _, v := range t.Variables {
+		log.Debug("Adding variable to pod",
+			zap.String("name", v.Name),
+			zap.String("value", v.Value))
 		env = append(env, corev1.EnvVar{
 			Name:  v.Name,
 			Value: v.Value,
 		})
+	}
+	for _, arg := range args {
+		parts := strings.SplitN(arg, "=", 2)
+		name := parts[0]
+		var value string
+		if len(parts) == 2 {
+			value = parts[1]
+		}
+		found := false
+		for i, e := range env {
+			if e.Name == name {
+				log.Debug("Overriding pod variable",
+					zap.String("name", name),
+					zap.String("value", value))
+				env[i].Value = value
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Debug("Adding variable to pod",
+				zap.String("name", name),
+				zap.String("value", value))
+			env = append(env, corev1.EnvVar{
+				Name:  name,
+				Value: value,
+			})
+		}
 	}
 	var imagePullSecrets []corev1.LocalObjectReference
 	if t.Env.Kubernetes.ImagePullSecret != "" || true {

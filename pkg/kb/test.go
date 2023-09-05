@@ -51,14 +51,15 @@ import (
 type TestOptions struct {
 	BuildOptions
 
-	KubeContext   string `json:"kubeContext,omitempty"`
-	Kind          string `json:"kind,omitempty"`
-	Transient     bool   `json:"transient,omitempty"`
-	Namespace     string `json:"namespace,omitempty"`
-	SkipBuild     bool   `json:"skipBuild,omitempty"`
-	SkipTestBuild bool   `json:"skipTestBuild,omitempty"`
-	SkipDeploy    bool   `json:"skipDeploy,omitempty"`
-	Timeout       string `json:"timeout,omitempty"`
+	KubeContext   string   `json:"kubeContext,omitempty"`
+	Kind          string   `json:"kind,omitempty"`
+	Transient     bool     `json:"transient,omitempty"`
+	Namespace     string   `json:"namespace,omitempty"`
+	SkipBuild     bool     `json:"skipBuild,omitempty"`
+	SkipTestBuild bool     `json:"skipTestBuild,omitempty"`
+	SkipDeploy    bool     `json:"skipDeploy,omitempty"`
+	Timeout       string   `json:"timeout,omitempty"`
+	Args          []string `json:"args,omitempty"`
 }
 
 var ErrMultipleTestEnv = fmt.Errorf("multiple test environments defined")
@@ -141,6 +142,7 @@ func (t *TestSpec) Run(
 			kubeContext,
 			options.Repository,
 			options.Namespace,
+			options.Args,
 			timeout,
 			options.Verbose,
 			log,
