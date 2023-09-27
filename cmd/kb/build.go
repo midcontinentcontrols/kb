@@ -27,6 +27,8 @@ type BuildArgs struct {
 	KubeContext string   `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
 	BuildArgs   []string `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
 	Platform    string   `json:"platform,omitempty" yaml:"platform,omitempty"`
+	Timeout     string   `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	Progress    string   `json:"progress,omitempty" yaml:"progress,omitempty"`
 }
 
 var buildArgs BuildArgs
@@ -57,6 +59,8 @@ var buildCmd = &cobra.Command{
 			BuildArgs:  buildArgs.BuildArgs,
 			Context:    buildArgs.KubeContext,
 			Platform:   buildArgs.Platform,
+			Timeout:    buildArgs.Timeout,
+			Progress:   buildArgs.Progress,
 		}); err != nil {
 			return err
 		}
@@ -96,6 +100,8 @@ func init() {
 	buildCmd.PersistentFlags().StringVar(&buildArgs.KubeContext, "kube-context", "", "kubectl context (uses current by default)")
 	buildCmd.PersistentFlags().StringSliceVar(&buildArgs.BuildArgs, "build-arg", nil, "docker build arguments")
 	buildCmd.PersistentFlags().StringVar(&buildArgs.Platform, "platform", "", "build platform override (e.g. linux/amd64,linux/arm64, comma-delimit for multiple)")
+	buildCmd.PersistentFlags().StringVar(&buildArgs.Timeout, "timeout", "", "build timeout (e.g. 10m, 1h, 1h30m) some cross-platform builds will hang without this")
+	buildCmd.PersistentFlags().StringVar(&buildArgs.Progress, "progress", "", "build progress [auto|plain|tty] (see docker buildx build --help)")
 }
 
 // ConfigureCommand a function for adding a command to the application

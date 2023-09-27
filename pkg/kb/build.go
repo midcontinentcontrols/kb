@@ -136,6 +136,8 @@ type BuildOptions struct {
 	Verbose    bool     `json:"verbose,omitempty" yaml:"verbose,omitempty"`
 	BuildArgs  []string `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
 	Platform   string   `json:"platform,omitempty" yaml:"platform,omitempty"`
+	Timeout    string   `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	Progress   string   `json:"progress,omitempty" yaml:"progress,omitempty"`
 }
 
 func locateSpec(file string) (string, error) {

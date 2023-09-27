@@ -7,8 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/midcontinentcontrols/kb/pkg/logger"
 )
@@ -36,6 +38,12 @@ func buildxDocker(
 		"--build-arg", "KB_REPOSITORY=" + repo,
 		"--build-arg", "KB_TAG=" + tag,
 	}
+	if options.Progress != "" {
+		// Configure the progress output. Sometimes the 'auto'
+		// mode fails to display useful info and 'plain' is
+		// more useful.
+		args = append(args, "--progress="+options.Progress)
+	}
 	if options.NoCache {
 		args = append(args, "--no-cache")
 	}
@@ -58,7 +66,22 @@ func buildxDocker(
 		args = append(args, "--push")
 	}
 	args = append(args, "-") // context from stdin
-	log.Debug("Executing docker buildx command", zap.Strings("args", args))
+
+	fields := []zapcore.Field{zap.Strings("args", args)}
+	if options.Timeout != "" {
+		// Add a timeout to the context in case the build hangs.
+		// arm64 cross-platform builds will sometimes hang indefinitely.
+		t, err := time.ParseDuration(options.Timeout)
+		if err != nil {
+			return fmt.Errorf("invalid --timeout: %v", err)
+		}
+		var done context.CancelFunc
+		ctx, done = context.WithTimeout(ctx, t)
+		defer done()
+		fields = append(fields, zap.String("timeout", t.String()))
+	}
+	log.Debug("Executing docker buildx command", fields...)
+
 	cmd := exec.CommandContext(
 		ctx,
 		"docker",
