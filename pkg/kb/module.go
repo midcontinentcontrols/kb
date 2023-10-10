@@ -808,7 +808,9 @@ func (m *Module) doBuild(options *BuildOptions) error {
 		return err
 	}
 	if digest == cachedDigest && !options.NoCache && !options.Force {
-		m.log.Debug("No files changed", zap.String("digest", cachedDigest))
+		m.log.Debug("No files changed",
+			zap.String("image", dest),
+			zap.String("digest", cachedDigest))
 		return nil
 	}
 	if digest != cachedDigest {
