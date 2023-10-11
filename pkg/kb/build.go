@@ -171,7 +171,7 @@ func resolveDockerfile(rootDir string, dockerfilePath string, contextPath string
 	return filepath.ToSlash(rel), nil
 }
 
-func loadSpec(file string, log logger.Logger) (*KindestSpec, string, error) {
+func loadSpec(file string, log logger.Logger) (*ModuleSpec, string, error) {
 	manifestPath, err := locateSpec(file)
 	if err != nil {
 		return nil, "", err
@@ -183,7 +183,7 @@ func loadSpec(file string, log logger.Logger) (*KindestSpec, string, error) {
 	if len(strings.TrimSpace(string(docBytes))) == 0 {
 		return nil, "", fmt.Errorf("manifest is an empty file")
 	}
-	spec := &KindestSpec{}
+	spec := &ModuleSpec{}
 	if err := yaml.Unmarshal(docBytes, spec); err != nil {
 		return nil, "", err
 	}

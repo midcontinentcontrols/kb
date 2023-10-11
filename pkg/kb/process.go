@@ -48,7 +48,7 @@ func (p *Process) GetModule(manifestPath string) (*Module, error) {
 func (p *Process) GetModuleFromBuildSpec(manifestPath string, b *BuildSpec) *Module {
 	return &Module{
 		Path: manifestPath,
-		Spec: &KindestSpec{
+		Spec: &ModuleSpec{
 			Build: b,
 		},
 		p:    p,
@@ -60,7 +60,7 @@ func (p *Process) GetModuleFromBuildSpec(manifestPath string, b *BuildSpec) *Mod
 func (p *Process) GetModuleFromTestSpec(manifestPath string, t *TestSpec) *Module {
 	return &Module{
 		Path: manifestPath,
-		Spec: &KindestSpec{
+		Spec: &ModuleSpec{
 			Build: t.Build,
 			Env:   t.Env,
 		},

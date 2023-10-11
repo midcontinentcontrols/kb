@@ -21,7 +21,7 @@ import (
 )
 
 var chartYaml = `apiVersion: v2
-description: "Kindest DevOps for Monorepos (test chart)"
+description: "kb DevOps for Monorepos (test chart)"
 name: kb
 version: 0.0.1
 maintainers:

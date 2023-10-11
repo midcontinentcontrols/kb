@@ -57,7 +57,7 @@ type resolver struct {
 }
 
 type Module struct {
-	Spec         *KindestSpec
+	Spec         *ModuleSpec
 	Path         string
 	Dependencies []*Module //
 	status       int32

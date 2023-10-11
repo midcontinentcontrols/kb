@@ -103,7 +103,7 @@ type ChartSpec struct {
 	ValuesFiles    []string                    `json:"valuesFiles,omitempty" yaml:"valuesFiles,omitempty"`
 }
 
-type KindestSpec struct {
+type ModuleSpec struct {
 	Dependencies []string    `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
 	Build        *BuildSpec  `json:"build" yaml:"build"`
 	Env          EnvSpec     `json:"env,omitempty" yaml:"env,omitempty"`
@@ -199,7 +199,7 @@ func (b *BuildSpec) GetBaseImage(rootPath string) (string, error) {
 	return "", fmt.Errorf("cannot find appropriate FROM directive in %s", dockerfilePath)
 }
 
-func (s *KindestSpec) RunTests(
+func (s *ModuleSpec) RunTests(
 	options *TestOptions,
 	manifestPath string,
 	p *Process,
@@ -219,7 +219,7 @@ func (s *KindestSpec) RunTests(
 	return nil
 }
 
-func (s *KindestSpec) Verify(manifestPath string, log logger.Logger) error {
+func (s *ModuleSpec) Verify(manifestPath string, log logger.Logger) error {
 	if s.Build != nil {
 		if err := s.Build.Verify(manifestPath, log); err != nil {
 			return err

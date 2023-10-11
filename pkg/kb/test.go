@@ -436,12 +436,12 @@ func imageID(containerNameOrID string) (string, error) {
 	return lines[0], nil
 }
 
-func getSpecImages(spec *KindestSpec, rootPath string) ([]string, error) {
+func getSpecImages(spec *ModuleSpec, rootPath string) ([]string, error) {
 	var images []string
 	for i, dependency := range spec.Dependencies {
 		if err := func() error {
 			depPath := filepath.Clean(filepath.Join(rootPath, dependency))
-			otherSpec := &KindestSpec{}
+			otherSpec := &ModuleSpec{}
 			docBytes, err := ioutil.ReadFile(filepath.Join(depPath, "kb.yaml"))
 			if err != nil {
 				return err
@@ -806,7 +806,7 @@ func (t *TestSpec) runKubernetes(
 
 	rootPath string,
 	options *TestOptions,
-	spec *KindestSpec,
+	spec *ModuleSpec,
 	restartImages []string,
 	log logger.Logger,
 
@@ -1156,6 +1156,6 @@ var ErrNoTests = fmt.Errorf("no tests configured")
 type testRun struct {
 	test         *TestSpec
 	options      *TestOptions
-	spec         *KindestSpec
+	spec         *ModuleSpec
 	manifestPath string
 }
