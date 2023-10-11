@@ -95,9 +95,6 @@ func buildxDocker(
 	cmd.Stdin = bytes.NewReader(buildContext)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	log.Debug("Executing docker buildx command",
-		//zap.String("cwd", cmd.Dir),
-		zap.Strings("args", args))
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("docker buildx build: %v", err)
 	}
