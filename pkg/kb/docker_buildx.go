@@ -60,7 +60,11 @@ func buildxDocker(
 		}
 	}
 	if options.Platform != "" {
+		// Platform is overridden.
 		args = append(args, "--platform="+options.Platform)
+	} else if spec.Platform != "" {
+		// Platform is defined in the spec.
+		args = append(args, "--platform="+spec.Platform)
 	}
 	if !options.NoPush {
 		args = append(args, "--push")

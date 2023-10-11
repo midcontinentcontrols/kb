@@ -66,6 +66,7 @@ func buildDocker(
 			Squash:     options.Squash,
 			Tags:       []string{dest},
 			Target:     spec.Target,
+			Platform:   spec.Platform,
 		},
 	)
 	if err != nil {

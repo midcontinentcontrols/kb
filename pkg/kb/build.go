@@ -32,6 +32,7 @@ type BuildSpec struct {
 	Name         string            `json:"name" yaml:"name"`
 	Dockerfile   string            `json:"dockerfile,omitempty" yaml:"dockerfile,omitempty"`
 	Context      string            `json:"context,omitempty" yaml:"context,omitempty"`
+	Platform     string            `json:"platform,omitempty" yaml:"platform,omitempty"`
 	BuildArgs    []*BuildArg       `json:"buildArgs,omitempty" yaml:"buildArgs,omitempty"`
 	Target       string            `json:"target,omitempty" yaml:"target,omitempty"`
 	DefaultTag   string            `json:"defaultTag,omitempty" yaml:"defaultTag,omitempty"`
