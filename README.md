@@ -1,4 +1,4 @@
-**Use one of the tags (i.e. `git checkout 0.3.7`) if you desire a stable release. Master breaks frequently.**
+**Use one of the tags (i.e. `git checkout 0.3.8`) if you desire a stable release. Master breaks frequently.**
 
 # kb toolchain
 

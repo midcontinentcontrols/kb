@@ -14,15 +14,16 @@ import (
 type TestArgs struct {
 	BuildArgs
 
-	Namespace     string   `json:"namespace,omitempty" yaml:"namespace,omitempty"`
-	KubeContext   string   `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
-	Kind          string   `json:"kind,omitempty" yaml:"kind,omitempty"`
-	Transient     bool     `json:"transient,omitempty" yaml:"transient,omitempty"`
-	SkipBuild     bool     `json:"skipBuild,omitempty" yaml:"skipBuild,omitempty"`
-	SkipTestBuild bool     `json:"skipTestBuild,omitempty" yaml:"skipTestBuild,omitempty"`
-	SkipDeploy    bool     `json:"skipDeploy,omitempty" yaml:"skipDeploy,omitempty"`
-	Timeout       string   `json:"timeout,omitempty" yaml:"timeout,omitempty"`
-	Args          []string `json:"args,omitempty" yaml:"args,omitempty"`
+	Namespace           string   `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+	KubeContext         string   `json:"kubeContext,omitempty" yaml:"kubeContext,omitempty"`
+	Kind                string   `json:"kind,omitempty" yaml:"kind,omitempty"`
+	Transient           bool     `json:"transient,omitempty" yaml:"transient,omitempty"`
+	SkipBuild           bool     `json:"skipBuild,omitempty" yaml:"skipBuild,omitempty"`
+	SkipTestBuild       bool     `json:"skipTestBuild,omitempty" yaml:"skipTestBuild,omitempty"`
+	SkipDeploy          bool     `json:"skipDeploy,omitempty" yaml:"skipDeploy,omitempty"`
+	Timeout             string   `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	TestImagePullPolicy string   `json:"testImagePullPolicy,omitempty" yaml:"testImagePullPolicy,omitempty"`
+	Args                []string `json:"args,omitempty" yaml:"args,omitempty"`
 }
 
 var testArgs TestArgs
@@ -57,15 +58,16 @@ var test2Cmd = &cobra.Command{
 					Force:      testArgs.Force,
 					Platform:   testArgs.Platform,
 				},
-				KubeContext:   kubeContext,
-				Kind:          testArgs.Kind,
-				Transient:     testArgs.Transient,
-				Namespace:     testArgs.Namespace,
-				SkipBuild:     testArgs.SkipBuild,
-				SkipTestBuild: testArgs.SkipTestBuild,
-				SkipDeploy:    testArgs.SkipDeploy,
-				Timeout:       testArgs.Timeout,
-				Args:          testArgs.Args,
+				KubeContext:         kubeContext,
+				Kind:                testArgs.Kind,
+				Transient:           testArgs.Transient,
+				Namespace:           testArgs.Namespace,
+				SkipBuild:           testArgs.SkipBuild,
+				SkipTestBuild:       testArgs.SkipTestBuild,
+				SkipDeploy:          testArgs.SkipDeploy,
+				Timeout:             testArgs.Timeout,
+				Args:                testArgs.Args,
+				TestImagePullPolicy: testArgs.TestImagePullPolicy,
 			},
 			log,
 		); err != nil {
@@ -101,4 +103,5 @@ func init() {
 	test2Cmd.PersistentFlags().BoolVar(&testArgs.SkipDeploy, "skip-deploy", false, "Skip automatic deploy")
 	test2Cmd.PersistentFlags().StringVar(&testArgs.Timeout, "timeout", "120s", "timeout for running tests")
 	test2Cmd.PersistentFlags().StringArrayVarP(&testArgs.Args, "arg", "e", nil, "env arguments to pass to test container")
+	test2Cmd.PersistentFlags().StringVar(&testArgs.TestImagePullPolicy, "test-image-pull-policy", "Always", "pull policy for the test image pod")
 }
