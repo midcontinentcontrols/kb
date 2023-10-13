@@ -791,14 +791,16 @@ func (m *Module) doBuild(options *BuildOptions) error {
 		// Use the global default
 		tag = DefaultTag
 	}
+
+	// Calculate the destination tag, which includes the prefix/suffixes.
+	destTag := tag
 	if m.Spec.Build.TagPrefix != "" {
-		tag = m.Spec.Build.TagPrefix + tag
+		destTag = m.Spec.Build.TagPrefix + destTag
 	}
 	if m.Spec.Build.TagSuffix != "" {
-		tag += m.Spec.Build.TagSuffix
+		destTag += m.Spec.Build.TagSuffix
 	}
-
-	dest := util.SanitizeImageName(options.Repository, m.Spec.Build.Name, tag)
+	dest := util.SanitizeImageName(options.Repository, m.Spec.Build.Name, destTag)
 	digestKey := dest
 	if options.Platform != "" {
 		digestKey = fmt.Sprintf("%s:%s", dest, options.Platform)
