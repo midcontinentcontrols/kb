@@ -24,6 +24,7 @@ func (t *TestSpec) runKubernetes(
 	repository string,
 	namespace string,
 	args []string,
+	tag string,
 	imagePullPolicy string,
 	timeout time.Duration,
 	verbose bool,
@@ -39,7 +40,7 @@ func (t *TestSpec) runKubernetes(
 		return err
 	}
 	log.Debug("RBAC resources configured")
-	image := util.SanitizeImageName(repository, t.Build.Name, "latest")
+	image := util.SanitizeImageName(repository, t.Build.Name, tag)
 	if namespace == "" {
 		namespace = "default"
 	}

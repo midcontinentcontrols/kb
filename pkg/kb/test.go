@@ -144,6 +144,7 @@ func (t *TestSpec) Run(
 			options.Repository,
 			options.Namespace,
 			options.Args,
+			options.Tag,
 			options.TestImagePullPolicy,
 			timeout,
 			options.Verbose,
